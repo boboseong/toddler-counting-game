@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+@theme {
+  --font-kid: "Jua", "Gaegu", "Noto Sans KR", system-ui, "Apple Color Emoji",
+    "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-kid);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: #e0f2fe;
+}
+
+button {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    "Twemoji Mozilla", sans-serif;
+  line-height: 1;
+}
+
+/* Soft floating background blobs */
+@keyframes floaty {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  50% {
+    transform: translateY(-18px) translateX(10px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+}
+.floaty {
+  animation: floaty 7s ease-in-out infinite;
+}
+.floaty-slow {
+  animation: floaty 11s ease-in-out infinite;
+}
+
+/* Bubble sway (transform 만 써서 레이아웃 재계산이 없음) */
+@keyframes sway {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(26px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+.sway {
+  animation: sway 3.2s ease-in-out infinite;
+}
+
+/* 살짝 위아래로 (유휴 상태 아이템/마스코트) */
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.bob {
+  animation: bob 1.6s ease-in-out infinite;
+}
+
+/* 좌우로 갸우뚱 */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30% {
+    transform: rotate(-6deg);
+  }
+  60% {
+    transform: rotate(6deg);
+  }
+}
+.wiggle {
+  display: inline-block;
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floaty,
+  .floaty-slow,
+  .sway,
+  .bob,
+  .wiggle {
+    animation: none;
+  }
+}
+
+/* Chunky pressable button */
+.pressable {
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.pressable:active {
+  transform: translateY(4px) scale(0.98);
+  box-shadow: 0 2px 0 0 rgba(0, 0, 0, 0.12) !important;
+}
+
+.text-outline {
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.9);
+  paint-order: stroke fill;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
