@@ -80,6 +80,7 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
     setPhase("done");
     const p = randomPraise();
     setPraise(p);
+    // 과식했으면 그때 이미 실패로 보고했으므로 여기서는 성공일 때만 보고한다
     const ok = overfed.current === 0;
     after(900, () => {
       speak(
@@ -87,7 +88,7 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
         { interrupt: false, pitch: 1.3 },
       );
       onWin();
-      onResult(ok);
+      if (ok) onResult(true);
     });
     after(4000, () => {
       clearAll();
