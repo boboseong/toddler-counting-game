@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 가로로 눕힌 폰처럼 세로가 짧은 화면 */
+@custom-variant short (@media (max-height: 520px));
+
 @theme {
   --font-kid: "Jua", "Gaegu", "Noto Sans KR", system-ui, "Apple Color Emoji",
     "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
