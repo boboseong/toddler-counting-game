@@ -106,10 +106,10 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
     <GameFrame>
       <TopBar onHome={onHome} stars={stars} title="톡톡 세기" emoji="👆" />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">
         {/* 상단: 현재 숫자 */}
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-3 rounded-full bg-white/80 px-5 py-2 text-xl text-slate-600 shadow sm:text-2xl">
+          <div className="flex items-center gap-3 rounded-full bg-white/80 px-5 py-2 text-xl text-slate-600 shadow sm:text-2xl short:py-1 short:text-base">
             <span className="emoji text-2xl">{item.emoji}</span>
             <span>{item.name} 톡톡 세어 봐요</span>
           </div>

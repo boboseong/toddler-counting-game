@@ -150,9 +150,9 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
     <GameFrame>
       <TopBar onHome={onHome} stars={stars} title="냠냠 먹이 주기" emoji="🍽️" />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">
         {/* 동물 + 요청 */}
-        <div className="flex w-full max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6 short:gap-3">
           <motion.div
             key={`${round.id}-animal`}
             animate={
@@ -219,11 +219,11 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
             ) : null}
           </motion.div>
 
-          <SpeechBubble tail="left" className="flex flex-col items-center gap-2 px-6 py-4">
+          <SpeechBubble tail="left" className="flex flex-col items-center gap-2 px-6 py-4 short:gap-1 short:px-4 short:py-2">
             <div className="flex items-center gap-3">
-              <span className="emoji text-5xl sm:text-6xl">{food.emoji}</span>
-              <BigNumeral n={count} className="text-[clamp(3.5rem,10vh,6rem)]" />
-              <span className="text-2xl text-slate-600 sm:text-3xl">
+              <span className="emoji text-5xl sm:text-6xl short:text-4xl">{food.emoji}</span>
+              <BigNumeral n={count} className="text-[clamp(3.5rem,10vh,6rem)] short:text-[2.6rem]" />
+              <span className="text-2xl text-slate-600 sm:text-3xl short:text-xl">
                 {food.counter} 주세요!
               </span>
             </div>
@@ -233,7 +233,7 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
                 <motion.div
                   key={i}
                   animate={i < fed ? { scale: [0.6, 1.3, 1] } : {}}
-                  className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-dashed sm:h-14 sm:w-14"
+                  className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-dashed sm:h-14 sm:w-14 short:h-9 short:w-9 short:border-2"
                   style={{
                     borderColor: NUM_COLORS[i % NUM_COLORS.length],
                     background: i < fed ? `${NUM_COLORS[i % NUM_COLORS.length]}33` : "transparent",
@@ -251,8 +251,8 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
         </div>
 
         {/* 먹이 쟁반 */}
-        <div className="flex w-full max-w-3xl flex-col items-center gap-2">
-          <div className="text-xl text-slate-500 sm:text-2xl">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-2 short:gap-1">
+          <div className="text-xl text-slate-500 sm:text-2xl short:text-base">
             {phase === "done"
               ? "배불러요! 🎉"
               : needConfirm && isFull
@@ -265,7 +265,7 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
-              className="flex min-h-[clamp(90px,min(24vw,18vh),170px)] w-full flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-amber-100/90 px-5 py-4 shadow-xl sm:gap-5"
+              className="flex min-h-[clamp(90px,min(24vw,18vh),170px)] w-full flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-amber-100/90 px-5 py-4 shadow-xl sm:gap-5 short:min-h-0 short:rounded-3xl short:py-2"
             >
               <AnimatePresence>
                 {Array.from({ length: trayCount })
@@ -301,7 +301,7 @@ export default function FeedGame({ level, stars, onHome, onWin, onResult }: Game
               transition={isFull ? { duration: 1, repeat: Infinity } : { duration: 0.2 }}
               whileTap={{ scale: 0.93 }}
               onPointerDown={handleConfirm}
-              className={`pressable mt-1 rounded-full border-4 border-white px-8 py-3 text-2xl text-white shadow-[0_6px_0_0_rgba(0,0,0,0.15)] sm:text-3xl ${
+              className={`pressable mt-1 rounded-full border-4 border-white px-8 py-3 text-2xl text-white shadow-[0_6px_0_0_rgba(0,0,0,0.15)] sm:text-3xl short:mt-0 short:px-5 short:py-1.5 short:text-lg ${
                 isFull ? "bg-green-500" : "bg-slate-300"
               }`}
             >

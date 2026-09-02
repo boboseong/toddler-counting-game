@@ -173,11 +173,11 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
     <GameFrame>
       <TopBar onHome={onHome} stars={stars} title="몇 개일까?" emoji="🔢" />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">
         {/* 질문 */}
         <div className="flex items-center gap-3">
-          <span className="emoji text-5xl sm:text-6xl">🐥</span>
-          <SpeechBubble tail="left" className="text-2xl sm:text-3xl">
+          <span className="emoji text-5xl sm:text-6xl short:text-3xl">🐥</span>
+          <SpeechBubble tail="left" className="text-2xl sm:text-3xl short:px-4 short:py-1.5 short:text-lg">
             {item.name} 몇 {item.counter}일까?
           </SpeechBubble>
         </div>
@@ -190,7 +190,7 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.3 }}
-            className="flex min-h-[clamp(100px,min(26vw,20vh),200px)] max-w-3xl flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-white/80 px-6 py-4 shadow-xl sm:gap-5"
+            className="flex min-h-[clamp(100px,min(26vw,20vh),200px)] max-w-3xl flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-white/80 px-6 py-4 shadow-xl sm:gap-5 short:min-h-0 short:rounded-3xl short:px-4 short:py-2"
           >
             {Array.from({ length: count }).map((_, i) => {
               const active = hintIndex === i;
@@ -252,11 +252,11 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
                     whileTap={{ scale: 0.9 }}
                     onPointerDown={() => handleChoice(n)}
                     aria-label={`${n}`}
-                    className="pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center gap-2 rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)]"
+                    className="pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center gap-2 rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl"
                     style={{ background: color }}
                   >
                     <span
-                      className="text-[clamp(3rem,min(14vw,12vh),7rem)] leading-none"
+                      className="text-[clamp(3rem,min(14vw,12vh),7rem)] leading-none short:text-5xl"
                       style={{ textShadow: "0 4px 0 rgba(0,0,0,0.15)" }}
                     >
                       {n}
