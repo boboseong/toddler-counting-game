@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MAX_LEVEL, STARS_PER_STICKER, STICKERS } from "../lib/data";
+import { DEFAULT_TAP_GAP, MAX_LEVEL, STARS_PER_STICKER, STICKERS } from "../lib/data";
 import { setSoundOn, setVoiceOn } from "../lib/audio";
 
 export type GameId = "tap" | "howmany" | "feed" | "bubbles";
@@ -11,6 +11,8 @@ export interface Progress {
   soundOn: boolean;
   voiceOn: boolean;
   totalRounds: number;
+  /** 세는 탭 사이 최소 간격(ms) */
+  tapGap: number;
 }
 
 const KEY = "sutja-nori-progress-v1";
@@ -22,6 +24,7 @@ const DEFAULT: Progress = {
   soundOn: true,
   voiceOn: true,
   totalRounds: 0,
+  tapGap: DEFAULT_TAP_GAP,
 };
 
 function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
@@ -127,6 +130,10 @@ export function useProgress() {
     setProgress((p) => ({ ...p, voiceOn: !p.voiceOn }));
   }, []);
 
+  const setTapGap = useCallback((ms: number) => {
+    setProgress((p) => ({ ...p, tapGap: ms }));
+  }, []);
+
   const setAllLevels = useCallback((level: number) => {
     streaks.current = freshStreaks();
     setProgress((p) => ({
@@ -136,7 +143,12 @@ export function useProgress() {
   }, []);
 
   const reset = useCallback(() => {
-    const next = { ...DEFAULT, soundOn: ref.current.soundOn, voiceOn: ref.current.voiceOn };
+    const next = {
+      ...DEFAULT,
+      soundOn: ref.current.soundOn,
+      voiceOn: ref.current.voiceOn,
+      tapGap: ref.current.tapGap,
+    };
     ref.current = next;
     setProgress(next);
     streaks.current = freshStreaks();
@@ -148,6 +160,7 @@ export function useProgress() {
     reportResult,
     toggleSound,
     toggleVoice,
+    setTapGap,
     setAllLevels,
     reset,
   };

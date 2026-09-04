@@ -195,6 +195,46 @@ export function WinBanner({
   );
 }
 
+/* ---------- 안내 듣는 중 ---------- */
+export function ListenChip({ text = "잘 들어 봐!" }: { text?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: [1, 1.06, 1] }}
+      transition={{ scale: { duration: 0.9, repeat: Infinity } }}
+      className="flex items-center gap-2 rounded-full border-4 border-white bg-violet-100 px-5 py-2 text-2xl text-violet-600 shadow"
+    >
+      <span className="emoji text-3xl">👂</span>
+      <span>{text}</span>
+    </motion.div>
+  );
+}
+
+/* ---------- 막 눌렀을 때 배너 ---------- */
+export function SlowBanner({ text }: { text: string }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.5, opacity: 0, y: 30 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.6, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 18 }}
+      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+    >
+      <div className="flex flex-col items-center gap-2 rounded-[2.5rem] border-8 border-sky-300 bg-white/95 px-8 py-6 text-center shadow-2xl">
+        <motion.span
+          className="emoji text-7xl sm:text-8xl"
+          animate={{ x: [0, 12, 0] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          🐢
+        </motion.span>
+        <div className="text-3xl text-sky-600 sm:text-4xl">천천히, 하나씩!</div>
+        <div className="text-xl text-slate-500 sm:text-2xl">{text}</div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ---------- 게임 화면 프레임 ---------- */
 export function GameFrame({ children }: { children: ReactNode }) {
   return (

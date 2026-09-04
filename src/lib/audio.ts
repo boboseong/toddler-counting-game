@@ -171,9 +171,23 @@ export interface SpeakOptions {
 
 let pendingSpeak: number | null = null;
 
+/** TTS 가 그대로 읽어 버리는 기호(물결표, 따옴표, 괄호 등)를 지운다 */
+const SPEECH_SYMBOLS = /[~\u223c\uff5e'"\u201c\u201d\u2018\u2019()\[\]{}*\u00b7\u2022\u2026_|<>^`#]/g;
+
+export function cleanForSpeech(text: string): string {
+  return text.replace(SPEECH_SYMBOLS, " ").replace(/\s+/g, " ").trim();
+}
+
+/** 이 문장을 말하는 데 걸리는 대략의 시간(ms). 라운드 시작 잠금 길이에 쓴다 */
+export function speakDuration(text: string): number {
+  if (!voiceOn) return 1200;
+  const syllables = (cleanForSpeech(text).match(/[\uac00-\ud7a3]/g) ?? []).length;
+  return Math.min(4000, Math.max(1500, 300 + syllables * 190));
+}
+
 function doSpeak(text: string, rate: number, pitch: number) {
   try {
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(cleanForSpeech(text));
     u.lang = "ko-KR";
     u.rate = rate;
     u.pitch = pitch;

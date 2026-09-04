@@ -43,6 +43,7 @@ export default function App() {
     reportResult,
     toggleSound,
     toggleVoice,
+    setTapGap,
     setAllLevels,
     reset,
   } = useProgress();
@@ -147,6 +148,7 @@ export default function App() {
       <Game
         level={progress.levels[screen]}
         stars={shownStars}
+        tapGap={progress.tapGap}
         onHome={goHome}
         onWin={handleWin}
         onResult={(ok) => reportResult(screen, ok)}
@@ -190,9 +192,11 @@ export default function App() {
           levels={progress.levels}
           stars={progress.stars}
           totalRounds={progress.totalRounds}
+          tapGap={progress.tapGap}
           onToggleSound={toggleSound}
           onToggleVoice={toggleVoice}
           onSetLevel={setAllLevels}
+          onSetTapGap={setTapGap}
           onReset={reset}
           onClose={() => setSettingsOpen(false)}
         />

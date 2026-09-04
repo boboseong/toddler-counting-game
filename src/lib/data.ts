@@ -124,6 +124,27 @@ export const PRAISES = [
 
 export const MAX_LEVEL = 3;
 
+/** 한 라운드에서 무시된 탭(잠금 중·너무 빠름)이 이만큼 쌓이면 "막 누르는 중"으로 본다 */
+export const MASH_LIMIT = 4;
+
+/** 세는 탭 사이 최소 간격(ms) */
+export const DEFAULT_TAP_GAP = 700;
+export const TAP_GAP_OPTIONS = [
+  { label: "빠르게", ms: 350 },
+  { label: "보통", ms: 700 },
+  { label: "천천히", ms: 1100 },
+];
+
+/** 막 눌렀을 때 */
+export const SLOW_PHRASES = [
+  "너무 빨라요! 천천히, 하나씩 해 보자.",
+  "잠깐! 천천히 하나씩 눌러 보자.",
+];
+
+export function randomSlowPhrase(): string {
+  return SLOW_PHRASES[randomInt(0, SLOW_PHRASES.length - 1)];
+}
+
 /** 레벨별 최대 숫자 */
 export function maxCountForLevel(level: number): number {
   if (level <= 1) return 3;

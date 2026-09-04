@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playPop, playTap, speak } from "../lib/audio";
+import { playPop, playSoft, playTap, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   ITEMS,
@@ -10,11 +10,12 @@ import {
   pick,
   randomIntExcept,
   randomPraise,
-  subj,
+  randomSlowPhrase,
   type CountItem,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
-import { BigNumeral, GameFrame, TopBar, WinBanner } from "../components/ui";
+import { useRoundGuard } from "../hooks/useRoundGuard";
+import { BigNumeral, GameFrame, ListenChip, SlowBanner, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
 
 interface Round {
@@ -23,11 +24,14 @@ interface Round {
   count: number;
 }
 
-/** 이미 센 것을 이만큼 반복해서 누르면 "아직 어려워한다"고 본다 */
-const WRONG_TAPS_FOR_MISS = 3;
+type Phase = "play" | "done" | "slow";
 
-export default function TapCountGame({ level, stars, onHome, onWin, onResult }: GameProps) {
+/** 이미 센 것을 이만큼 반복해서 누르면 "아직 어려워한다"고 본다 (난이도 신호) */
+const REPEATS_FOR_MISS = 3;
+
+export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
+  const guard = useRoundGuard(tapGap);
   const prev = useRef<{ item?: CountItem; count?: number }>({});
   const levelRef = useRef(level);
   levelRef.current = level;
@@ -41,31 +45,84 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
 
   const [round, setRound] = useState<Round>(() => newRound(0));
   const [tapped, setTapped] = useState<number[]>([]);
-  const [phase, setPhase] = useState<"play" | "done">("play");
+  const [phase, setPhaseState] = useState<Phase>("play");
   const [praise, setPraise] = useState("");
+  const [slowText, setSlowText] = useState("");
 
-  // 동시 터치(두 손가락)에도 안전하도록 핸들러 안에서는 ref 를 기준으로 판단한다
+  // 동시 터치·퇴장 중인 버튼에도 안전하도록 핸들러는 ref 로 판단한다
+  const roundIdRef = useRef(round.id);
+  roundIdRef.current = round.id;
   const tappedRef = useRef<number[]>([]);
-  const phaseRef = useRef<"play" | "done">("play");
-  const wrongTaps = useRef(0);
+  const phaseRef = useRef<Phase>("play");
+  const repeats = useRef(0);
+  const setPhase = (p: Phase) => {
+    phaseRef.current = p;
+    setPhaseState(p);
+  };
 
-  // 라운드 시작 안내
+  // 라운드 시작: 안내가 끝날 때까지 잠금
   useEffect(() => {
-    after(400, () =>
-      speak(
-        `${subj(round.item.name)} 몇 ${round.item.counter} 있을까? 하나씩 톡톡 눌러 봐!`,
-        { interrupt: false },
-      ),
-    );
+    const intro = `${round.item.name} 몇 ${round.item.counter}? 하나씩 눌러 봐!`;
+    guard.lock(400 + speakDuration(intro));
+    after(400, () => speak(intro, { interrupt: false }));
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTap = (i: number) => {
-    if (phaseRef.current !== "play") return;
+  const resetRound = () => {
+    tappedRef.current = [];
+    repeats.current = 0;
+    guard.resetRound();
+    setTapped([]);
+    setPhase("play");
+  };
+
+  /** 막 눌러서 끝낸 라운드: 별 없이 같은 라운드를 다시 */
+  const slowRound = () => {
+    setPhase("slow");
+    const s = randomSlowPhrase();
+    setSlowText(s);
+    playSoft();
+    speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
+    after(3000, () => {
+      resetRound();
+      const again = "천천히, 하나씩 눌러 봐!";
+      guard.lock(speakDuration(again));
+      speak(again);
+    });
+  };
+
+  const win = () => {
+    setPhase("done");
+    const p = randomPraise();
+    setPraise(p);
+    const ok = repeats.current < REPEATS_FOR_MISS;
+    after(700, () => {
+      speak(`${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`, {
+        interrupt: false,
+      });
+      onWin();
+      onResult(ok);
+    });
+    after(3800, () => {
+      clearAll();
+      resetRound();
+      setRound((r) => newRound(r.id + 1));
+    });
+  };
+
+  const handleTap = (rid: number, i: number) => {
+    if (rid !== roundIdRef.current) return; // 사라지는 중인 이전 라운드 버튼
+    if (phaseRef.current !== "play") {
+      guard.noteIgnored();
+      return;
+    }
     if (tappedRef.current.includes(i)) {
-      wrongTaps.current += 1;
+      repeats.current += 1;
+      guard.noteIgnored();
       playTap();
       return;
     }
+    if (!guard.accept()) return; // 잠금 중이거나 너무 빠름
+
     const next = [...tappedRef.current, i];
     tappedRef.current = next;
     setTapped(next);
@@ -74,33 +131,14 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
     speak(COUNT_WORDS[n - 1], { rate: 0.85, pitch: 1.2 });
 
     if (n === round.count) {
-      phaseRef.current = "done";
-      setPhase("done");
-      const p = randomPraise();
-      setPraise(p);
-      const ok = wrongTaps.current < WRONG_TAPS_FOR_MISS;
-      after(700, () => {
-        speak(
-          `${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`,
-          { interrupt: false },
-        );
-        onWin();
-        onResult(ok);
-      });
-      after(3600, () => {
-        clearAll();
-        tappedRef.current = [];
-        wrongTaps.current = 0;
-        phaseRef.current = "play";
-        setTapped([]);
-        setPhase("play");
-        setRound((r) => newRound(r.id + 1));
-      });
+      if (guard.isMashing()) slowRound();
+      else win();
     }
   };
 
   const { item, count } = round;
   const current = tapped.length;
+  const locked = guard.locked;
 
   return (
     <GameFrame>
@@ -115,7 +153,11 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
           </div>
           <div className="mt-2 flex h-[clamp(4.5rem,16vh,9rem)] items-center justify-center">
             <AnimatePresence mode="popLayout">
-              {current > 0 ? (
+              {locked && phase === "play" ? (
+                <motion.div key="listen" exit={{ opacity: 0, scale: 0.7 }}>
+                  <ListenChip />
+                </motion.div>
+              ) : current > 0 ? (
                 <motion.div
                   key={current}
                   initial={{ scale: 0.3, opacity: 0, y: 20 }}
@@ -145,7 +187,7 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
             key={round.id}
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.7 }}
+            exit={{ opacity: 0, scale: 0.7, pointerEvents: "none" }}
             transition={{ duration: 0.3 }}
             className="flex max-w-3xl flex-wrap items-center justify-center gap-4 sm:gap-6"
           >
@@ -156,12 +198,21 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
               return (
                 <motion.button
                   key={i}
-                  onPointerDown={() => handleTap(i)}
+                  onPointerDown={() => handleTap(round.id, i)}
                   whileTap={{ scale: 0.85 }}
-                  animate={counted ? { scale: [1, 1.25, 1], rotate: [0, -10, 10, 0] } : {}}
-                  transition={{ duration: 0.5 }}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={
+                    counted
+                      ? { scale: [1, 1.25, 1], rotate: [0, -10, 10, 0], opacity: 1 }
+                      : { scale: 1, opacity: locked ? 0.6 : 1 }
+                  }
+                  transition={
+                    counted
+                      ? { duration: 0.5 }
+                      : { type: "spring", stiffness: 300, damping: 18, delay: i * 0.25 }
+                  }
                   className={`relative flex h-[clamp(72px,min(22vw,18vh),160px)] w-[clamp(72px,min(22vw,18vh),160px)] items-center justify-center rounded-[2rem] border-4 border-white bg-white shadow-[0_8px_0_0_rgba(0,0,0,0.1)] ${
-                    counted ? "" : "bob"
+                    counted || locked ? "" : "bob"
                   }`}
                   style={{
                     ...(counted ? { background: `${color}33`, borderColor: color } : {}),
@@ -214,6 +265,8 @@ export default function TapCountGame({ level, stars, onHome, onWin, onResult }: 
             label={`${item.name} ${counterPhrase(count, item.counter)}`}
             praise={praise}
           />
+        ) : phase === "slow" ? (
+          <SlowBanner text={slowText} />
         ) : null}
       </AnimatePresence>
     </GameFrame>

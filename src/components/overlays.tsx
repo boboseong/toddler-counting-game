@@ -1,7 +1,17 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { STICKERS, levelRangeLabel, bubbleTargetForLevel, randomInt, shuffle } from "../lib/data";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  STICKERS,
+  TAP_GAP_OPTIONS,
+  bubbleTargetForLevel,
+  levelRangeLabel,
+  randomInt,
+  shuffle,
+} from "../lib/data";
 import { playDing, playSoft, speak } from "../lib/audio";
+
+/** 새 스티커 화면은 이 시간 동안은 눌러도 닫히지 않는다 (막 눌러서 지나쳐 버리지 않게) */
+const REVEAL_MIN_MS = 2000;
 
 /* ---------- 새 스티커 획득 ---------- */
 export function StickerReveal({
@@ -11,12 +21,20 @@ export function StickerReveal({
   index: number | null;
   onClose: () => void;
 }) {
+  const openedAt = useRef(0);
+
   useEffect(() => {
     if (index === null) return;
+    openedAt.current = performance.now();
     speak(`와! 새 친구가 왔어요! ${STICKERS[index].name}!`, { pitch: 1.3 });
     const t = window.setTimeout(onClose, 6000);
     return () => window.clearTimeout(t);
   }, [index, onClose]);
+
+  const tryClose = () => {
+    if (performance.now() - openedAt.current < REVEAL_MIN_MS) return;
+    onClose();
+  };
 
   return (
     <AnimatePresence>
@@ -25,7 +43,7 @@ export function StickerReveal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onPointerDown={onClose}
+          onPointerDown={tryClose}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-violet-900/60 backdrop-blur-sm"
         >
           {/* 빛줄기 */}
@@ -53,7 +71,14 @@ export function StickerReveal({
               {STICKERS[index].emoji}
             </motion.div>
             <div className="text-5xl text-slate-700 sm:text-6xl">{STICKERS[index].name}</div>
-            <div className="mt-2 text-lg text-slate-400">화면을 누르면 계속해요</div>
+            <motion.div
+              className="mt-2 text-lg text-slate-400"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: REVEAL_MIN_MS / 1000 }}
+            >
+              화면을 누르면 계속해요
+            </motion.div>
           </motion.div>
         </motion.div>
       ) : null}
@@ -121,9 +146,11 @@ export function ParentSettings({
   levels,
   stars,
   totalRounds,
+  tapGap,
   onToggleSound,
   onToggleVoice,
   onSetLevel,
+  onSetTapGap,
   onReset,
   onClose,
 }: {
@@ -133,13 +160,14 @@ export function ParentSettings({
   levels: Record<string, number>;
   stars: number;
   totalRounds: number;
+  tapGap: number;
   onToggleSound: () => void;
   onToggleVoice: () => void;
   onSetLevel: (l: number) => void;
+  onSetTapGap: (ms: number) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
-  const [confirmReset, setConfirmReset] = useState(false);
   const levelName = levelRangeLabel;
 
   return (
@@ -170,6 +198,29 @@ export function ParentSettings({
             <div className="space-y-3">
               <Row label="효과음" value={soundOn} onToggle={onToggleSound} />
               <Row label="음성 안내 (한국어 TTS)" value={voiceOn} onToggle={onToggleVoice} />
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="mb-2 text-lg">누르기 속도</div>
+                <div className="mb-2 text-sm text-slate-500">
+                  이보다 빨리 연달아 누르면 세지 않아요. 아이가 막 누르면 "천천히"로 바꿔 보세요.
+                </div>
+                <div className="flex gap-2">
+                  {TAP_GAP_OPTIONS.map((o) => (
+                    <button
+                      key={o.ms}
+                      onClick={() => onSetTapGap(o.ms)}
+                      className={`flex-1 rounded-xl border-2 py-2 text-lg ${
+                        tapGap === o.ms
+                          ? "border-violet-400 bg-violet-100"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      {o.label}
+                      <span className="block text-xs text-slate-400">{o.ms / 1000}초</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="rounded-2xl bg-slate-50 p-4">
                 <div className="mb-2 text-lg">난이도 (숫자 범위)</div>
@@ -211,6 +262,8 @@ export function ParentSettings({
                 <div className="mb-1 text-lg">💡 함께 놀기 팁</div>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>아이가 누를 때 "하나, 둘, 셋" 함께 소리 내어 세어 주세요.</li>
+                  <li>안내 음성이 나오는 동안(👂 표시)에는 눌러도 세지 않아요. 듣고 나서 누르는 습관을 만들어요.</li>
+                  <li>막 눌러서 끝낸 라운드는 별을 주지 않고 거북이가 "천천히"라고 알려 줘요.</li>
                   <li>틀려도 괜찮아요. 이 앱은 벌점 없이 다시 세어 주는 방식이에요.</li>
                   <li>한 번에 5~10분 정도가 두세 살 아이에게 알맞아요.</li>
                   <li>먹이 주기 최고 레벨에서는 딱 맞게 준 뒤 "다 줬어요"를 눌러야 해요.</li>
@@ -218,38 +271,60 @@ export function ParentSettings({
                 </ul>
               </div>
 
-              {!confirmReset ? (
-                <button
-                  onClick={() => setConfirmReset(true)}
-                  className="w-full rounded-2xl border-2 border-rose-200 py-3 text-lg text-rose-500"
-                >
-                  기록 초기화
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      onReset();
-                      setConfirmReset(false);
-                      onClose();
-                    }}
-                    className="flex-1 rounded-2xl bg-rose-500 py-3 text-lg text-white"
-                  >
-                    정말 초기화
-                  </button>
-                  <button
-                    onClick={() => setConfirmReset(false)}
-                    className="flex-1 rounded-2xl bg-slate-100 py-3 text-lg"
-                  >
-                    취소
-                  </button>
-                </div>
-              )}
+              <HoldButton
+                label="기록 초기화 (2초 길게 누르기)"
+                onHold={() => {
+                  onReset();
+                  onClose();
+                }}
+              />
             </div>
           </motion.div>
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+/** 길게 눌러야 실행되는 버튼 (실수로 초기화되지 않게) */
+function HoldButton({ label, onHold, ms = 2000 }: { label: string; onHold: () => void; ms?: number }) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  const start = () => {
+    setHolding(true);
+    timer.current = window.setTimeout(() => {
+      setHolding(false);
+      timer.current = null;
+      onHold();
+    }, ms);
+  };
+  const end = () => {
+    setHolding(false);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+
+  return (
+    <button
+      onPointerDown={start}
+      onPointerUp={end}
+      onPointerLeave={end}
+      onPointerCancel={end}
+      onContextMenu={(e) => e.preventDefault()}
+      className="relative w-full overflow-hidden rounded-2xl border-2 border-rose-200 py-3 text-lg text-rose-500"
+    >
+      {holding ? (
+        <motion.span
+          className="absolute inset-0 bg-rose-200/60"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: ms / 1000, ease: "linear" }}
+          style={{ transformOrigin: "left" }}
+        />
+      ) : null}
+      <span className="relative">{label}</span>
+    </button>
   );
 }
 
@@ -283,7 +358,21 @@ function Row({
   );
 }
 
-/* ---------- 부모님 확인 (덧셈 문제) ---------- */
+/* ---------- 부모님 확인 (덧셈 문제 2개 연속) ---------- */
+const GATE_QUESTIONS = 2;
+
+function makeQuestion() {
+  const a = randomInt(3, 9);
+  const b = randomInt(2, 9);
+  const answer = a + b;
+  const wrong = new Set<number>();
+  while (wrong.size < 2) {
+    const w = answer + randomInt(-4, 4);
+    if (w !== answer && w > 0) wrong.add(w);
+  }
+  return { a, b, answer, options: shuffle([answer, ...wrong]) };
+}
+
 export function ParentGate({
   open,
   onPass,
@@ -294,23 +383,19 @@ export function ParentGate({
   onClose: () => void;
 }) {
   const [shake, setShake] = useState(false);
-  const q = useMemo(() => {
-    const a = randomInt(3, 9);
-    const b = randomInt(2, 9);
-    const answer = a + b;
-    const wrong = new Set<number>();
-    while (wrong.size < 2) {
-      const w = answer + randomInt(-4, 4);
-      if (w !== answer && w > 0) wrong.add(w);
-    }
-    return { a, b, answer, options: shuffle([answer, ...wrong]) };
-    // 열릴 때마다 새 문제
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [solved, setSolved] = useState(0);
+  // 열릴 때마다, 그리고 한 문제 맞힐 때마다 새 문제
+  const q = useMemo(makeQuestion, [open, solved]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (open) setSolved(0);
+  }, [open]);
 
   const pickAnswer = (n: number) => {
     if (n === q.answer) {
       playDing();
-      onPass();
+      if (solved + 1 >= GATE_QUESTIONS) onPass();
+      else setSolved(solved + 1);
     } else {
       playSoft();
       setShake(true);
@@ -338,8 +423,12 @@ export function ParentGate({
             exit={{ y: 40, scale: 0.95 }}
             className="w-full max-w-sm rounded-3xl bg-white p-6 text-center text-slate-700 shadow-2xl"
           >
-            <div className="text-lg text-slate-500">부모님 확인</div>
-            <div className="mt-1 text-sm text-slate-400">아이가 열지 못하게 간단한 문제를 풀어 주세요</div>
+            <div className="text-lg text-slate-500">
+              부모님 확인 ({solved + 1}/{GATE_QUESTIONS})
+            </div>
+            <div className="mt-1 text-sm text-slate-400">
+              아이가 열지 못하게 문제 두 개를 이어서 풀어 주세요
+            </div>
             <div className="my-4 text-5xl">
               {q.a} + {q.b} = ?
             </div>

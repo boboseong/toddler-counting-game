@@ -1,15 +1,17 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { playBubble, speak } from "../lib/audio";
+import { playBubble, playSoft, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   NUM_COLORS,
   bubbleTargetForLevel,
   randomInt,
   randomPraise,
+  randomSlowPhrase,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
-import { BigNumeral, GameFrame, TopBar } from "../components/ui";
+import { useRoundGuard } from "../hooks/useRoundGuard";
+import { BigNumeral, GameFrame, ListenChip, SlowBanner, TopBar } from "../components/ui";
 import type { GameProps } from "../types";
 
 interface Bubble {
@@ -28,19 +30,27 @@ interface PopFx {
   n: number;
 }
 
+type Phase = "play" | "done" | "slow";
+
 const INNER = ["🐟", "⭐", "🐥", "🦋", "🌸", "🐙", "🍓", "🐢", ""];
 
-export default function BubbleGame({ level, stars, onHome, onWin, onResult }: GameProps) {
+export default function BubbleGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after } = useTimers();
+  const guard = useRoundGuard(tapGap);
   const target = bubbleTargetForLevel(level);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [pops, setPops] = useState<PopFx[]>([]);
   const [n, setN] = useState(0);
-  const [phase, setPhase] = useState<"play" | "done">("play");
+  const [phase, setPhaseState] = useState<Phase>("play");
   const [praise, setPraise] = useState("");
+  const [slowText, setSlowText] = useState("");
   const idRef = useRef(0);
   const nRef = useRef(0);
-  const phaseRef = useRef<"play" | "done">("play");
+  const phaseRef = useRef<Phase>("play");
+  const setPhase = (p: Phase) => {
+    phaseRef.current = p;
+    setPhaseState(p);
+  };
 
   const makeBubble = (): Bubble => ({
     id: ++idRef.current,
@@ -52,7 +62,9 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
   });
 
   useEffect(() => {
-    after(400, () => speak("거품을 톡톡 터뜨리면서 같이 세어 보자!", { interrupt: false }));
+    const intro = "거품을 톡톡 터뜨리면서 같이 세어 보자!";
+    guard.lock(400 + speakDuration(intro));
+    after(400, () => speak(intro, { interrupt: false }));
     // 처음에 몇 개 미리 띄우기
     setBubbles([makeBubble(), makeBubble(), makeBubble()]);
     const iv = window.setInterval(() => {
@@ -64,12 +76,24 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
   const removeBubble = (id: number) =>
     setBubbles((b) => b.filter((x) => x.id !== id));
 
+  const restart = () => {
+    nRef.current = 0;
+    guard.resetRound();
+    setN(0);
+    setPhase("play");
+  };
+
   const handlePop = (b: Bubble, e: PointerEvent<HTMLButtonElement>) => {
-    removeBubble(b.id);
     if (phaseRef.current !== "play") {
+      // 축하 중에는 세지 않고 그냥 터진다
+      guard.noteIgnored();
+      removeBubble(b.id);
       playBubble(1);
       return;
     }
+    if (!guard.accept()) return; // 잠금 중이거나 너무 빠르면 거품이 안 터진다
+
+    removeBubble(b.id);
     const next = nRef.current + 1;
     nRef.current = next;
     setN(next);
@@ -81,7 +105,20 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
     after(900, () => setPops((p) => p.filter((x) => x.id !== fx.id)));
 
     if (next >= target) {
-      phaseRef.current = "done";
+      if (guard.isMashing()) {
+        setPhase("slow");
+        const s = randomSlowPhrase();
+        setSlowText(s);
+        playSoft();
+        speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
+        after(3000, () => {
+          restart();
+          const again = "천천히, 하나씩 터뜨려 봐!";
+          guard.lock(speakDuration(again));
+          speak(again);
+        });
+        return;
+      }
       setPhase("done");
       const p = randomPraise();
       setPraise(p);
@@ -90,16 +127,12 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
         onWin();
         onResult(true);
       });
-      after(3800, () => {
-        nRef.current = 0;
-        phaseRef.current = "play";
-        setN(0);
-        setPhase("play");
-      });
+      after(3800, restart);
     }
   };
 
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const locked = guard.locked;
 
   return (
     <GameFrame>
@@ -114,7 +147,11 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
       <div className="pointer-events-none relative z-20 flex flex-col items-center gap-2 pt-2">
         <div className="flex h-[clamp(4rem,14vh,8rem)] items-center justify-center">
           <AnimatePresence mode="popLayout">
-            {n > 0 ? (
+            {locked && phase === "play" ? (
+              <motion.div key="listen" exit={{ opacity: 0, scale: 0.7 }}>
+                <ListenChip />
+              </motion.div>
+            ) : n > 0 ? (
               <motion.div
                 key={n}
                 initial={{ scale: 0.3, opacity: 0 }}
@@ -231,6 +268,8 @@ export default function BubbleGame({ level, stars, onHome, onWin, onResult }: Ga
               <div className="emoji mt-1 text-4xl">🫧🎉🫧</div>
             </div>
           </motion.div>
+        ) : phase === "slow" ? (
+          <SlowBanner text={slowText} />
         ) : null}
       </AnimatePresence>
     </GameFrame>

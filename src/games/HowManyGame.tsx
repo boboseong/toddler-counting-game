@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playDing, playPop, playSoft, speak } from "../lib/audio";
+import { playDing, playPop, playSoft, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   ITEMS,
@@ -11,11 +11,21 @@ import {
   pick,
   randomIntExcept,
   randomPraise,
+  randomSlowPhrase,
   shuffle,
   type CountItem,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
-import { Dots, GameFrame, SpeechBubble, TopBar, WinBanner } from "../components/ui";
+import { useRoundGuard } from "../hooks/useRoundGuard";
+import {
+  Dots,
+  GameFrame,
+  ListenChip,
+  SlowBanner,
+  SpeechBubble,
+  TopBar,
+  WinBanner,
+} from "../components/ui";
 import type { GameProps } from "../types";
 
 interface Round {
@@ -25,10 +35,11 @@ interface Round {
   choices: number[];
 }
 
-type Phase = "play" | "busy" | "done";
+type Phase = "play" | "busy" | "done" | "slow";
 
-export default function HowManyGame({ level, stars, onHome, onWin, onResult }: GameProps) {
+export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
+  const guard = useRoundGuard(tapGap);
   const prev = useRef<{ item?: CountItem; count?: number }>({});
   const idleTimer = useRef<number | null>(null);
   const levelRef = useRef(level);
@@ -50,14 +61,15 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
-  const [removed, setRemoved] = useState<number[]>([]);
   const [phase, setPhaseState] = useState<Phase>("play");
   const [hintIndex, setHintIndex] = useState(-1);
   const [wobble, setWobble] = useState<number | null>(null);
   const [praise, setPraise] = useState("");
+  const [slowText, setSlowText] = useState("");
   const [countedUpTo, setCountedUpTo] = useState(0);
 
-  // 동시 터치에서 두 핸들러가 모두 "play" 를 보지 않도록 ref 를 즉시 갱신한다
+  const roundIdRef = useRef(round.id);
+  roundIdRef.current = round.id;
   const phaseRef = useRef<Phase>("play");
   const setPhase = (p: Phase) => {
     phaseRef.current = p;
@@ -86,11 +98,9 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
   };
 
   useEffect(() => {
-    after(400, () =>
-      speak(`${round.item.name}! 몇 ${round.item.counter}일까? 숫자를 눌러 봐!`, {
-        interrupt: false,
-      }),
-    );
+    const intro = `${round.item.name}! 몇 ${round.item.counter}일까? 숫자를 눌러 봐!`;
+    guard.lock(400 + speakDuration(intro));
+    after(400, () => speak(intro, { interrupt: false }));
     scheduleIdleHint();
     return clearIdle;
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,7 +126,7 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
   const nextRound = () => {
     clearAll();
     clearIdle();
-    setRemoved([]);
+    guard.resetRound();
     setHintIndex(-1);
     setCountedUpTo(0);
     setWobble(null);
@@ -124,11 +134,43 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
     setRound((r) => newRound(r.id + 1));
   };
 
-  const handleChoice = (n: number) => {
-    if (phaseRef.current !== "play" || removed.includes(n)) return;
+  /** 보기를 다시 섞고, 짧은 안내 뒤에 다시 받는다 */
+  const reopen = (hint: string) => {
+    setRound((r) => ({ ...r, choices: shuffle(r.choices) }));
+    guard.lock(speakDuration(hint));
+    speak(hint, { interrupt: false });
+    setPhase("play");
+    scheduleIdleHint();
+  };
+
+  const slowRound = () => {
+    clearIdle();
+    setPhase("slow");
+    const s = randomSlowPhrase();
+    setSlowText(s);
+    playSoft();
+    speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
+    after(3000, () => {
+      guard.resetRound();
+      setCountedUpTo(0);
+      reopen("천천히 보고, 숫자를 눌러 봐!");
+    });
+  };
+
+  const handleChoice = (rid: number, n: number) => {
+    if (rid !== roundIdRef.current) return;
+    if (phaseRef.current !== "play") {
+      guard.noteIgnored();
+      return;
+    }
+    if (!guard.accept()) return;
     clearIdle();
 
     if (n === round.count) {
+      if (guard.isMashing()) {
+        slowRound();
+        return;
+      }
       setPhase("done");
       const p = randomPraise();
       setPraise(p);
@@ -150,17 +192,13 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
       playSoft();
       setWobble(n);
       onResult(false);
-      speak("음~ 다시 같이 세어 볼까?");
+      speak("음, 다시 같이 세어 볼까?");
       after(600, () => setWobble(null));
       after(1400, () =>
         animateCount(() => {
-          setRemoved((r) => [...r, n]);
-          setPhase("play");
-          speak(
+          reopen(
             `${round.item.name} ${counterPhrase(round.count, round.item.counter)}! 이제 같은 색 숫자를 눌러 봐!`,
-            { interrupt: false },
           );
-          scheduleIdleHint();
         }),
       );
     }
@@ -168,6 +206,7 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
 
   const { item, count, choices } = round;
   const showCountBadges = phase === "done" || countedUpTo > 0;
+  const locked = guard.locked;
 
   return (
     <GameFrame>
@@ -198,14 +237,15 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
               return (
                 <motion.div
                   key={i}
+                  initial={{ scale: 0, opacity: 0 }}
                   animate={
                     active
-                      ? { scale: [1, 1.45, 1.15], y: [0, -18, -8] }
+                      ? { scale: [1, 1.45, 1.15], y: [0, -18, -8], opacity: 1 }
                       : counted
-                        ? { scale: 1.05, y: -4 }
-                        : { scale: 1, y: 0 }
+                        ? { scale: 1.05, y: -4, opacity: 1 }
+                        : { scale: 1, y: 0, opacity: 1 }
                   }
-                  transition={{ duration: 0.4 }}
+                  transition={{ duration: 0.4, delay: active || counted ? 0 : i * 0.2 }}
                   className="relative flex items-center justify-center"
                 >
                   <span className="emoji text-[clamp(2.4rem,min(11vw,9vh),5.5rem)] drop-shadow">
@@ -227,44 +267,53 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
           </motion.div>
         </AnimatePresence>
 
+        {/* 듣는 중 */}
+        <div className="flex h-12 items-center justify-center">
+          <AnimatePresence>
+            {locked && phase === "play" ? (
+              <motion.div key="listen" exit={{ opacity: 0, scale: 0.7 }}>
+                <ListenChip />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+
         {/* 선택지 */}
         <div className="flex items-end justify-center gap-4 sm:gap-8">
           <AnimatePresence>
-            {choices
-              .filter((n) => !removed.includes(n))
-              .map((n) => {
-                const color = NUM_COLORS[(n - 1) % NUM_COLORS.length];
-                const isCorrectDone = phase === "done" && n === count;
-                return (
-                  <motion.button
-                    key={n}
-                    layout
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={
-                      wobble === n
-                        ? { x: [0, -14, 14, -10, 10, 0], scale: 1, opacity: 1 }
-                        : isCorrectDone
-                          ? { scale: [1, 1.25, 1.15], opacity: 1, y: -10 }
-                          : { scale: 1, opacity: 1, x: 0, y: 0 }
-                    }
-                    exit={{ scale: 0, opacity: 0, rotate: 20 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 18 }}
-                    whileTap={{ scale: 0.9 }}
-                    onPointerDown={() => handleChoice(n)}
-                    aria-label={`${n}`}
-                    className="pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center gap-2 rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl"
-                    style={{ background: color }}
+            {choices.map((n) => {
+              const color = NUM_COLORS[(n - 1) % NUM_COLORS.length];
+              const isCorrectDone = phase === "done" && n === count;
+              return (
+                <motion.button
+                  key={n}
+                  layout
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={
+                    wobble === n
+                      ? { x: [0, -14, 14, -10, 10, 0], scale: 1, opacity: 1 }
+                      : isCorrectDone
+                        ? { scale: [1, 1.25, 1.15], opacity: 1, y: -10 }
+                        : { scale: 1, opacity: locked ? 0.6 : 1, x: 0, y: 0 }
+                  }
+                  exit={{ scale: 0, opacity: 0, rotate: 20 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 18 }}
+                  whileTap={{ scale: 0.9 }}
+                  onPointerDown={() => handleChoice(round.id, n)}
+                  aria-label={`${n}`}
+                  className="pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center gap-2 rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl"
+                  style={{ background: color }}
+                >
+                  <span
+                    className="text-[clamp(3rem,min(14vw,12vh),7rem)] leading-none short:text-5xl"
+                    style={{ textShadow: "0 4px 0 rgba(0,0,0,0.15)" }}
                   >
-                    <span
-                      className="text-[clamp(3rem,min(14vw,12vh),7rem)] leading-none short:text-5xl"
-                      style={{ textShadow: "0 4px 0 rgba(0,0,0,0.15)" }}
-                    >
-                      {n}
-                    </span>
-                    <Dots n={n} color="#fff" size={12} />
-                  </motion.button>
-                );
-              })}
+                    {n}
+                  </span>
+                  <Dots n={n} color="#fff" size={12} />
+                </motion.button>
+              );
+            })}
           </AnimatePresence>
         </div>
       </div>
@@ -277,6 +326,8 @@ export default function HowManyGame({ level, stars, onHome, onWin, onResult }: G
             label={`${item.name} ${counterPhrase(count, item.counter)}`}
             praise={praise}
           />
+        ) : phase === "slow" ? (
+          <SlowBanner text={slowText} />
         ) : null}
       </AnimatePresence>
     </GameFrame>
