@@ -27,6 +27,15 @@ export function useRoundGuard(tapGap: number) {
     }, ms);
   }, []);
 
+  /** 잠금 없이 바로 받기 */
+  const unlock = useCallback(() => {
+    if (lockTimer.current) window.clearTimeout(lockTimer.current);
+    lockTimer.current = null;
+    lockedRef.current = false;
+    lastTap.current = 0;
+    setLocked(false);
+  }, []);
+
   useEffect(
     () => () => {
       if (lockTimer.current) window.clearTimeout(lockTimer.current);
@@ -59,5 +68,5 @@ export function useRoundGuard(tapGap: number) {
     lastTap.current = 0;
   }, []);
 
-  return { locked, lockedRef, lock, accept, noteIgnored, isMashing, resetRound };
+  return { locked, lockedRef, lock, unlock, accept, noteIgnored, isMashing, resetRound };
 }

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playDing, playPop, playSoft, speak, speakDuration } from "../lib/audio";
+import { playDing, playPop, playSoft, speak } from "../lib/audio";
 import {
   COUNT_WORDS,
   ITEMS,
@@ -17,15 +17,7 @@ import {
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
-import {
-  Dots,
-  GameFrame,
-  ListenChip,
-  SlowBanner,
-  SpeechBubble,
-  TopBar,
-  WinBanner,
-} from "../components/ui";
+import { Dots, GameFrame, SlowBanner, SpeechBubble, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
 
 interface Round {
@@ -98,9 +90,13 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   };
 
   useEffect(() => {
-    const intro = `${round.item.name}! 몇 ${round.item.counter}일까? 숫자를 눌러 봐!`;
-    guard.lock(400 + speakDuration(intro));
-    after(400, () => speak(intro, { interrupt: false }));
+    // 이 게임은 안내를 끝까지 듣지 않아도 바로 숫자를 누를 수 있다
+    guard.unlock();
+    after(400, () =>
+      speak(`${round.item.name}! 몇 ${round.item.counter}일까? 숫자를 눌러 봐!`, {
+        interrupt: false,
+      }),
+    );
     scheduleIdleHint();
     return clearIdle;
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -134,10 +130,10 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     setRound((r) => newRound(r.id + 1));
   };
 
-  /** 보기를 다시 섞고, 짧은 안내 뒤에 다시 받는다 */
+  /** 보기를 다시 섞고 바로 다시 받는다 */
   const reopen = (hint: string) => {
     setRound((r) => ({ ...r, choices: shuffle(r.choices) }));
-    guard.lock(speakDuration(hint));
+    guard.unlock();
     speak(hint, { interrupt: false });
     setPhase("play");
     scheduleIdleHint();
@@ -171,22 +167,20 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
         slowRound();
         return;
       }
+      // 정답: 같이 세는 과정 없이 바로 축하 팝업
       setPhase("done");
       const p = randomPraise();
       setPraise(p);
       playDing();
       onResult(true);
       speak("맞았어요!", { rate: 0.95, pitch: 1.25 });
-      after(1100, () =>
-        animateCount(() => {
-          speak(
-            `${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`,
-            { interrupt: false },
-          );
-          onWin();
-          after(3300, nextRound);
-        }),
-      );
+      after(700, () => {
+        speak(`${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`, {
+          interrupt: false,
+        });
+        onWin();
+      });
+      after(3800, nextRound);
     } else {
       setPhase("busy");
       playSoft();
@@ -205,8 +199,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   };
 
   const { item, count, choices } = round;
-  const showCountBadges = phase === "done" || countedUpTo > 0;
-  const locked = guard.locked;
+  const showCountBadges = countedUpTo > 0;
 
   return (
     <GameFrame>
@@ -267,17 +260,6 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
           </motion.div>
         </AnimatePresence>
 
-        {/* 듣는 중 */}
-        <div className="flex h-12 items-center justify-center">
-          <AnimatePresence>
-            {locked && phase === "play" ? (
-              <motion.div key="listen" exit={{ opacity: 0, scale: 0.7 }}>
-                <ListenChip />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
         {/* 선택지 */}
         <div className="flex items-end justify-center gap-4 sm:gap-8">
           <AnimatePresence>
@@ -294,7 +276,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                       ? { x: [0, -14, 14, -10, 10, 0], scale: 1, opacity: 1 }
                       : isCorrectDone
                         ? { scale: [1, 1.25, 1.15], opacity: 1, y: -10 }
-                        : { scale: 1, opacity: locked ? 0.6 : 1, x: 0, y: 0 }
+                        : { scale: 1, opacity: 1, x: 0, y: 0 }
                   }
                   exit={{ scale: 0, opacity: 0, rotate: 20 }}
                   transition={{ type: "spring", stiffness: 350, damping: 18 }}
@@ -319,7 +301,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       </div>
 
       <AnimatePresence>
-        {phase === "done" && countedUpTo === count ? (
+        {phase === "done" ? (
           <WinBanner
             emoji={item.emoji}
             n={count}
