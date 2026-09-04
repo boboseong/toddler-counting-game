@@ -317,22 +317,25 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
               className="flex min-h-[clamp(90px,min(24vw,18vh),170px)] w-full flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-amber-100/90 px-5 py-4 shadow-xl sm:gap-5 short:min-h-0 short:rounded-3xl short:py-2"
             >
               <AnimatePresence>
-                {Array.from({ length: trayCount })
-                  .map((_, i) => i)
-                  .filter((i) => !eaten.includes(i))
-                  .map((i) => (
+                {/* 안내("바나나 두 개 주세요!")가 끝난 뒤에 먹이가 나타난다 */}
+                {(locked
+                  ? []
+                  : Array.from({ length: trayCount })
+                      .map((_, i) => i)
+                      .filter((i) => !eaten.includes(i))
+                ).map((i) => (
                     <motion.button
                       key={i}
                       layout
                       initial={{ scale: 0 }}
-                      animate={{ scale: 1, opacity: phase === "done" ? 0.4 : locked ? 0.6 : 1 }}
+                      animate={{ scale: 1, opacity: phase === "done" ? 0.4 : 1 }}
                       exit={{ y: -220, scale: 0.2, opacity: 0, rotate: 30 }}
                       transition={{ type: "spring", stiffness: 300, damping: 20, delay: i * 0.12 }}
                       whileTap={{ scale: 0.85 }}
                       onPointerDown={() => handleFeed(round.id, i)}
                       aria-label={food.name}
                       className={`flex h-[clamp(64px,min(18vw,14vh),130px)] w-[clamp(64px,min(18vw,14vh),130px)] items-center justify-center rounded-3xl border-4 border-white bg-white shadow-[0_6px_0_0_rgba(0,0,0,0.1)] ${
-                        phase === "play" && !locked ? "bob" : ""
+                        phase === "play" ? "bob" : ""
                       }`}
                       style={{ animationDelay: `${i * 0.15}s` }}
                     >
@@ -343,7 +346,7 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
             </motion.div>
           </AnimatePresence>
 
-          {needConfirm && phase === "play" ? (
+          {needConfirm && phase === "play" && !locked ? (
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0, scale: isFull ? [1, 1.06, 1] : 1 }}

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playDing, playPop, playSoft, speak } from "../lib/audio";
+import { playDing, playPop, playSoft, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   ITEMS,
@@ -79,24 +79,15 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       if (phaseRef.current !== "play") return;
       speak("같이 세어 볼까?");
       setPhase("busy");
-      after(1100, () =>
-        animateCount(() => {
-          setPhase("play");
-          speak(`몇 ${round.item.counter}일까? 숫자를 눌러 봐!`, { interrupt: false });
-          scheduleIdleHint();
-        }),
-      );
+      after(1100, () => animateCount(() => reopen(`몇 ${round.item.counter}일까?`)));
     }, 12000);
   };
 
   useEffect(() => {
-    // 이 게임은 안내를 끝까지 듣지 않아도 바로 숫자를 누를 수 있다
-    guard.unlock();
-    after(400, () =>
-      speak(`${round.item.name}! 몇 ${round.item.counter}일까? 숫자를 눌러 봐!`, {
-        interrupt: false,
-      }),
-    );
+    // "풍선 몇 개일까?" 를 말하는 동안에는 숫자 버튼이 없고, 말이 끝나면 아래에 나타난다
+    const intro = `${round.item.name} 몇 ${round.item.counter}일까?`;
+    guard.lock(400 + speakDuration(intro));
+    after(400, () => speak(intro, { interrupt: false }));
     scheduleIdleHint();
     return clearIdle;
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -130,10 +121,10 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     setRound((r) => newRound(r.id + 1));
   };
 
-  /** 보기를 다시 섞고 바로 다시 받는다 */
+  /** 보기를 다시 섞고, 안내가 끝나면 다시 보여 준다 */
   const reopen = (hint: string) => {
     setRound((r) => ({ ...r, choices: shuffle(r.choices) }));
-    guard.unlock();
+    guard.lock(speakDuration(hint));
     speak(hint, { interrupt: false });
     setPhase("play");
     scheduleIdleHint();
@@ -200,6 +191,8 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
 
   const { item, count, choices } = round;
   const showCountBadges = countedUpTo > 0;
+  // 숫자 버튼은 안내가 끝난 뒤(play), 그리고 정답 축하 중(done)에만 보인다
+  const showChoices = (phase === "play" && !guard.locked) || phase === "done";
 
   return (
     <GameFrame>
@@ -261,9 +254,9 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
         </AnimatePresence>
 
         {/* 선택지 */}
-        <div className="flex items-end justify-center gap-4 sm:gap-8">
+        <div className="flex min-h-[clamp(96px,min(28vw,24vh),190px)] items-end justify-center gap-4 sm:gap-8 short:min-h-[92px]">
           <AnimatePresence>
-            {choices.map((n) => {
+            {showChoices ? choices.map((n) => {
               const color = NUM_COLORS[(n - 1) % NUM_COLORS.length];
               const isCorrectDone = phase === "done" && n === count;
               return (
@@ -295,7 +288,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   <Dots n={n} color="#fff" size={12} />
                 </motion.button>
               );
-            })}
+            }) : null}
           </AnimatePresence>
         </div>
       </div>
