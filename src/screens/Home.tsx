@@ -1,66 +1,30 @@
 import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { playDing, speak } from "../lib/audio";
-import { STARS_PER_STICKER, STICKERS } from "../lib/data";
+import { GAME_IDS, GAME_META, STARS_PER_STICKER, STICKERS, type GameId } from "../lib/data";
 import { Background, SpeechBubble, StarJar } from "../components/ui";
-import type { GameId } from "../hooks/useProgress";
 import type { Screen } from "../types";
 
 interface Props {
   stars: number;
   stickerCount: number;
   onSelect: (s: Screen) => void;
+  onCycle: () => void;
   onOpenSettings: () => void;
 }
 
-const GAMES: {
-  id: GameId;
-  emoji: string;
-  title: string;
-  sub: string;
-  bg: string;
-  shadow: string;
-}[] = [
-  {
-    id: "tap",
-    emoji: "🍎",
-    title: "톡톡 세기",
-    sub: "하나씩 눌러 세어요",
-    bg: "linear-gradient(160deg,#fda4af,#f87171)",
-    shadow: "#be123c",
-  },
-  {
-    id: "howmany",
-    emoji: "🔢",
-    title: "몇 개일까?",
-    sub: "숫자를 골라요",
-    bg: "linear-gradient(160deg,#86efac,#22c55e)",
-    shadow: "#15803d",
-  },
-  {
-    id: "feed",
-    emoji: "🐰",
-    title: "냠냠 먹이 주기",
-    sub: "딱 맞게 주세요",
-    bg: "linear-gradient(160deg,#fcd34d,#f59e0b)",
-    shadow: "#b45309",
-  },
-  {
-    id: "bubbles",
-    emoji: "🫧",
-    title: "거품 팡팡",
-    sub: "터뜨리며 세어요",
-    bg: "linear-gradient(160deg,#7dd3fc,#38bdf8)",
-    shadow: "#0369a1",
-  },
-  {
-    id: "find",
-    emoji: "🔍",
-    title: "숫자 찾기",
-    sub: "숨은 숫자를 찾아요",
-    bg: "linear-gradient(160deg,#c4b5fd,#8b5cf6)",
-    shadow: "#5b21b6",
-  },
+/** 빙글빙글 카드: 놀이가 차례로 바뀌는 모드 */
+export const CYCLE_CARD = {
+  emoji: "🎠",
+  title: "빙글빙글",
+  sub: "놀이가 차례로 바뀌어요",
+  bg: "linear-gradient(160deg,#fbcfe8,#f472b6 45%,#a78bfa)",
+  shadow: "#9d174d",
+};
+
+const CARDS: { id: GameId | "cycle"; emoji: string; title: string; sub: string; bg: string; shadow: string }[] = [
+  ...GAME_IDS.map((id) => ({ id, ...GAME_META[id] })),
+  { id: "cycle" as const, ...CYCLE_CARD },
 ];
 
 const GREETINGS = [
@@ -69,7 +33,7 @@ const GREETINGS = [
   "하나, 둘, 셋! 준비됐어?",
 ];
 
-export default function Home({ stars, stickerCount, onSelect, onOpenSettings }: Props) {
+export default function Home({ stars, stickerCount, onSelect, onCycle, onOpenSettings }: Props) {
   const [greet, setGreet] = useState(0);
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
@@ -125,25 +89,27 @@ export default function Home({ stars, stickerCount, onSelect, onOpenSettings }: 
         </div>
 
         {/* 게임 카드 */}
-        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4 short:grid-cols-5 short:gap-2">
-          {GAMES.map((g, i) => (
+        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 short:grid-cols-3 short:gap-2">
+          {CARDS.map((g, i) => (
             <motion.button
               key={g.id}
               initial={{ opacity: 0, y: 30, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.08 * i, type: "spring", stiffness: 260, damping: 18 }}
               whileTap={{ scale: 0.93 }}
-              onClick={() => onSelect(g.id)}
+              onClick={() => (g.id === "cycle" ? onCycle() : onSelect(g.id))}
               className={`pressable flex min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col items-center justify-center gap-1 rounded-[2rem] border-4 border-white p-3 text-white short:min-h-0 short:gap-0 short:rounded-2xl short:p-1.5 ${
                 // 홀수 개일 때 마지막 카드는 폰 세로 화면에서 두 칸을 차지한다
-                i === GAMES.length - 1 && GAMES.length % 2 === 1
+                i === CARDS.length - 1 && CARDS.length % 2 === 1
                   ? "col-span-2 sm:col-span-1 short:col-span-1"
                   : ""
               }`}
               style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
             >
               <span
-                className="wiggle emoji text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] drop-shadow short:text-[2rem]"
+                className={`emoji text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] drop-shadow short:text-[2rem] ${
+                  g.id === "cycle" ? "spin-slow" : "wiggle"
+                }`}
                 style={{ animationDelay: `${i * 0.3}s` }}
               >
                 {g.emoji}

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CYCLE_ORDER,
+  CYCLE_PACES,
   DEFAULT_TAP_GAP,
   GAME_IDS,
   MAX_LEVELS,
   STARS_PER_STICKER,
   STICKERS,
   clampLevel,
+  type CyclePace,
   type GameId,
 } from "../lib/data";
 import { setSoundOn, setVoiceOn } from "../lib/audio";
@@ -21,6 +24,10 @@ export interface Progress {
   totalRounds: number;
   /** 세는 탭 사이 최소 간격(ms) */
   tapGap: number;
+  /** 빙글빙글: 다음에 시작할 놀이 (CYCLE_ORDER 인덱스) */
+  cycleNext: number;
+  /** 빙글빙글: 놀이를 바꾸는 빠르기 */
+  cyclePace: CyclePace;
 }
 
 const KEY = "sutja-nori-progress-v1";
@@ -33,6 +40,8 @@ const DEFAULT: Progress = {
   voiceOn: true,
   totalRounds: 0,
   tapGap: DEFAULT_TAP_GAP,
+  cycleNext: 0,
+  cyclePace: "normal",
 };
 
 function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
@@ -55,7 +64,14 @@ function load(): Progress {
       const v = parsed.levels?.[g];
       if (typeof v === "number") levels[g] = clampLevel(g, v);
     }
-    return { ...DEFAULT, ...parsed, levels };
+    const cyclePace: CyclePace =
+      parsed.cyclePace && parsed.cyclePace in CYCLE_PACES ? parsed.cyclePace : DEFAULT.cyclePace;
+    const cycleNext =
+      typeof parsed.cycleNext === "number"
+        ? ((Math.round(parsed.cycleNext) % CYCLE_ORDER.length) + CYCLE_ORDER.length) %
+          CYCLE_ORDER.length
+        : 0;
+    return { ...DEFAULT, ...parsed, levels, cyclePace, cycleNext };
   } catch {
     return DEFAULT;
   }
@@ -144,6 +160,14 @@ export function useProgress() {
     setProgress((p) => ({ ...p, tapGap: ms }));
   }, []);
 
+  const setCycleNext = useCallback((i: number) => {
+    setProgress((p) => ({ ...p, cycleNext: i % CYCLE_ORDER.length }));
+  }, []);
+
+  const setCyclePace = useCallback((pace: CyclePace) => {
+    setProgress((p) => ({ ...p, cyclePace: pace }));
+  }, []);
+
   /** 부모 설정에서 놀이별 단계를 직접 맞춘다 */
   const setLevel = useCallback((game: GameId, level: number) => {
     streaks.current[game] = { ok: 0, miss: 0 };
@@ -159,6 +183,7 @@ export function useProgress() {
       soundOn: ref.current.soundOn,
       voiceOn: ref.current.voiceOn,
       tapGap: ref.current.tapGap,
+      cyclePace: ref.current.cyclePace,
     };
     ref.current = next;
     setProgress(next);
@@ -172,6 +197,8 @@ export function useProgress() {
     toggleSound,
     toggleVoice,
     setTapGap,
+    setCycleNext,
+    setCyclePace,
     setLevel,
     reset,
   };

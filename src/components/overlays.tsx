@@ -1,7 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CYCLE_ORDER,
+  CYCLE_PACES,
+  CYCLE_PACE_IDS,
+  CYCLE_RULES,
   GAME_IDS,
+  GAME_META,
   GAME_NAMES,
   MAX_LEVELS,
   STICKERS,
@@ -9,6 +14,7 @@ import {
   levelLabel,
   randomInt,
   shuffle,
+  type CyclePace,
   type GameId,
 } from "../lib/data";
 import { playDing, playSoft, speak } from "../lib/audio";
@@ -150,10 +156,12 @@ export function ParentSettings({
   stars,
   totalRounds,
   tapGap,
+  cyclePace,
   onToggleSound,
   onToggleVoice,
   onSetLevel,
   onSetTapGap,
+  onSetCyclePace,
   onReset,
   onClose,
 }: {
@@ -164,10 +172,12 @@ export function ParentSettings({
   stars: number;
   totalRounds: number;
   tapGap: number;
+  cyclePace: CyclePace;
   onToggleSound: () => void;
   onToggleVoice: () => void;
   onSetLevel: (game: GameId, level: number) => void;
   onSetTapGap: (ms: number) => void;
+  onSetCyclePace: (pace: CyclePace) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
@@ -243,6 +253,35 @@ export function ParentSettings({
                 </div>
               </div>
 
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="mb-2 text-lg">🎠 빙글빙글 빠르기</div>
+                <div className="mb-2 text-sm text-slate-500">
+                  빙글빙글에서는 놀이가{" "}
+                  {CYCLE_ORDER.map((g) => GAME_META[g].emoji).join(" → ")} 순서로 돌아요. 한 놀이에서
+                  이만큼 성공하면(또는 이 시간이 지나면) 다음 놀이로 넘어가요.
+                </div>
+                <div className="flex gap-2">
+                  {CYCLE_PACE_IDS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => onSetCyclePace(p)}
+                      className={`flex-1 rounded-xl border-2 py-2 text-lg ${
+                        cyclePace === p
+                          ? "border-violet-400 bg-violet-100"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      {CYCLE_PACES[p].label}
+                      <span className="block text-xs text-slate-400">{CYCLE_PACES[p].desc}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                  두 번 어려워하면 다음 성공 직후에, {CYCLE_RULES.idleMs / 1000}초 동안 아무것도 안 누르면
+                  바로 다른 놀이로 바꿔요. 위쪽 놀이 순서 띠를 길게 누르면 바로 다음 놀이로 갈 수 있어요.
+                </div>
+              </div>
+
               <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
                 <div className="mb-1 text-lg text-slate-700">📊 기록</div>
                 <div>
@@ -261,6 +300,7 @@ export function ParentSettings({
                   <li>먹이 주기 4단계부터는 딱 맞게 준 뒤 "다 줬어요"를 눌러야 해요.</li>
                   <li>수가 많아지면 5개씩 줄을 맞춰 보여 줘요. "다섯, 그리고 하나 더" 하고 묶어서 세는 연습이 돼요.</li>
                   <li>숫자 찾기는 "보고 찾기 → 듣고 찾기 → 개수를 세어서 찾기" 순서로 어려워져요. 숫자 이름은 "오"처럼 읽어 줘요.</li>
+                  <li>뭘 할지 고르기 어려울 땐 🎠 빙글빙글을 눌러 보세요. 다섯 놀이가 차례로 바뀌고, 다음에 열면 지난번 다음 놀이부터 이어져요.</li>
                   <li>음성이 안 나오면 기기의 한국어 음성(TTS)을 설치해 주세요.</li>
                 </ul>
               </div>

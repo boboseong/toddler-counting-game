@@ -106,12 +106,27 @@ button {
   animation: wiggle 2.4s ease-in-out infinite;
 }
 
+/* 빙글빙글 카드의 회전목마 */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-slow {
+  display: inline-block;
+  animation: spin-slow 9s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floaty,
   .floaty-slow,
   .sway,
   .bob,
-  .wiggle {
+  .wiggle,
+  .spin-slow {
     animation: none;
   }
 }

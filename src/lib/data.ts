@@ -192,6 +192,129 @@ export const GAME_NAMES: Record<GameId, string> = {
   find: "숫자 찾기",
 };
 
+/** 홈 카드·전환 화면에서 쓰는 놀이 정보 */
+export interface GameMeta {
+  emoji: string;
+  title: string;
+  sub: string;
+  bg: string;
+  shadow: string;
+}
+
+export const GAME_META: Record<GameId, GameMeta> = {
+  tap: {
+    emoji: "🍎",
+    title: "톡톡 세기",
+    sub: "하나씩 눌러 세어요",
+    bg: "linear-gradient(160deg,#fda4af,#f87171)",
+    shadow: "#be123c",
+  },
+  howmany: {
+    emoji: "🔢",
+    title: "몇 개일까?",
+    sub: "숫자를 골라요",
+    bg: "linear-gradient(160deg,#86efac,#22c55e)",
+    shadow: "#15803d",
+  },
+  feed: {
+    emoji: "🐰",
+    title: "냠냠 먹이 주기",
+    sub: "딱 맞게 주세요",
+    bg: "linear-gradient(160deg,#fcd34d,#f59e0b)",
+    shadow: "#b45309",
+  },
+  bubbles: {
+    emoji: "🫧",
+    title: "거품 팡팡",
+    sub: "터뜨리며 세어요",
+    bg: "linear-gradient(160deg,#7dd3fc,#38bdf8)",
+    shadow: "#0369a1",
+  },
+  find: {
+    emoji: "🔍",
+    title: "숫자 찾기",
+    sub: "숨은 숫자를 찾아요",
+    bg: "linear-gradient(160deg,#c4b5fd,#8b5cf6)",
+    shadow: "#5b21b6",
+  },
+};
+
+/* ---------- 빙글빙글 (놀이 자동 순환) ---------- */
+
+/**
+ * 순환 순서.
+ * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 찾기) 사이에 몸으로 노는 놀이(거품 팡팡 · 먹이 주기 · 톡톡 세기)를
+ * 끼워서 긴장과 이완이 번갈아 오게 한다. 한 바퀴의 끝(숫자 찾기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
+ */
+export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "feed", "find"];
+
+export type CyclePace = "fast" | "normal" | "slow";
+
+export interface CyclePaceSpec {
+  label: string;
+  desc: string;
+  /** 이만큼 성공하면 다음 놀이로 */
+  wins: number;
+  /** 이 시간 전에는 wins 보다 2번 더 성공해야 넘어간다 (푹 빠져 있을 때 방해하지 않기) */
+  minMs: number;
+  /** 이 시간이 지나면 성공 횟수가 모자라도 다음 성공 직후 넘어간다 */
+  maxMs: number;
+}
+
+export const CYCLE_PACES: Record<CyclePace, CyclePaceSpec> = {
+  fast: { label: "빠르게", desc: "2번 성공 · 1분 30초", wins: 2, minMs: 40_000, maxMs: 90_000 },
+  normal: { label: "보통", desc: "3번 성공 · 2분 30초", wins: 3, minMs: 60_000, maxMs: 150_000 },
+  slow: { label: "천천히", desc: "5번 성공 · 4분", wins: 5, minMs: 90_000, maxMs: 240_000 },
+};
+
+export const CYCLE_PACE_IDS: CyclePace[] = ["fast", "normal", "slow"];
+
+export const CYCLE_RULES = {
+  /** 어려워하는 신호(실패 보고)가 이만큼 쌓이면, 다음에 성공하자마자 분위기를 바꾼다 */
+  missesToSwitch: 2,
+  /** 아무것도 안 누르고 이만큼 지나면 흥미를 잃은 것으로 보고 다른 놀이로 (놀이 안의 힌트보다 늦게) */
+  idleMs: 35_000,
+  /** 라운드가 끝나지 않아도(막 누르기 반복 등) 이 시간이 지나면 넘어간다 */
+  hardCapMs: 300_000,
+  /** 전환 화면("이번엔 거품 팡팡!")을 보여 주는 시간 */
+  transitionMs: 2000,
+  /** 성공 직후 축하가 끝날 즈음. 각 놀이가 다음 라운드를 시작하는 3.8초보다 조금 앞 */
+  afterWinMs: 3400,
+};
+
+export interface CycleStats {
+  wins: number;
+  misses: number;
+  elapsedMs: number;
+}
+
+/** 이번 성공 뒤에 다음 놀이로 넘어갈지 */
+export function cycleShouldSwitch(s: CycleStats, pace: CyclePace): boolean {
+  const p = CYCLE_PACES[pace];
+  if (s.wins < 1) return false; // 적어도 한 번은 성공하고 넘어간다
+  if (s.misses >= CYCLE_RULES.missesToSwitch) return true; // 어려워했으면 성공한 김에 분위기 전환
+  if (s.elapsedMs >= p.maxMs) return true; // 오래 했으면
+  if (s.wins >= p.wins + 2) return true; // 아주 잘하고 있어도 한 놀이만 너무 오래 하지 않게
+  return s.wins >= p.wins && s.elapsedMs >= p.minMs; // 기본: 정해진 횟수 + 최소 시간
+}
+
+export function cycleNextOf(game: GameId): GameId {
+  const i = CYCLE_ORDER.indexOf(game);
+  return CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
+}
+
+export type CycleReason = "start" | "next" | "idle";
+
+/** 전환 때 말할 문장 */
+export function cyclePhrase(game: GameId, reason: CycleReason): string {
+  const name = GAME_META[game].title;
+  const bang = name.endsWith("?") ? "" : "!"; // "몇 개일까?!" 가 되지 않게
+  if (reason === "start") return `먼저 ${name}${bang}`;
+  if (reason === "idle") return `다른 놀이 해 볼까? 이번엔 ${name}${bang}`;
+  const v = [`이번엔 ${name}${bang}`, `다음은 ${name}${bang}`, `${name} 하러 가자!`];
+  return v[randomInt(0, v.length - 1)];
+}
+
 /** 한 라운드에 나오는 수의 범위 */
 export interface CountLevel {
   min: number;
