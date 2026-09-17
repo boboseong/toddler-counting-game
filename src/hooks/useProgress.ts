@@ -28,7 +28,7 @@ const KEY = "sutja-nori-progress-v1";
 const DEFAULT: Progress = {
   stars: 0,
   stickers: [],
-  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1 },
+  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1 },
   soundOn: true,
   voiceOn: true,
   totalRounds: 0,
@@ -41,6 +41,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
     howmany: { ok: 0, miss: 0 },
     feed: { ok: 0, miss: 0 },
     bubbles: { ok: 0, miss: 0 },
+    find: { ok: 0, miss: 0 },
   };
 }
 

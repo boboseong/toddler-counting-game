@@ -64,6 +64,34 @@ export const COUNTER_PREFIX = [
 /** 이 앱에서 다루는 가장 큰 수 */
 export const MAX_NUMBER = COUNT_WORDS.length;
 
+/** 한자어 수사 (일, 이, 삼 ...) — 숫자 이름을 읽을 때 ("숫자 오") */
+export const SINO_WORDS = [
+  "일",
+  "이",
+  "삼",
+  "사",
+  "오",
+  "육",
+  "칠",
+  "팔",
+  "구",
+  "십",
+  "십일",
+  "십이",
+  "십삼",
+  "십사",
+  "십오",
+  "십육",
+  "십칠",
+  "십팔",
+  "십구",
+];
+
+/** 숫자 이름 읽기: 5 → "오" (TTS 가 숫자를 엉뚱하게 읽지 않도록 한글로 넘긴다) */
+export function numeralName(n: number): string {
+  return SINO_WORDS[n - 1] ?? String(n);
+}
+
 export const NUM_COLORS = [
   "#F87171", // 1
   "#FB923C", // 2
@@ -152,15 +180,16 @@ export const PRAISES = [
   "우와, 똑똑해!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles";
+export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
   howmany: "몇 개일까?",
   feed: "냠냠 먹이 주기",
   bubbles: "거품 팡팡",
+  find: "숫자 찾기",
 };
 
 /** 한 라운드에 나오는 수의 범위 */
@@ -232,11 +261,50 @@ export const HOWMANY_LEVELS: HowManyLevel[] = [
 /** 거품 팡팡: 단계별로 여기까지 센다 */
 export const BUBBLE_TARGETS = [5, 7, 10, 13, 16, 19];
 
+/**
+ * 숫자 찾기: 흩어진 숫자 중에서 말한 숫자를 찾는다.
+ * - items: 화면에 흩어 놓는 숫자 개수
+ * - prompts: 문제를 내는 방식 (한 라운드마다 이 중 하나)
+ *   show  = 말풍선에 숫자를 보여 주며 "숫자 5를 찾아줘" (보고 찾기)
+ *   hear  = 숫자를 보여 주지 않고 소리로만 (듣고 찾기)
+ *   count = 물건 다섯 개를 보여 주며 "다섯 개를 뜻하는 숫자를 찾아줘" (세어서 찾기)
+ * - near: 정답과 가까운 수를 오답으로 (13 옆에 12·14·15)
+ */
+export type FindPrompt = "show" | "hear" | "count";
+
+export interface FindLevel extends CountLevel {
+  items: number;
+  prompts: FindPrompt[];
+  near: boolean;
+}
+
+export const FIND_LEVELS: FindLevel[] = [
+  { min: 1, max: 3, items: 3, prompts: ["show"], near: false },
+  { min: 1, max: 5, items: 3, prompts: ["show"], near: false },
+  { min: 1, max: 5, items: 4, prompts: ["show"], near: false },
+  { min: 1, max: 5, items: 4, prompts: ["hear"], near: false },
+  { min: 1, max: 5, items: 5, prompts: ["count"], near: false },
+  { min: 1, max: 7, items: 5, prompts: ["show", "hear", "count"], near: false },
+  { min: 1, max: 9, items: 6, prompts: ["hear", "count"], near: false },
+  { min: 1, max: 10, items: 6, prompts: ["hear", "count"], near: false },
+  { min: 5, max: 13, items: 6, prompts: ["show", "hear", "count"], near: false },
+  { min: 8, max: 16, items: 7, prompts: ["hear", "count"], near: false },
+  { min: 10, max: 19, items: 8, prompts: ["hear", "count"], near: false },
+  { min: 10, max: 19, items: 9, prompts: ["hear", "count"], near: true },
+];
+
+export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
+  show: "보고",
+  hear: "듣고",
+  count: "세어서",
+};
+
 export const MAX_LEVELS: Record<GameId, number> = {
   tap: TAP_LEVELS.length,
   howmany: HOWMANY_LEVELS.length,
   feed: FEED_LEVELS.length,
   bubbles: BUBBLE_TARGETS.length,
+  find: FIND_LEVELS.length,
 };
 
 export function clampLevel(game: GameId, level: number): number {
@@ -261,6 +329,10 @@ export function bubbleTarget(level: number): number {
   return BUBBLE_TARGETS[clampLevel("bubbles", level) - 1];
 }
 
+export function findLevel(level: number): FindLevel {
+  return FIND_LEVELS[clampLevel("find", level) - 1];
+}
+
 /** 설정 화면에 보여 줄 단계 설명 */
 export function levelLabel(game: GameId, level: number): string {
   switch (game) {
@@ -280,7 +352,28 @@ export function levelLabel(game: GameId, level: number): string {
     }
     case "bubbles":
       return `${bubbleTarget(level)}까지`;
+    case "find": {
+      const s = findLevel(level);
+      const kinds = s.prompts.map((p) => FIND_PROMPT_LABELS[p]).join("·");
+      return `${s.min}~${s.max} · ${s.items}개 중 · ${kinds} 찾기${s.near ? " · 비슷한 수" : ""}`;
+    }
   }
+}
+
+/**
+ * 숫자 찾기 오답 숫자 고르기 (items-1 개). near 면 정답 근처를 먼저 쓰고, 모자라면 범위 안의 아무 수로 채운다.
+ */
+export function findDistractors(target: number, lv: FindLevel): number[] {
+  const all: number[] = [];
+  for (let n = lv.min; n <= lv.max; n++) if (n !== target) all.push(n);
+  const want = Math.min(lv.items - 1, all.length);
+  const preferred = lv.near ? all.filter((n) => Math.abs(n - target) <= 3) : all;
+  const picked = shuffle(preferred).slice(0, want);
+  if (picked.length < want) {
+    const rest = shuffle(all.filter((n) => !picked.includes(n)));
+    picked.push(...rest.slice(0, want - picked.length));
+  }
+  return picked;
 }
 
 /**
@@ -389,6 +482,16 @@ export function subj(word: string): string {
 /** 목적격 조사 을/를 */
 export function obj(word: string): string {
   return word + (hasBatchim(word) ? "을" : "를");
+}
+
+/** 보조사 은/는 */
+export function topic(word: string): string {
+  return word + (hasBatchim(word) ? "은" : "는");
+}
+
+/** 서술격 조사 이야/야 ("일이야", "오야") */
+export function copula(word: string): string {
+  return word + (hasBatchim(word) ? "이야" : "야");
 }
 
 /** "세 개", "다섯 마리" */

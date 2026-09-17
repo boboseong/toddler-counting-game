@@ -9,6 +9,7 @@ import TapCountGame from "./games/TapCountGame";
 import HowManyGame from "./games/HowManyGame";
 import FeedGame from "./games/FeedGame";
 import BubbleGame from "./games/BubbleGame";
+import FindGame from "./games/FindGame";
 import {
   FlyingStars,
   ParentGate,
@@ -23,6 +24,7 @@ const GAMES: Record<GameId, ComponentType<GameProps>> = {
   howmany: HowManyGame,
   feed: FeedGame,
   bubbles: BubbleGame,
+  find: FindGame,
 };
 
 function isGame(s: Screen): s is GameId {

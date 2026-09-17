@@ -53,6 +53,14 @@ const GAMES: {
     bg: "linear-gradient(160deg,#7dd3fc,#38bdf8)",
     shadow: "#0369a1",
   },
+  {
+    id: "find",
+    emoji: "🔍",
+    title: "숫자 찾기",
+    sub: "숨은 숫자를 찾아요",
+    bg: "linear-gradient(160deg,#c4b5fd,#8b5cf6)",
+    shadow: "#5b21b6",
+  },
 ];
 
 const GREETINGS = [
@@ -117,7 +125,7 @@ export default function Home({ stars, stickerCount, onSelect, onOpenSettings }: 
         </div>
 
         {/* 게임 카드 */}
-        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5 short:grid-cols-4 short:gap-2">
+        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4 short:grid-cols-5 short:gap-2">
           {GAMES.map((g, i) => (
             <motion.button
               key={g.id}
@@ -126,7 +134,12 @@ export default function Home({ stars, stickerCount, onSelect, onOpenSettings }: 
               transition={{ delay: 0.08 * i, type: "spring", stiffness: 260, damping: 18 }}
               whileTap={{ scale: 0.93 }}
               onClick={() => onSelect(g.id)}
-              className="pressable flex min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col items-center justify-center gap-1 rounded-[2rem] border-4 border-white p-3 text-white short:min-h-0 short:gap-0 short:rounded-2xl short:p-1.5"
+              className={`pressable flex min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col items-center justify-center gap-1 rounded-[2rem] border-4 border-white p-3 text-white short:min-h-0 short:gap-0 short:rounded-2xl short:p-1.5 ${
+                // 홀수 개일 때 마지막 카드는 폰 세로 화면에서 두 칸을 차지한다
+                i === GAMES.length - 1 && GAMES.length % 2 === 1
+                  ? "col-span-2 sm:col-span-1 short:col-span-1"
+                  : ""
+              }`}
               style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
             >
               <span

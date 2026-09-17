@@ -173,18 +173,18 @@ export function WinBanner({
       transition={{ type: "spring", stiffness: 300, damping: 18 }}
       className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
     >
-      <div className="flex flex-col items-center gap-2 rounded-[2.5rem] border-8 border-yellow-300 bg-white/95 px-8 py-6 text-center shadow-2xl">
-        <div className="text-2xl text-amber-500 sm:text-3xl">{praise}</div>
-        <div className="flex items-center gap-4">
-          <span className="emoji text-6xl sm:text-7xl">{emoji}</span>
-          <BigNumeral n={n} className="text-8xl sm:text-9xl" />
+      <div className="flex flex-col items-center gap-2 rounded-[2.5rem] border-8 border-yellow-300 bg-white/95 px-8 py-6 text-center shadow-2xl short:gap-0.5 short:rounded-3xl short:border-4 short:px-5 short:py-2">
+        <div className="text-2xl text-amber-500 sm:text-3xl short:text-lg">{praise}</div>
+        <div className="flex items-center gap-4 short:gap-2">
+          <span className="emoji text-6xl sm:text-7xl short:text-4xl">{emoji}</span>
+          <BigNumeral n={n} className="text-8xl sm:text-9xl short:text-6xl" />
         </div>
-        <div className="text-3xl text-slate-700 sm:text-4xl">{label}!</div>
-        <div className="mt-1 flex max-w-[18rem] flex-wrap justify-center gap-1.5 sm:max-w-sm sm:gap-2">
+        <div className="text-3xl text-slate-700 sm:text-4xl short:text-xl">{label}!</div>
+        <div className="mt-1 flex max-w-[18rem] flex-wrap justify-center gap-1.5 sm:max-w-sm sm:gap-2 short:mt-0 short:max-w-md short:gap-1">
           {Array.from({ length: n }).map((_, i) => (
             <motion.span
               key={i}
-              className={`emoji ${n > 10 ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}
+              className={`emoji ${n > 10 ? "text-2xl sm:text-3xl short:text-lg" : "text-3xl sm:text-4xl short:text-xl"}`}
               initial={{ scale: 0, rotate: -30 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.3 + i * 0.12, type: "spring", stiffness: 400 }}
