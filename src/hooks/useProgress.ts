@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_TAP_GAP, MAX_LEVEL, STARS_PER_STICKER, STICKERS } from "../lib/data";
+import {
+  DEFAULT_TAP_GAP,
+  GAME_IDS,
+  MAX_LEVELS,
+  STARS_PER_STICKER,
+  STICKERS,
+  clampLevel,
+  type GameId,
+} from "../lib/data";
 import { setSoundOn, setVoiceOn } from "../lib/audio";
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles";
+export type { GameId };
 
 export interface Progress {
   stars: number;
@@ -41,11 +49,12 @@ function load(): Progress {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT;
     const parsed = JSON.parse(raw) as Partial<Progress>;
-    return {
-      ...DEFAULT,
-      ...parsed,
-      levels: { ...DEFAULT.levels, ...(parsed.levels ?? {}) },
-    };
+    const levels = { ...DEFAULT.levels };
+    for (const g of GAME_IDS) {
+      const v = parsed.levels?.[g];
+      if (typeof v === "number") levels[g] = clampLevel(g, v);
+    }
+    return { ...DEFAULT, ...parsed, levels };
   } catch {
     return DEFAULT;
   }
@@ -103,7 +112,7 @@ export function useProgress() {
     if (ok) {
       s.ok += 1;
       s.miss = 0;
-      if (s.ok >= 3 && level < MAX_LEVEL) {
+      if (s.ok >= 3 && level < MAX_LEVELS[game]) {
         level += 1;
         s.ok = 0;
       }
@@ -134,11 +143,12 @@ export function useProgress() {
     setProgress((p) => ({ ...p, tapGap: ms }));
   }, []);
 
-  const setAllLevels = useCallback((level: number) => {
-    streaks.current = freshStreaks();
+  /** 부모 설정에서 놀이별 단계를 직접 맞춘다 */
+  const setLevel = useCallback((game: GameId, level: number) => {
+    streaks.current[game] = { ok: 0, miss: 0 };
     setProgress((p) => ({
       ...p,
-      levels: { tap: level, howmany: level, feed: level, bubbles: level },
+      levels: { ...p.levels, [game]: clampLevel(game, level) },
     }));
   }, []);
 
@@ -161,7 +171,7 @@ export function useProgress() {
     toggleSound,
     toggleVoice,
     setTapGap,
-    setAllLevels,
+    setLevel,
     reset,
   };
 }

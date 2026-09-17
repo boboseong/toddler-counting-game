@@ -5,7 +5,7 @@ import { MASH_LIMIT } from "../lib/data";
  * 라운드 입력 보호.
  * - lock(ms): 안내 음성이 나가는 동안 입력을 잠근다 (화면에는 "잘 들어 봐" 표시)
  * - accept(): 잠금 중이거나 직전 탭에서 tapGap(ms) 이 지나지 않았으면 false 를 돌려주고 무시 횟수를 센다
- * - isMashing(): 이번 라운드에서 무시된 탭이 MASH_LIMIT 이상이면 "막 누르는 중"
+ * - isMashing(limit?): 이번 라운드에서 무시된 탭이 limit(기본 MASH_LIMIT) 이상이면 "막 누르는 중"
  */
 export function useRoundGuard(tapGap: number) {
   const [locked, setLocked] = useState(true);
@@ -61,7 +61,10 @@ export function useRoundGuard(tapGap: number) {
     return true;
   }, []);
 
-  const isMashing = useCallback(() => ignored.current >= MASH_LIMIT, []);
+  const isMashing = useCallback(
+    (limit: number = MASH_LIMIT) => ignored.current >= limit,
+    [],
+  );
 
   const resetRound = useCallback(() => {
     ignored.current = 0;

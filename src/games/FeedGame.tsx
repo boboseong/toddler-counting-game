@@ -4,10 +4,10 @@ import { playChomp, playDing, playPop, playSoft, speak, speakDuration } from "..
 import {
   ANIMALS,
   COUNT_WORDS,
-  MAX_LEVEL,
   NUM_COLORS,
   counterPhrase,
-  maxCountForLevel,
+  feedLevel,
+  mashLimitFor,
   pick,
   randomIntExcept,
   randomPraise,
@@ -38,6 +38,58 @@ interface Round {
 
 type Phase = "play" | "done" | "slow";
 
+/** 먹이가 많아질수록 작게 (Tailwind 가 읽도록 클래스는 통째로 적는다) */
+function traySizes(trayCount: number) {
+  if (trayCount > 12) {
+    return {
+      wrap: "gap-2 sm:gap-3",
+      item: "h-[clamp(46px,min(12vw,9vh),84px)] w-[clamp(46px,min(12vw,9vh),84px)] rounded-2xl border-2",
+      emoji: "text-[clamp(1.5rem,min(7vw,5.5vh),3.2rem)]",
+      delay: 0.05,
+    };
+  }
+  if (trayCount > 7) {
+    return {
+      wrap: "gap-2 sm:gap-4",
+      item: "h-[clamp(54px,min(14vw,11vh),100px)] w-[clamp(54px,min(14vw,11vh),100px)] rounded-3xl border-4",
+      emoji: "text-[clamp(1.8rem,min(8vw,6.5vh),4rem)]",
+      delay: 0.08,
+    };
+  }
+  return {
+    wrap: "gap-3 sm:gap-5",
+    item: "h-[clamp(64px,min(18vw,14vh),130px)] w-[clamp(64px,min(18vw,14vh),130px)] rounded-3xl border-4",
+    emoji: "text-[clamp(2.2rem,min(10vw,8vh),5rem)]",
+    delay: 0.12,
+  };
+}
+
+/** 말풍선 안의 "채워지는 칸": 5개가 넘으면 5개씩 줄을 맞춘다 */
+function slotSizes(count: number) {
+  if (count > 10) {
+    return {
+      wrap: "grid grid-cols-5 gap-1.5",
+      slot: "h-8 w-8 border-2 sm:h-9 sm:w-9 short:h-7 short:w-7",
+      emoji: "text-base sm:text-lg",
+      num: "text-sm",
+    };
+  }
+  if (count > 5) {
+    return {
+      wrap: "grid grid-cols-5 gap-2",
+      slot: "h-10 w-10 border-4 sm:h-12 sm:w-12 short:h-8 short:w-8 short:border-2",
+      emoji: "text-xl sm:text-2xl",
+      num: "text-lg",
+    };
+  }
+  return {
+    wrap: "flex items-center gap-2",
+    slot: "h-12 w-12 border-4 sm:h-14 sm:w-14 short:h-9 short:w-9 short:border-2",
+    emoji: "text-2xl sm:text-3xl",
+    num: "text-xl",
+  };
+}
+
 export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
@@ -46,16 +98,16 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
   levelRef.current = level;
 
   const newRound = (id: number): Round => {
-    const lv = levelRef.current;
+    const lv = feedLevel(levelRef.current);
     const animal = pick(ANIMALS, prev.current.animal);
-    const count = randomIntExcept(1, maxCountForLevel(lv), prev.current.count);
+    const count = randomIntExcept(lv.min, lv.max, prev.current.count);
     prev.current = { animal, count };
     return {
       id,
       animal,
       count,
-      trayCount: Math.min(count + 2, 7),
-      needConfirm: lv >= MAX_LEVEL,
+      trayCount: count + 2,
+      needConfirm: lv.confirm,
     };
   };
 
@@ -165,7 +217,7 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
     speak(COUNT_WORDS[n - 1], { rate: 0.85, pitch: 1.2 });
 
     if (n === count) {
-      if (guard.isMashing()) {
+      if (guard.isMashing(mashLimitFor(count))) {
         slowRound();
       } else if (needConfirm) {
         after(900, () => speak("다 줬으면 초록 버튼을 눌러 줘!", { interrupt: false }));
@@ -185,11 +237,13 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
       return;
     }
     playDing();
-    if (guard.isMashing()) slowRound();
+    if (guard.isMashing(mashLimitFor(count))) slowRound();
     else finish();
   };
 
   const locked = guard.locked;
+  const tray = traySizes(trayCount);
+  const slot = slotSizes(count);
 
   return (
     <GameFrame>
@@ -273,21 +327,21 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
               </span>
             </div>
             {/* 채워지는 칸 */}
-            <div className="flex items-center gap-2">
+            <div className={slot.wrap}>
               {Array.from({ length: count }).map((_, i) => (
                 <motion.div
                   key={i}
                   animate={i < fed ? { scale: [0.6, 1.3, 1] } : {}}
-                  className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-dashed sm:h-14 sm:w-14 short:h-9 short:w-9 short:border-2"
+                  className={`flex items-center justify-center rounded-full border-dashed ${slot.slot}`}
                   style={{
                     borderColor: NUM_COLORS[i % NUM_COLORS.length],
                     background: i < fed ? `${NUM_COLORS[i % NUM_COLORS.length]}33` : "transparent",
                   }}
                 >
                   {i < fed ? (
-                    <span className="emoji text-2xl sm:text-3xl">{food.emoji}</span>
+                    <span className={`emoji ${slot.emoji}`}>{food.emoji}</span>
                   ) : (
-                    <span className="text-xl text-slate-300">{i + 1}</span>
+                    <span className={`text-slate-300 ${slot.num}`}>{i + 1}</span>
                   )}
                 </motion.div>
               ))}
@@ -314,7 +368,7 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40, pointerEvents: "none" }}
-              className="flex min-h-[clamp(90px,min(24vw,18vh),170px)] w-full flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-amber-100/90 px-5 py-4 shadow-xl sm:gap-5 short:min-h-0 short:rounded-3xl short:py-2"
+              className={`flex min-h-[clamp(90px,min(24vw,18vh),170px)] w-full flex-wrap items-center justify-center rounded-[2.5rem] border-4 border-white bg-amber-100/90 px-5 py-4 shadow-xl short:min-h-0 short:rounded-3xl short:py-2 ${tray.wrap}`}
             >
               <AnimatePresence>
                 {/* 안내("바나나 두 개 주세요!")가 끝난 뒤에 먹이가 나타난다 */}
@@ -330,16 +384,16 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
                       initial={{ scale: 0 }}
                       animate={{ scale: 1, opacity: phase === "done" ? 0.4 : 1 }}
                       exit={{ y: -220, scale: 0.2, opacity: 0, rotate: 30 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20, delay: i * 0.12 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20, delay: i * tray.delay }}
                       whileTap={{ scale: 0.85 }}
                       onPointerDown={() => handleFeed(round.id, i)}
                       aria-label={food.name}
-                      className={`flex h-[clamp(64px,min(18vw,14vh),130px)] w-[clamp(64px,min(18vw,14vh),130px)] items-center justify-center rounded-3xl border-4 border-white bg-white shadow-[0_6px_0_0_rgba(0,0,0,0.1)] ${
+                      className={`flex items-center justify-center border-white bg-white shadow-[0_6px_0_0_rgba(0,0,0,0.1)] ${tray.item} ${
                         phase === "play" ? "bob" : ""
                       }`}
-                      style={{ animationDelay: `${i * 0.15}s` }}
+                      style={{ animationDelay: `${(i % 7) * 0.15}s` }}
                     >
-                      <span className="emoji text-[clamp(2.2rem,min(10vw,8vh),5rem)]">{food.emoji}</span>
+                      <span className={`emoji ${tray.emoji}`}>{food.emoji}</span>
                     </motion.button>
                   ))}
               </AnimatePresence>

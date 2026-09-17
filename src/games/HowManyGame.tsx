@@ -5,9 +5,11 @@ import {
   COUNT_WORDS,
   ITEMS,
   NUM_COLORS,
-  choicesForLevel,
+  countStepMs,
   counterPhrase,
-  maxCountForLevel,
+  howManyChoices,
+  howManyLevel,
+  mashLimitFor,
   pick,
   randomIntExcept,
   randomPraise,
@@ -29,6 +31,32 @@ interface Round {
 
 type Phase = "play" | "busy" | "done" | "slow";
 
+/** 셀 것이 많아질수록 작게, 5개씩 줄을 맞춰서 보여 준다 (Tailwind 가 읽도록 클래스는 통째로 적는다) */
+function sizesFor(count: number) {
+  if (count > 10) {
+    return {
+      wrap: "grid grid-cols-5 gap-x-3 gap-y-3 sm:gap-x-5 sm:gap-y-4",
+      emoji: "text-[clamp(1.6rem,min(7.5vw,5.5vh),3.4rem)]",
+      badge: "-right-2 -top-2 h-6 w-6 border-2 text-sm sm:h-8 sm:w-8 sm:text-lg",
+      delay: 0.07,
+    };
+  }
+  if (count > 5) {
+    return {
+      wrap: "grid grid-cols-5 gap-x-3 gap-y-3 sm:gap-x-6 sm:gap-y-5",
+      emoji: "text-[clamp(2rem,min(9vw,7vh),4.5rem)]",
+      badge: "-right-2 -top-3 h-8 w-8 border-4 text-lg sm:h-10 sm:w-10 sm:text-xl",
+      delay: 0.12,
+    };
+  }
+  return {
+    wrap: "flex flex-wrap gap-3 sm:gap-5",
+    emoji: "text-[clamp(2.4rem,min(11vw,9vh),5.5rem)]",
+    badge: "-right-2 -top-3 h-9 w-9 border-4 text-xl sm:h-11 sm:w-11 sm:text-2xl",
+    delay: 0.2,
+  };
+}
+
 export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
@@ -38,18 +66,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   levelRef.current = level;
 
   const newRound = (id: number): Round => {
-    const lv = levelRef.current;
+    const lv = howManyLevel(levelRef.current);
     const item = pick(ITEMS, prev.current.item);
-    const max = maxCountForLevel(lv);
-    const count = randomIntExcept(1, max, prev.current.count);
+    const count = randomIntExcept(lv.min, lv.max, prev.current.count);
     prev.current = { item, count };
-
-    const numChoices = Math.min(choicesForLevel(lv), max);
-    const pool = shuffle(
-      Array.from({ length: max }, (_, i) => i + 1).filter((n) => n !== count),
-    );
-    const choices = shuffle([count, ...pool.slice(0, numChoices - 1)]);
-    return { id, item, count, choices };
+    return { id, item, count, choices: howManyChoices(count, lv) };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -80,7 +101,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       speak("같이 세어 볼까?");
       setPhase("busy");
       after(1100, () => animateCount(() => reopen(`몇 ${round.item.counter}일까?`)));
-    }, 12000);
+    }, 10000 + round.count * 600); // 많을수록 세는 시간을 더 준다
   };
 
   useEffect(() => {
@@ -95,16 +116,17 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   /** 아이템을 하나씩 짚으며 세는 애니메이션 */
   const animateCount = (done: () => void) => {
     const { count } = round;
+    const step = countStepMs(count);
     setCountedUpTo(0);
     for (let i = 0; i < count; i++) {
-      after(i * 720, () => {
+      after(i * step, () => {
         setHintIndex(i);
         setCountedUpTo(i + 1);
         playPop(i + 1);
         speak(COUNT_WORDS[i], { rate: 0.85, pitch: 1.2 });
       });
     }
-    after(count * 720 + 350, () => {
+    after(count * step + 350, () => {
       setHintIndex(-1);
       done();
     });
@@ -154,7 +176,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     clearIdle();
 
     if (n === round.count) {
-      if (guard.isMashing()) {
+      if (guard.isMashing(mashLimitFor(round.count))) {
         slowRound();
         return;
       }
@@ -190,6 +212,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   };
 
   const { item, count, choices } = round;
+  const sz = sizesFor(count);
   const showCountBadges = countedUpTo > 0;
   // 숫자 버튼은 안내가 끝난 뒤(play), 그리고 정답 축하 중(done)에만 보인다
   const showChoices = (phase === "play" && !guard.locked) || phase === "done";
@@ -215,7 +238,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.3 }}
-            className="flex min-h-[clamp(100px,min(26vw,20vh),200px)] max-w-3xl flex-wrap items-center justify-center gap-3 rounded-[2.5rem] border-4 border-white bg-white/80 px-6 py-4 shadow-xl sm:gap-5 short:min-h-0 short:rounded-3xl short:px-4 short:py-2"
+            className={`min-h-[clamp(100px,min(26vw,20vh),200px)] max-w-3xl items-center justify-center rounded-[2.5rem] border-4 border-white bg-white/80 px-6 py-4 shadow-xl short:min-h-0 short:rounded-3xl short:px-4 short:py-2 ${sz.wrap}`}
           >
             {Array.from({ length: count }).map((_, i) => {
               const active = hintIndex === i;
@@ -231,17 +254,15 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                         ? { scale: 1.05, y: -4, opacity: 1 }
                         : { scale: 1, y: 0, opacity: 1 }
                   }
-                  transition={{ duration: 0.4, delay: active || counted ? 0 : i * 0.2 }}
+                  transition={{ duration: 0.4, delay: active || counted ? 0 : i * sz.delay }}
                   className="relative flex items-center justify-center"
                 >
-                  <span className="emoji text-[clamp(2.4rem,min(11vw,9vh),5.5rem)] drop-shadow">
-                    {item.emoji}
-                  </span>
+                  <span className={`emoji drop-shadow ${sz.emoji}`}>{item.emoji}</span>
                   {counted ? (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -right-2 -top-3 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white text-xl text-white shadow sm:h-11 sm:w-11 sm:text-2xl"
+                      className={`absolute flex items-center justify-center rounded-full border-white text-white shadow ${sz.badge}`}
                       style={{ background: NUM_COLORS[i % NUM_COLORS.length] }}
                     >
                       {i + 1}
@@ -276,16 +297,22 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   whileTap={{ scale: 0.9 }}
                   onPointerDown={() => handleChoice(round.id, n)}
                   aria-label={`${n}`}
-                  className="pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center gap-2 rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl"
+                  className={`pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl ${
+                    n > 10 ? "gap-1" : "gap-2"
+                  }`}
                   style={{ background: color }}
                 >
                   <span
-                    className="text-[clamp(3rem,min(14vw,12vh),7rem)] leading-none short:text-5xl"
+                    className={`leading-none ${
+                      n > 10
+                        ? "text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] short:text-4xl"
+                        : "text-[clamp(3rem,min(14vw,12vh),7rem)] short:text-5xl"
+                    }`}
                     style={{ textShadow: "0 4px 0 rgba(0,0,0,0.15)" }}
                   >
                     {n}
                   </span>
-                  <Dots n={n} color="#fff" size={12} />
+                  <Dots n={n} color="#fff" size={n > 10 ? 7 : n > 5 ? 9 : 12} />
                 </motion.button>
               );
             }) : null}

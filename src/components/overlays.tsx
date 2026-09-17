@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  GAME_IDS,
+  GAME_NAMES,
+  MAX_LEVELS,
   STICKERS,
   TAP_GAP_OPTIONS,
-  bubbleTargetForLevel,
-  levelRangeLabel,
+  levelLabel,
   randomInt,
   shuffle,
+  type GameId,
 } from "../lib/data";
 import { playDing, playSoft, speak } from "../lib/audio";
 
@@ -157,19 +160,17 @@ export function ParentSettings({
   open: boolean;
   soundOn: boolean;
   voiceOn: boolean;
-  levels: Record<string, number>;
+  levels: Record<GameId, number>;
   stars: number;
   totalRounds: number;
   tapGap: number;
   onToggleSound: () => void;
   onToggleVoice: () => void;
-  onSetLevel: (l: number) => void;
+  onSetLevel: (game: GameId, level: number) => void;
   onSetTapGap: (ms: number) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
-  const levelName = levelRangeLabel;
-
   return (
     <AnimatePresence>
       {open ? (
@@ -223,31 +224,22 @@ export function ParentSettings({
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4">
-                <div className="mb-2 text-lg">난이도 (숫자 범위)</div>
-                <div className="mb-2 text-sm text-slate-500">
-                  3번 연속 잘하면 올라가고, 2번 연속 어려워하면 내려가요. 여기서 직접 맞출 수도 있어요.
-                  (거품 팡팡은 레벨마다 5 · 7 · 10까지 세요)
+                <div className="mb-2 text-lg">난이도 (숫자 범위, 최대 19)</div>
+                <div className="mb-3 text-sm text-slate-500">
+                  3번 연속 잘하면 한 단계 올라가고, 2번 연속 어려워하면 내려가요. 놀이마다 따로
+                  맞출 수 있어요. "몇 개일까?"는 다른 놀이보다 어려워서 단계를 잘게 나눴어요.
                 </div>
-                <div className="flex gap-2">
-                  {[1, 2, 3].map((l) => (
-                    <button
-                      key={l}
-                      onClick={() => onSetLevel(l)}
-                      className={`flex-1 rounded-xl border-2 py-2 text-lg ${
-                        Object.values(levels).every((v) => v === l)
-                          ? "border-violet-400 bg-violet-100"
-                          : "border-slate-200 bg-white"
-                      }`}
-                    >
-                      {levelName(l)}
-                    </button>
+                <div className="space-y-2">
+                  {GAME_IDS.map((g) => (
+                    <LevelRow
+                      key={g}
+                      name={GAME_NAMES[g]}
+                      level={levels[g]}
+                      max={MAX_LEVELS[g]}
+                      label={levelLabel(g, levels[g])}
+                      onChange={(l) => onSetLevel(g, l)}
+                    />
                   ))}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-1 text-sm text-slate-500">
-                  <span>톡톡 세기: {levelName(levels.tap)}</span>
-                  <span>몇 개일까: {levelName(levels.howmany)}</span>
-                  <span>먹이 주기: {levelName(levels.feed)}</span>
-                  <span>거품 팡팡: 1~{bubbleTargetForLevel(levels.bubbles)}</span>
                 </div>
               </div>
 
@@ -266,7 +258,8 @@ export function ParentSettings({
                   <li>막 눌러서 끝낸 라운드는 별을 주지 않고 거북이가 "천천히"라고 알려 줘요.</li>
                   <li>틀려도 괜찮아요. 이 앱은 벌점 없이 다시 세어 주는 방식이에요.</li>
                   <li>한 번에 5~10분 정도가 두세 살 아이에게 알맞아요.</li>
-                  <li>먹이 주기 최고 레벨에서는 딱 맞게 준 뒤 "다 줬어요"를 눌러야 해요.</li>
+                  <li>먹이 주기 4단계부터는 딱 맞게 준 뒤 "다 줬어요"를 눌러야 해요.</li>
+                  <li>수가 많아지면 5개씩 줄을 맞춰 보여 줘요. "다섯, 그리고 하나 더" 하고 묶어서 세는 연습이 돼요.</li>
                   <li>음성이 안 나오면 기기의 한국어 음성(TTS)을 설치해 주세요.</li>
                 </ul>
               </div>
@@ -283,6 +276,50 @@ export function ParentSettings({
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+/** 놀이 하나의 단계 조절 줄: [−] n단계 · 범위 [+] */
+function LevelRow({
+  name,
+  level,
+  max,
+  label,
+  onChange,
+}: {
+  name: string;
+  level: number;
+  max: number;
+  label: string;
+  onChange: (level: number) => void;
+}) {
+  const btn =
+    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-2xl leading-none disabled:opacity-30";
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-base text-slate-700">{name}</div>
+        <div className="text-sm text-slate-500">
+          {level}/{max}단계 · {label}
+        </div>
+      </div>
+      <button
+        onClick={() => onChange(level - 1)}
+        disabled={level <= 1}
+        className={btn}
+        aria-label={`${name} 쉽게`}
+      >
+        −
+      </button>
+      <button
+        onClick={() => onChange(level + 1)}
+        disabled={level >= max}
+        className={btn}
+        aria-label={`${name} 어렵게`}
+      >
+        +
+      </button>
+    </div>
   );
 }
 

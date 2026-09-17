@@ -113,8 +113,11 @@ export function Dots({
   size?: number;
 }) {
   const c = color ?? NUM_COLORS[(n - 1) % NUM_COLORS.length];
+  // 5개가 넘으면 5개씩 줄을 맞춰서 (열 묶음이 눈에 보이게)
+  const layout =
+    n > 5 ? "grid grid-cols-5 gap-1" : "flex flex-wrap items-center justify-center gap-1.5";
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5">
+    <div className={layout}>
       {Array.from({ length: n }).map((_, i) => (
         <span
           key={i}
@@ -177,11 +180,11 @@ export function WinBanner({
           <BigNumeral n={n} className="text-8xl sm:text-9xl" />
         </div>
         <div className="text-3xl text-slate-700 sm:text-4xl">{label}!</div>
-        <div className="mt-1 flex gap-2">
+        <div className="mt-1 flex max-w-[18rem] flex-wrap justify-center gap-1.5 sm:max-w-sm sm:gap-2">
           {Array.from({ length: n }).map((_, i) => (
             <motion.span
               key={i}
-              className="emoji text-3xl sm:text-4xl"
+              className={`emoji ${n > 10 ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}
               initial={{ scale: 0, rotate: -30 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.3 + i * 0.12, type: "spring", stiffness: 400 }}

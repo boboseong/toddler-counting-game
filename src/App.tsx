@@ -44,7 +44,7 @@ export default function App() {
     toggleSound,
     toggleVoice,
     setTapGap,
-    setAllLevels,
+    setLevel,
     reset,
   } = useProgress();
 
@@ -195,7 +195,7 @@ export default function App() {
           tapGap={progress.tapGap}
           onToggleSound={toggleSound}
           onToggleVoice={toggleVoice}
-          onSetLevel={setAllLevels}
+          onSetLevel={setLevel}
           onSetTapGap={setTapGap}
           onReset={reset}
           onClose={() => setSettingsOpen(false)}

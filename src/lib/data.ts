@@ -27,6 +27,15 @@ export const COUNT_WORDS = [
   "여덟",
   "아홉",
   "열",
+  "열하나",
+  "열둘",
+  "열셋",
+  "열넷",
+  "열다섯",
+  "열여섯",
+  "열일곱",
+  "열여덟",
+  "열아홉",
 ];
 
 /** 단위 앞에 붙는 관형형 수사 (한 개, 두 개, 세 개 ...) */
@@ -41,7 +50,19 @@ export const COUNTER_PREFIX = [
   "여덟",
   "아홉",
   "열",
+  "열한",
+  "열두",
+  "열세",
+  "열네",
+  "열다섯",
+  "열여섯",
+  "열일곱",
+  "열여덟",
+  "열아홉",
 ];
+
+/** 이 앱에서 다루는 가장 큰 수 */
+export const MAX_NUMBER = COUNT_WORDS.length;
 
 export const NUM_COLORS = [
   "#F87171", // 1
@@ -54,6 +75,15 @@ export const NUM_COLORS = [
   "#2DD4BF", // 8
   "#818CF8", // 9
   "#FB7185", // 10
+  "#34D399", // 11
+  "#F59E0B", // 12
+  "#8B5CF6", // 13
+  "#EC4899", // 14
+  "#06B6D4", // 15
+  "#84CC16", // 16
+  "#EF4444", // 17
+  "#3B82F6", // 18
+  "#D946EF", // 19
 ];
 
 export const ITEMS: CountItem[] = [
@@ -122,10 +152,165 @@ export const PRAISES = [
   "우와, 똑똑해!",
 ];
 
-export const MAX_LEVEL = 3;
+export type GameId = "tap" | "howmany" | "feed" | "bubbles";
+
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles"];
+
+export const GAME_NAMES: Record<GameId, string> = {
+  tap: "톡톡 세기",
+  howmany: "몇 개일까?",
+  feed: "냠냠 먹이 주기",
+  bubbles: "거품 팡팡",
+};
+
+/** 한 라운드에 나오는 수의 범위 */
+export interface CountLevel {
+  min: number;
+  max: number;
+}
+
+/** 톡톡 세기: 단계별 범위 */
+export const TAP_LEVELS: CountLevel[] = [
+  { min: 1, max: 3 },
+  { min: 1, max: 4 },
+  { min: 1, max: 5 },
+  { min: 3, max: 7 },
+  { min: 5, max: 10 },
+  { min: 8, max: 13 },
+  { min: 10, max: 16 },
+  { min: 12, max: 19 },
+];
+
+/** 먹이 주기: 단계별 범위. confirm 이면 딱 맞게 준 뒤 "다 줬어요" 를 눌러야 끝난다 */
+export interface FeedLevel extends CountLevel {
+  confirm: boolean;
+}
+
+export const FEED_LEVELS: FeedLevel[] = [
+  { min: 1, max: 3, confirm: false },
+  { min: 1, max: 4, confirm: false },
+  { min: 1, max: 5, confirm: false },
+  { min: 1, max: 5, confirm: true },
+  { min: 3, max: 7, confirm: true },
+  { min: 5, max: 10, confirm: true },
+  { min: 8, max: 14, confirm: true },
+  { min: 11, max: 19, confirm: true },
+];
+
+/**
+ * 몇 개일까?: 다른 놀이보다 어려워서 단계를 잘게 나눈다.
+ * - choices: 보기 개수
+ * - spread: 오답 보기를 고르는 방식
+ *   far  = 정답과 2 이상 차이 나는 수만 (1 vs 3 처럼 한눈에 구분)
+ *   any  = 범위 안에서 아무 수나
+ *   near = 정답과 1~2 차이 나는 수만 (13 vs 14 처럼 꼼꼼히 세야 함)
+ */
+export type ChoiceSpread = "far" | "any" | "near";
+
+export interface HowManyLevel extends CountLevel {
+  choices: number;
+  spread: ChoiceSpread;
+}
+
+export const HOWMANY_LEVELS: HowManyLevel[] = [
+  { min: 1, max: 3, choices: 2, spread: "far" },
+  { min: 1, max: 3, choices: 2, spread: "any" },
+  { min: 1, max: 4, choices: 2, spread: "any" },
+  { min: 1, max: 4, choices: 3, spread: "any" },
+  { min: 1, max: 5, choices: 2, spread: "any" },
+  { min: 1, max: 5, choices: 3, spread: "any" },
+  { min: 1, max: 6, choices: 3, spread: "any" },
+  { min: 2, max: 7, choices: 3, spread: "any" },
+  { min: 3, max: 8, choices: 3, spread: "any" },
+  { min: 4, max: 10, choices: 3, spread: "any" },
+  { min: 5, max: 12, choices: 3, spread: "any" },
+  { min: 7, max: 15, choices: 3, spread: "any" },
+  { min: 10, max: 19, choices: 3, spread: "any" },
+  { min: 10, max: 19, choices: 3, spread: "near" },
+];
+
+/** 거품 팡팡: 단계별로 여기까지 센다 */
+export const BUBBLE_TARGETS = [5, 7, 10, 13, 16, 19];
+
+export const MAX_LEVELS: Record<GameId, number> = {
+  tap: TAP_LEVELS.length,
+  howmany: HOWMANY_LEVELS.length,
+  feed: FEED_LEVELS.length,
+  bubbles: BUBBLE_TARGETS.length,
+};
+
+export function clampLevel(game: GameId, level: number): number {
+  const max = MAX_LEVELS[game];
+  if (!Number.isFinite(level)) return 1;
+  return Math.min(max, Math.max(1, Math.round(level)));
+}
+
+export function tapLevel(level: number): CountLevel {
+  return TAP_LEVELS[clampLevel("tap", level) - 1];
+}
+
+export function feedLevel(level: number): FeedLevel {
+  return FEED_LEVELS[clampLevel("feed", level) - 1];
+}
+
+export function howManyLevel(level: number): HowManyLevel {
+  return HOWMANY_LEVELS[clampLevel("howmany", level) - 1];
+}
+
+export function bubbleTarget(level: number): number {
+  return BUBBLE_TARGETS[clampLevel("bubbles", level) - 1];
+}
+
+/** 설정 화면에 보여 줄 단계 설명 */
+export function levelLabel(game: GameId, level: number): string {
+  switch (game) {
+    case "tap": {
+      const s = tapLevel(level);
+      return `${s.min}~${s.max}`;
+    }
+    case "feed": {
+      const s = feedLevel(level);
+      return `${s.min}~${s.max}${s.confirm ? " · 다 줬어요 누르기" : ""}`;
+    }
+    case "howmany": {
+      const s = howManyLevel(level);
+      const extra =
+        s.spread === "far" ? " · 쉬운 보기" : s.spread === "near" ? " · 비슷한 수" : "";
+      return `${s.min}~${s.max} · 보기 ${s.choices}개${extra}`;
+    }
+    case "bubbles":
+      return `${bubbleTarget(level)}까지`;
+  }
+}
+
+/**
+ * 몇 개일까? 보기 만들기. 정답 + 오답 (choices-1)개를 섞어서 돌려준다.
+ * spread 조건에 맞는 오답이 모자라면 범위 안의 아무 수로 채운다.
+ */
+export function howManyChoices(count: number, lv: HowManyLevel): number[] {
+  const all: number[] = [];
+  for (let n = lv.min; n <= lv.max; n++) if (n !== count) all.push(n);
+  const want = Math.min(lv.choices, all.length + 1) - 1;
+
+  let preferred = all;
+  if (lv.spread === "far") preferred = all.filter((n) => Math.abs(n - count) >= 2);
+  else if (lv.spread === "near") preferred = all.filter((n) => Math.abs(n - count) <= 2);
+
+  const picked = shuffle(preferred).slice(0, want);
+  if (picked.length < want) {
+    const rest = shuffle(all.filter((n) => !picked.includes(n)));
+    picked.push(...rest.slice(0, want - picked.length));
+  }
+  return shuffle([count, ...picked]);
+}
 
 /** 한 라운드에서 무시된 탭(잠금 중·너무 빠름)이 이만큼 쌓이면 "막 누르는 중"으로 본다 */
 export const MASH_LIMIT = 4;
+
+/** 셀 것이 많은 라운드는 무시된 탭이 조금 더 쌓여도 봐준다 */
+export function mashLimitFor(count: number): number {
+  return Math.max(MASH_LIMIT, Math.ceil(count * 0.35));
+}
 
 /** 세는 탭 사이 최소 간격(ms) */
 export const DEFAULT_TAP_GAP = 700;
@@ -145,28 +330,11 @@ export function randomSlowPhrase(): string {
   return SLOW_PHRASES[randomInt(0, SLOW_PHRASES.length - 1)];
 }
 
-/** 레벨별 최대 숫자 */
-export function maxCountForLevel(level: number): number {
-  if (level <= 1) return 3;
-  if (level === 2) return 4;
-  return 5;
-}
-
-/** 거품 팡팡: 레벨별 목표 숫자 */
-export function bubbleTargetForLevel(level: number): number {
-  if (level <= 1) return 5;
-  if (level === 2) return 7;
-  return 10;
-}
-
-/** 레벨 이름 (설정 화면용) */
-export function levelRangeLabel(level: number): string {
-  return `1~${maxCountForLevel(level)}`;
-}
-
-/** 레벨별 보기 개수 (몇 개일까? 게임) */
-export function choicesForLevel(level: number): number {
-  return level <= 1 ? 2 : 3;
+/** 아이템을 하나씩 짚으며 셀 때 한 개당 걸리는 시간(ms). 많으면 조금 빠르게 */
+export function countStepMs(count: number): number {
+  if (count > 10) return 560;
+  if (count > 5) return 640;
+  return 720;
 }
 
 export function randomInt(min: number, max: number): number {

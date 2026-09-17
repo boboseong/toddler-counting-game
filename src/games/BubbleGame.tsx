@@ -4,7 +4,8 @@ import { playBubble, playSoft, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   NUM_COLORS,
-  bubbleTargetForLevel,
+  bubbleTarget,
+  mashLimitFor,
   randomInt,
   randomPraise,
   randomSlowPhrase,
@@ -37,7 +38,7 @@ const INNER = ["🐟", "⭐", "🐥", "🦋", "🌸", "🐙", "🍓", "🐢", ""
 export default function BubbleGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after } = useTimers();
   const guard = useRoundGuard(tapGap);
-  const target = bubbleTargetForLevel(level);
+  const target = bubbleTarget(level);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [pops, setPops] = useState<PopFx[]>([]);
   const [n, setN] = useState(0);
@@ -105,7 +106,7 @@ export default function BubbleGame({ level, stars, tapGap, onHome, onWin, onResu
     after(900, () => setPops((p) => p.filter((x) => x.id !== fx.id)));
 
     if (next >= target) {
-      if (guard.isMashing()) {
+      if (guard.isMashing(mashLimitFor(target))) {
         setPhase("slow");
         const s = randomSlowPhrase();
         setSlowText(s);

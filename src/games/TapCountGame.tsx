@@ -6,11 +6,12 @@ import {
   ITEMS,
   NUM_COLORS,
   counterPhrase,
-  maxCountForLevel,
+  mashLimitFor,
   pick,
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
+  tapLevel,
   type CountItem,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
@@ -29,6 +30,38 @@ type Phase = "play" | "done" | "slow";
 /** 이미 센 것을 이만큼 반복해서 누르면 "아직 어려워한다"고 본다 (난이도 신호) */
 const REPEATS_FOR_MISS = 3;
 
+/** 셀 것이 많아질수록 작게, 5개씩 줄을 맞춰서 보여 준다 (Tailwind 가 읽도록 클래스는 통째로 적는다) */
+function sizesFor(count: number) {
+  if (count > 10) {
+    return {
+      wrap: "grid grid-cols-5 gap-2 sm:gap-3",
+      item: "h-[clamp(50px,min(15vw,11vh),100px)] w-[clamp(50px,min(15vw,11vh),100px)] rounded-2xl border-2",
+      emoji: "text-[clamp(1.6rem,min(7.5vw,5.5vh),3.4rem)]",
+      badge: "-right-1.5 -top-1.5 h-7 w-7 border-2 text-base sm:h-8 sm:w-8 sm:text-lg",
+      dot: "h-7 w-7 border-2 text-sm sm:h-8 sm:w-8 sm:text-base",
+      delay: 0.07,
+    };
+  }
+  if (count > 5) {
+    return {
+      wrap: "grid grid-cols-5 gap-2 sm:gap-4",
+      item: "h-[clamp(58px,min(16vw,13vh),120px)] w-[clamp(58px,min(16vw,13vh),120px)] rounded-3xl border-4",
+      emoji: "text-[clamp(1.9rem,min(8.5vw,6.5vh),4.2rem)]",
+      badge: "-right-2 -top-2 h-9 w-9 border-4 text-xl sm:h-10 sm:w-10 sm:text-2xl",
+      dot: "h-8 w-8 border-4 text-base sm:h-10 sm:w-10 sm:text-xl",
+      delay: 0.14,
+    };
+  }
+  return {
+    wrap: "flex flex-wrap gap-4 sm:gap-6",
+    item: "h-[clamp(72px,min(22vw,18vh),160px)] w-[clamp(72px,min(22vw,18vh),160px)] rounded-[2rem] border-4",
+    emoji: "text-[clamp(2.4rem,min(12vw,9vh),6rem)]",
+    badge: "-right-3 -top-3 h-12 w-12 border-4 text-3xl sm:h-14 sm:w-14 sm:text-4xl",
+    dot: "h-10 w-10 border-4 text-xl sm:h-12 sm:w-12 sm:text-2xl",
+    delay: 0.25,
+  };
+}
+
 export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
@@ -38,7 +71,8 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
 
   const newRound = (id: number): Round => {
     const item = pick(ITEMS, prev.current.item);
-    const count = randomIntExcept(1, maxCountForLevel(levelRef.current), prev.current.count);
+    const { min, max } = tapLevel(levelRef.current);
+    const count = randomIntExcept(min, max, prev.current.count);
     prev.current = { item, count };
     return { id, item, count };
   };
@@ -131,7 +165,7 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
     speak(COUNT_WORDS[n - 1], { rate: 0.85, pitch: 1.2 });
 
     if (n === round.count) {
-      if (guard.isMashing()) slowRound();
+      if (guard.isMashing(mashLimitFor(round.count))) slowRound();
       else win();
     }
   };
@@ -139,6 +173,7 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
   const { item, count } = round;
   const current = tapped.length;
   const locked = guard.locked;
+  const sz = sizesFor(count);
 
   return (
     <GameFrame>
@@ -189,7 +224,7 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.7, pointerEvents: "none" }}
             transition={{ duration: 0.3 }}
-            className="flex max-w-3xl flex-wrap items-center justify-center gap-4 sm:gap-6"
+            className={`max-w-3xl items-center justify-center ${sz.wrap}`}
           >
             {Array.from({ length: count }).map((_, i) => {
               const idx = tapped.indexOf(i);
@@ -209,9 +244,9 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
                   transition={
                     counted
                       ? { duration: 0.5 }
-                      : { type: "spring", stiffness: 300, damping: 18, delay: i * 0.25 }
+                      : { type: "spring", stiffness: 300, damping: 18, delay: i * sz.delay }
                   }
-                  className={`relative flex h-[clamp(72px,min(22vw,18vh),160px)] w-[clamp(72px,min(22vw,18vh),160px)] items-center justify-center rounded-[2rem] border-4 border-white bg-white shadow-[0_8px_0_0_rgba(0,0,0,0.1)] ${
+                  className={`relative flex items-center justify-center border-white bg-white shadow-[0_8px_0_0_rgba(0,0,0,0.1)] ${sz.item} ${
                     counted || locked ? "" : "bob"
                   }`}
                   style={{
@@ -220,13 +255,13 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
                   }}
                   aria-label={`${item.name} ${i + 1}`}
                 >
-                  <span className="emoji text-[clamp(2.4rem,min(12vw,9vh),6rem)]">{item.emoji}</span>
+                  <span className={`emoji ${sz.emoji}`}>{item.emoji}</span>
                   {counted ? (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                      className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full border-4 border-white text-3xl text-white shadow-lg sm:h-14 sm:w-14 sm:text-4xl"
+                      className={`absolute flex items-center justify-center rounded-full border-white text-white shadow-lg ${sz.badge}`}
                       style={{ background: color }}
                     >
                       {idx + 1}
@@ -238,19 +273,19 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
           </motion.div>
         </AnimatePresence>
 
-        {/* 하단: 진행 칸 */}
-        <div className="flex items-center gap-3">
+        {/* 하단: 진행 칸 (10개 넘으면 줄을 바꾼다) */}
+        <div className="flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3">
           {Array.from({ length: count }).map((_, i) => (
             <motion.div
               key={i}
               animate={i < current ? { scale: [1, 1.4, 1] } : {}}
-              className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white shadow sm:h-12 sm:w-12"
+              className={`flex items-center justify-center rounded-full border-white shadow ${sz.dot}`}
               style={{
                 background: i < current ? NUM_COLORS[i % NUM_COLORS.length] : "rgba(255,255,255,0.6)",
               }}
             >
               {i < current ? (
-                <span className="text-xl text-white sm:text-2xl">{i + 1}</span>
+                <span className="text-white">{i + 1}</span>
               ) : null}
             </motion.div>
           ))}
