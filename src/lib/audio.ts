@@ -128,6 +128,23 @@ export function playBubble(index = 1) {
   tone(base * 0.5, 0.02, 0.1, "triangle", 0.08);
 }
 
+/** 빈 곳을 톡 — 작은 반짝 소리 (5음계에서 아무 음이나) */
+const TWINKLE = [1047, 1175, 1319, 1568, 1760];
+export function playTwinkle() {
+  const f = TWINKLE[Math.floor(Math.random() * TWINKLE.length)];
+  tone(f, 0, 0.16, "sine", 0.07, f * 1.05);
+}
+
+/** 더 큰 숫자 도전! — 올라가는 소리 */
+export function playLevelUp() {
+  [523, 659, 784, 1047, 1319].forEach((n, i) => tone(n, i * 0.08, 0.22, "triangle", 0.16));
+}
+
+/** 보너스 별 — 반짝반짝 */
+export function playBonus() {
+  [1568, 1319, 1760, 1568, 2093].forEach((n, i) => tone(n, 0.9 + i * 0.07, 0.25, "sine", 0.12));
+}
+
 /* ---------------- 음성 ---------------- */
 
 let voices: SpeechSynthesisVoice[] = [];

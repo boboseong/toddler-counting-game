@@ -468,7 +468,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   }
 
   return (
-    <GameFrame>
+    <GameFrame scene="dusk">
       <TopBar onHome={onHome} stars={stars} title="숫자 찾기" emoji="🔍" />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2 short:pb-2 short:pt-0">

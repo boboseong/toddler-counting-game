@@ -1,19 +1,93 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { NUM_COLORS } from "../lib/data";
+import { NUM_COLORS, STARS_PER_STICKER } from "../lib/data";
+import { GameBuddy } from "./buddy";
 
 /* ---------- 배경 ---------- */
-export function Background() {
+
+/** 놀이마다 다른 장면 */
+export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "town";
+
+interface SceneSpec {
+  sky: string;
+  ground: string;
+  /** 해 자리 */
+  light: string;
+  /** 오른쪽 아래 풀밭 위 소품 (왼쪽 아래는 같이 노는 친구 자리) */
+  right: string;
+}
+
+const SCENES: Record<Scene, SceneSpec> = {
+  sky: {
+    sky: "from-sky-200 via-sky-50 to-amber-50",
+    ground: "from-lime-200 to-lime-100/60",
+    light: "☀️",
+    right: "🌷🌼",
+  },
+  orchard: {
+    sky: "from-sky-200 via-sky-50 to-lime-50",
+    ground: "from-green-300 to-lime-100/60",
+    light: "☀️",
+    right: "🌳🍎",
+  },
+  picnic: {
+    sky: "from-cyan-100 via-sky-50 to-yellow-50",
+    ground: "from-lime-200 to-lime-100/60",
+    light: "🌤️",
+    right: "🧺🌼",
+  },
+  farm: {
+    sky: "from-sky-200 via-orange-50 to-amber-50",
+    ground: "from-yellow-200 to-lime-100/60",
+    light: "☀️",
+    right: "🌻🏡",
+  },
+  sea: {
+    sky: "from-sky-200 via-cyan-50 to-cyan-50",
+    ground: "from-amber-200 to-amber-100/60",
+    light: "☀️",
+    right: "🐚🦀",
+  },
+  dusk: {
+    sky: "from-violet-200 via-pink-50 to-amber-50",
+    ground: "from-emerald-200 to-lime-100/60",
+    light: "🌙",
+    right: "✨🌟",
+  },
+  town: {
+    sky: "from-sky-200 via-sky-50 to-rose-50",
+    ground: "from-lime-200 to-lime-100/60",
+    light: "☀️",
+    right: "",
+  },
+};
+
+export function Background({ scene = "sky" }: { scene?: Scene }) {
+  const sp = SCENES[scene];
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-50 to-amber-50" />
+      <div className={`absolute inset-0 bg-gradient-to-b ${sp.sky}`} />
       <div className="floaty absolute -left-10 top-10 h-40 w-64 rounded-full bg-white/70 blur-md" />
       <div className="floaty-slow absolute right-[-40px] top-24 h-32 w-56 rounded-full bg-white/60 blur-md" />
       <div className="floaty absolute bottom-24 left-1/3 h-28 w-52 rounded-full bg-white/50 blur-md" />
-      <div className="floaty-slow absolute right-6 top-6 text-6xl opacity-90 emoji">
-        ☀️
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-24 rounded-t-[50%] bg-gradient-to-t from-lime-200 to-lime-100/60" />
+      <div className="floaty-slow absolute right-6 top-6 text-6xl opacity-90 emoji">{sp.light}</div>
+      {scene === "dusk" ? (
+        <>
+          <span className="twinkle emoji absolute left-[12%] top-[18%] text-2xl">✨</span>
+          <span className="twinkle emoji absolute left-[48%] top-[9%] text-xl" style={{ animationDelay: "0.8s" }}>
+            ⭐
+          </span>
+          <span className="twinkle emoji absolute right-[22%] top-[30%] text-2xl" style={{ animationDelay: "1.6s" }}>
+            ✨
+          </span>
+        </>
+      ) : null}
+      <div className={`absolute bottom-0 left-0 right-0 h-24 rounded-t-[50%] bg-gradient-to-t ${sp.ground}`} />
+      {sp.right ? (
+        <div className="emoji absolute bottom-2 right-2 text-3xl opacity-70 sm:bottom-3 sm:right-3 sm:text-5xl short:text-3xl">
+          {sp.right}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -61,7 +135,14 @@ export function TopBar({
 }
 
 /* ---------- 별 항아리 ---------- */
+
+/**
+ * 다음 스티커까지 채워지는 별 3칸 (아이는 숫자보다 칸이 차는 걸 보고 안다).
+ * 모은 별 전체 수는 옆에 작게. 한 칸만 남으면 빈 칸이 두근거린다.
+ */
 export function StarJar({ stars }: { stars: number }) {
+  const filled = stars % STARS_PER_STICKER;
+  const almost = filled === STARS_PER_STICKER - 1;
   return (
     <motion.div
       key={stars}
@@ -69,10 +150,25 @@ export function StarJar({ stars }: { stars: number }) {
       animate={{ scale: [1, 1.25, 1], rotate: [0, -8, 8, 0] }}
       transition={{ duration: 0.5 }}
       id="star-jar"
-      className="flex h-14 items-center gap-1 rounded-2xl bg-white px-3 shadow-[0_5px_0_0_rgba(0,0,0,0.12)] sm:h-16 sm:px-4"
+      aria-label={`별 ${stars}개`}
+      className="flex h-14 items-center gap-0.5 rounded-2xl bg-white px-2 shadow-[0_5px_0_0_rgba(0,0,0,0.12)] sm:h-16 sm:gap-1.5 sm:px-4"
     >
-      <span className="emoji text-3xl sm:text-4xl">⭐</span>
-      <span className="min-w-[1.5ch] text-center text-3xl text-amber-500 sm:text-4xl">
+      {Array.from({ length: STARS_PER_STICKER }).map((_, i) => {
+        const on = i < filled;
+        const next = almost && i === filled;
+        return (
+          <motion.span
+            key={i}
+            className="emoji text-xl sm:text-3xl"
+            style={on ? undefined : { filter: "grayscale(1)", opacity: next ? 0.55 : 0.25 }}
+            animate={next ? { scale: [1, 1.25, 1] } : {}}
+            transition={next ? { duration: 0.9, repeat: Infinity } : undefined}
+          >
+            ⭐
+          </motion.span>
+        );
+      })}
+      <span className="ml-0.5 hidden min-w-[1.5ch] text-center text-xl text-amber-500 min-[400px]:inline sm:text-2xl">
         {stars}
       </span>
     </motion.div>
@@ -239,10 +335,20 @@ export function SlowBanner({ text }: { text: string }) {
 }
 
 /* ---------- 게임 화면 프레임 ---------- */
-export function GameFrame({ children }: { children: ReactNode }) {
+export function GameFrame({
+  children,
+  scene,
+  buddy = true,
+}: {
+  children: ReactNode;
+  scene?: Scene;
+  /** 왼쪽 아래에 같이 노는 친구를 보여 줄지 */
+  buddy?: boolean;
+}) {
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
-      <Background />
+      <Background scene={scene} />
+      {buddy ? <GameBuddy /> : null}
       {children}
     </div>
   );

@@ -5,9 +5,12 @@ import {
   DEFAULT_TAP_GAP,
   GAME_IDS,
   MAX_LEVELS,
+  SCENE_MAX,
+  SESSION_LIMITS,
   STARS_PER_STICKER,
   STICKERS,
   clampLevel,
+  isFollowGame,
   type CyclePace,
   type GameId,
 } from "../lib/data";
@@ -15,9 +18,40 @@ import { setSoundOn, setVoiceOn } from "../lib/audio";
 
 export type { GameId };
 
+/** 스티커 꾸미기 장면에 붙인 친구 (x, y 는 0~1) */
+export interface SceneSpot {
+  i: number;
+  x: number;
+  y: number;
+}
+
+/** 오늘 하루의 기록 (날짜가 바뀌면 새로 시작) */
+export interface DayLog {
+  day: string;
+  stars: number;
+  stickers: number[];
+}
+
+/** 별이 모여서 새로 열린 것: 새 스티커이거나, 이미 있는 스티커가 반짝이 스티커로 바뀐 것 */
+export interface Unlock {
+  index: number;
+  shiny: boolean;
+}
+
 export interface Progress {
   stars: number;
   stickers: number[]; // unlocked sticker indices
+  /** 스티커를 모두 모은 뒤: 앞에서부터 이만큼이 반짝이 스티커 */
+  shiny: number;
+  /** 놀이 화면에 같이 나오는 친구 (스티커 인덱스) */
+  buddy: number | null;
+  /** 스티커 꾸미기 장면 */
+  scene: SceneSpot[];
+  /** 마지막으로 논 날 (YYYY-MM-DD) */
+  lastDay: string;
+  today: DayLog;
+  /** 놀이 시간 알림(분). 0 이면 끔 */
+  sessionMin: number;
   levels: Record<GameId, number>;
   soundOn: boolean;
   voiceOn: boolean;
@@ -32,9 +66,27 @@ export interface Progress {
 
 const KEY = "sutja-nori-progress-v1";
 
+export function dayKey(d = new Date()): string {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function yesterdayKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return dayKey(d);
+}
+
 const DEFAULT: Progress = {
   stars: 0,
   stickers: [],
+  shiny: 0,
+  buddy: null,
+  scene: [],
+  lastDay: "",
+  today: { day: "", stars: 0, stickers: [] },
+  sessionMin: 0,
   levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1 },
   soundOn: true,
   voiceOn: true,
@@ -71,7 +123,51 @@ function load(): Progress {
         ? ((Math.round(parsed.cycleNext) % CYCLE_ORDER.length) + CYCLE_ORDER.length) %
           CYCLE_ORDER.length
         : 0;
-    return { ...DEFAULT, ...parsed, levels, cyclePace, cycleNext };
+    const isIdx = (v: unknown): v is number =>
+      typeof v === "number" && Number.isInteger(v) && v >= 0 && v < STICKERS.length;
+    const stickers = Array.isArray(parsed.stickers) ? parsed.stickers.filter(isIdx) : [];
+    const shiny =
+      typeof parsed.shiny === "number" ? Math.max(0, Math.min(stickers.length, parsed.shiny)) : 0;
+    const buddy =
+      isIdx(parsed.buddy) && stickers.includes(parsed.buddy)
+        ? parsed.buddy
+        : stickers.length > 0
+          ? stickers[stickers.length - 1]
+          : null;
+    const scene = Array.isArray(parsed.scene)
+      ? parsed.scene
+          .filter(
+            (s): s is SceneSpot =>
+              !!s &&
+              isIdx(s.i) &&
+              stickers.includes(s.i) &&
+              typeof s.x === "number" &&
+              typeof s.y === "number",
+          )
+          .slice(-SCENE_MAX)
+      : [];
+    const t = parsed.today;
+    const today: DayLog =
+      t && typeof t.day === "string" && typeof t.stars === "number" && Array.isArray(t.stickers)
+        ? { day: t.day, stars: t.stars, stickers: t.stickers.filter(isIdx) }
+        : DEFAULT.today;
+    const sessionMin = SESSION_LIMITS.includes(parsed.sessionMin as number)
+      ? (parsed.sessionMin as number)
+      : 0;
+    return {
+      ...DEFAULT,
+      ...parsed,
+      stickers,
+      shiny,
+      buddy,
+      scene,
+      lastDay: typeof parsed.lastDay === "string" ? parsed.lastDay : "",
+      today,
+      sessionMin,
+      levels,
+      cyclePace,
+      cycleNext,
+    };
   } catch {
     return DEFAULT;
   }
@@ -85,10 +181,56 @@ function save(p: Progress) {
   }
 }
 
+/** 앱을 연 순간의 방문 정보 (홈 인사말에 쓴다) */
+export interface Visit {
+  /** 전에 논 적이 있고, 그게 오늘이 아님 */
+  returning: boolean;
+  /** 마지막으로 논 날이 어제 */
+  yesterday: boolean;
+}
+
+/** 오늘 기록: 날짜가 바뀌었으면 새로 */
+function todayOf(p: Progress): DayLog {
+  const day = dayKey();
+  return p.today.day === day ? p.today : { day, stars: 0, stickers: [] };
+}
+
+/** 겹치지 않게 장면 안의 빈 자리를 고른다 */
+function freeSpot(taken: SceneSpot[]): { x: number; y: number } {
+  let best = { x: 0.5, y: 0.6 };
+  let bestD = -1;
+  for (let k = 0; k < 24; k++) {
+    const c = { x: 0.08 + Math.random() * 0.84, y: 0.34 + Math.random() * 0.46 };
+    // 오른쪽 아래는 "같이 세기" 버튼 자리
+    if (c.x > 0.6 && c.y > 0.62) continue;
+    const d = taken.reduce(
+      (m, s) => Math.min(m, Math.hypot((s.x - c.x) * 1.6, s.y - c.y)),
+      Infinity,
+    );
+    if (d > bestD) {
+      best = c;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 export function useProgress() {
-  const [progress, setProgress] = useState<Progress>(load);
+  const [progress, setProgress] = useState<Progress>(() => {
+    const p = load();
+    return { ...p, lastDay: dayKey(), today: todayOf(p) };
+  });
   const ref = useRef(progress);
   ref.current = progress;
+
+  // 불러온 순간의 마지막 방문일로 "다시 왔구나" 를 판단한다 (한 번만)
+  const [visit] = useState<Visit>(() => {
+    const last = load().lastDay;
+    return {
+      returning: last !== "" && last !== dayKey(),
+      yesterday: last === yesterdayKey(),
+    };
+  });
 
   // 연속 성공/실패 (세션 내 메모리)
   const streaks = useRef(freshStreaks());
@@ -99,30 +241,52 @@ export function useProgress() {
     setVoiceOn(progress.voiceOn);
   }, [progress]);
 
-  /** 별 1개 추가. 새 스티커가 열리면 그 인덱스를 반환 */
-  const addStar = useCallback((): number | null => {
+  /**
+   * 라운드 성공: 별 count 개 추가 (보너스면 2개).
+   * 별 3개마다 새 스티커가 열리고, 다 모았으면 앞에서부터 반짝이 스티커로 바뀐다.
+   */
+  const addStar = useCallback((count = 1): Unlock | null => {
     const cur = ref.current;
-    const nextStars = cur.stars + 1;
-    let unlocked: number | null = null;
-    if (
-      nextStars % STARS_PER_STICKER === 0 &&
-      cur.stickers.length < STICKERS.length
-    ) {
-      unlocked = cur.stickers.length;
+    let { stars, stickers, shiny, buddy } = cur;
+    const today = todayOf(cur);
+    let todayStickers = today.stickers;
+    let unlocked: Unlock | null = null;
+    for (let k = 0; k < count; k++) {
+      stars += 1;
+      if (stars % STARS_PER_STICKER !== 0 || unlocked) continue;
+      if (stickers.length < STICKERS.length) {
+        const index = stickers.length;
+        stickers = [...stickers, index];
+        buddy = index; // 새로 온 친구가 같이 놀아 준다
+        todayStickers = [...todayStickers, index];
+        unlocked = { index, shiny: false };
+      } else if (shiny < STICKERS.length) {
+        unlocked = { index: shiny, shiny: true };
+        shiny += 1;
+      }
     }
     const next: Progress = {
       ...cur,
-      stars: nextStars,
+      stars,
+      stickers,
+      shiny,
+      buddy,
       totalRounds: cur.totalRounds + 1,
-      stickers: unlocked !== null ? [...cur.stickers, unlocked] : cur.stickers,
+      lastDay: today.day,
+      today: { day: today.day, stars: today.stars + count, stickers: todayStickers },
     };
     ref.current = next;
     setProgress(next);
     return unlocked;
   }, []);
 
-  /** 적응형 난이도: 3연속 성공 → 레벨업, 2연속 실패 → 레벨다운 */
-  const reportResult = useCallback((game: GameId, ok: boolean) => {
+  /**
+   * 적응형 난이도: 3연속 성공 → 레벨업, 2연속 실패 → 레벨다운.
+   * 톡톡 세기·거품 팡팡은 다른 놀이의 최고 수를 따라가므로 여기서 바꾸지 않는다.
+   * 레벨이 올라갔으면 true.
+   */
+  const reportResult = useCallback((game: GameId, ok: boolean): boolean => {
+    if (isFollowGame(game)) return false;
     const s = streaks.current[game];
     const cur = ref.current;
     let level = cur.levels[game];
@@ -146,6 +310,32 @@ export function useProgress() {
       ref.current = next;
       setProgress(next);
     }
+    return level > cur.levels[game];
+  }, []);
+
+  /** 같이 놀 친구 고르기 */
+  const setBuddy = useCallback((i: number) => {
+    const cur = ref.current;
+    if (!cur.stickers.includes(i) || cur.buddy === i) return;
+    const next = { ...cur, buddy: i };
+    ref.current = next;
+    setProgress(next);
+  }, []);
+
+  /** 스티커를 장면에 붙인다. 이미 붙어 있으면 false (그 자리에서 폴짝 뛰게) */
+  const placeInScene = useCallback((i: number): boolean => {
+    const cur = ref.current;
+    if (!cur.stickers.includes(i) || cur.scene.some((s) => s.i === i)) return false;
+    // 가득 차면 가장 먼저 붙인 친구가 자리를 비켜 준다
+    const kept = cur.scene.length >= SCENE_MAX ? cur.scene.slice(1) : cur.scene;
+    const next = { ...cur, scene: [...kept, { i, ...freeSpot(kept) }] };
+    ref.current = next;
+    setProgress(next);
+    return true;
+  }, []);
+
+  const setSessionMin = useCallback((m: number) => {
+    setProgress((p) => ({ ...p, sessionMin: m }));
   }, []);
 
   const toggleSound = useCallback(() => {
@@ -184,6 +374,9 @@ export function useProgress() {
       voiceOn: ref.current.voiceOn,
       tapGap: ref.current.tapGap,
       cyclePace: ref.current.cyclePace,
+      sessionMin: ref.current.sessionMin,
+      lastDay: dayKey(),
+      today: { day: dayKey(), stars: 0, stickers: [] },
     };
     ref.current = next;
     setProgress(next);
@@ -192,8 +385,12 @@ export function useProgress() {
 
   return {
     progress,
+    visit,
     addStar,
     reportResult,
+    setBuddy,
+    placeInScene,
+    setSessionMin,
     toggleSound,
     toggleVoice,
     setTapGap,

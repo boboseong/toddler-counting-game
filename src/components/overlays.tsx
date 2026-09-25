@@ -7,9 +7,13 @@ import {
   CYCLE_RULES,
   GAME_IDS,
   GAME_META,
+  ALBUMS,
   GAME_NAMES,
   MAX_LEVELS,
+  SESSION_LIMITS,
   STICKERS,
+  albumOf,
+  isFollowGame,
   TAP_GAP_OPTIONS,
   levelLabel,
   randomInt,
@@ -18,27 +22,41 @@ import {
   type GameId,
 } from "../lib/data";
 import { playDing, playSoft, speak } from "../lib/audio";
+import type { Unlock } from "../hooks/useProgress";
+import { StickerFace } from "./buddy";
 
 /** 새 스티커 화면은 이 시간 동안은 눌러도 닫히지 않는다 (막 눌러서 지나쳐 버리지 않게) */
 const REVEAL_MIN_MS = 2000;
 
 /* ---------- 새 스티커 획득 ---------- */
 export function StickerReveal({
-  index,
+  unlock,
   onClose,
 }: {
-  index: number | null;
+  unlock: Unlock | null;
   onClose: () => void;
 }) {
   const openedAt = useRef(0);
+  const index = unlock?.index ?? null;
+  const shiny = unlock?.shiny ?? false;
+  // 새 스티커북의 첫 장이면 "새 스티커북" 이라고 알려 준다
+  const newAlbum = index !== null && !shiny && index > 0 && ALBUMS.some((a) => a.start === index);
+  const album = index !== null ? ALBUMS[albumOf(index)] : null;
+  const title = shiny ? "반짝반짝 스티커!" : newAlbum ? "새 스티커북이 열렸어요!" : "새 친구가 왔어요!";
 
   useEffect(() => {
     if (index === null) return;
     openedAt.current = performance.now();
-    speak(`와! 새 친구가 왔어요! ${STICKERS[index].name}!`, { pitch: 1.3 });
-    const t = window.setTimeout(onClose, 6000);
+    const name = STICKERS[index].name;
+    const say = shiny
+      ? `우와! ${name} 스티커가 반짝반짝해졌어요!`
+      : newAlbum
+        ? `와! 새 스티커북이 열렸어요! ${album?.title}! 첫 번째 친구는 ${name}!`
+        : `와! 새 친구가 왔어요! ${name}!`;
+    speak(say, { pitch: 1.3 });
+    const t = window.setTimeout(onClose, 6500);
     return () => window.clearTimeout(t);
-  }, [index, onClose]);
+  }, [index, shiny, newAlbum, album, onClose]);
 
   const tryClose = () => {
     if (performance.now() - openedAt.current < REVEAL_MIN_MS) return;
@@ -69,19 +87,30 @@ export function StickerReveal({
             initial={{ scale: 0.2, rotate: -20, y: 80 }}
             animate={{ scale: 1, rotate: 0, y: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 14 }}
-            className="relative flex flex-col items-center gap-3 rounded-[3rem] border-8 border-yellow-300 bg-white px-10 py-8 text-center shadow-2xl"
+            className={`relative flex flex-col items-center gap-3 rounded-[3rem] border-8 px-10 py-8 text-center shadow-2xl short:gap-1 short:py-4 ${
+              shiny ? "border-amber-400 bg-gradient-to-b from-yellow-50 to-amber-100" : "border-yellow-300 bg-white"
+            }`}
           >
-            <div className="text-3xl text-violet-500 sm:text-4xl">새 친구가 왔어요!</div>
+            <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
+            {newAlbum && album ? (
+              <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
+                <span className="emoji">{album.emoji}</span> {album.title}
+              </div>
+            ) : null}
             <motion.div
-              className="emoji text-[clamp(6rem,30vw,12rem)] drop-shadow-xl"
+              className="drop-shadow-xl"
               animate={{ y: [0, -18, 0], rotate: [0, -8, 8, 0] }}
               transition={{ duration: 1.2, repeat: Infinity }}
             >
-              {STICKERS[index].emoji}
+              <StickerFace
+                index={index}
+                shiny={shiny}
+                className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
+              />
             </motion.div>
-            <div className="text-5xl text-slate-700 sm:text-6xl">{STICKERS[index].name}</div>
+            <div className="text-5xl text-slate-700 sm:text-6xl short:text-4xl">{STICKERS[index].name}</div>
             <motion.div
-              className="mt-2 text-lg text-slate-400"
+              className="mt-2 text-lg text-slate-400 short:mt-0"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: REVEAL_MIN_MS / 1000 }}
@@ -98,6 +127,8 @@ export function StickerReveal({
 /* ---------- 날아가는 별 ---------- */
 export interface FlyingStarItem {
   id: number;
+  /** 보너스 별은 금빛으로, 조금 늦게 */
+  gold?: boolean;
 }
 
 export function FlyingStars({
@@ -128,7 +159,11 @@ export function FlyingStars({
         <motion.div
           key={it.id}
           className="emoji absolute text-6xl"
-          style={{ left: cx - 30, top: cy - 30 }}
+          style={{
+            left: cx - 30 + (it.gold ? 50 : 0),
+            top: cy - 30,
+            filter: it.gold ? "drop-shadow(0 0 10px #f59e0b)" : undefined,
+          }}
           initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
           animate={{
             x: [0, 0, target.x - cx],
@@ -137,11 +172,146 @@ export function FlyingStars({
             opacity: [1, 1, 0.9],
             rotate: [0, 20, 360],
           }}
-          transition={{ duration: 1.4, times: [0, 0.35, 1], ease: "easeInOut" }}
+          transition={{
+            duration: 1.4,
+            times: [0, 0.35, 1],
+            ease: "easeInOut",
+            delay: it.gold ? 0.35 : 0,
+          }}
           onAnimationComplete={() => onDone(it.id)}
         >
-          ⭐
+          {it.gold ? "🌟" : "⭐"}
         </motion.div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- 풍선이 둥실둥실 (축하 연출 중 하나) ---------- */
+const BALLOONS = ["🎈", "🎈", "🎈", "🎀", "🎈", "🪁", "🎈", "🎈", "🎈", "🎈"];
+
+export function BalloonRise({ burst }: { burst: number }) {
+  const [shown, setShown] = useState(0);
+  // 같은 burst 번호로 다시 그리면 풍선 위치가 바뀌지 않게 한 번만 만든다
+  const items = useMemo(
+    () =>
+      BALLOONS.map((e, i) => ({
+        e,
+        x: 4 + ((i * 97) % 90),
+        delay: (i % 5) * 0.12 + Math.random() * 0.2,
+        dur: 2.2 + Math.random() * 0.8,
+        hue: randomInt(0, 360),
+      })),
+    [burst], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  useEffect(() => {
+    if (burst === 0) return;
+    setShown(burst);
+    const t = window.setTimeout(() => setShown(0), 3400);
+    return () => window.clearTimeout(t);
+  }, [burst]);
+
+  if (shown === 0) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[55] overflow-hidden">
+      {items.map((b, i) => (
+        <motion.span
+          key={`${shown}-${i}`}
+          className="emoji absolute bottom-0 text-6xl sm:text-7xl"
+          style={{ left: `${b.x}%`, filter: `hue-rotate(${b.hue}deg)` }}
+          initial={{ y: "20vh", x: 0, rotate: 0 }}
+          animate={{ y: "-115vh", x: [0, 18, -14, 10], rotate: [0, 8, -8, 0] }}
+          transition={{ duration: b.dur, delay: b.delay, ease: "easeIn" }}
+        >
+          {b.e}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- 보너스 별 ---------- */
+export function BonusBadge({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.div
+          initial={{ opacity: 0, y: -30, scale: 0.5 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.6 }}
+          transition={{ type: "spring", stiffness: 320, damping: 16 }}
+          className="pointer-events-none fixed inset-x-0 top-[16%] z-[56] flex justify-center short:top-[12%]"
+        >
+          <div className="flex items-center gap-2 rounded-full border-4 border-white bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-2 text-3xl text-white shadow-xl sm:text-4xl short:text-2xl">
+            <motion.span
+              className="emoji"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+            >
+              🌟
+            </motion.span>
+            <span style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}>보너스 별!</span>
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/* ---------- 더 큰 숫자 도전! (레벨업) ---------- */
+export function LevelUpBadge({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.6 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -30 }}
+          transition={{ type: "spring", stiffness: 300, damping: 16 }}
+          className="pointer-events-none fixed inset-x-0 bottom-[18%] z-[56] flex justify-center"
+        >
+          <div className="flex items-center gap-2 rounded-full border-4 border-white bg-gradient-to-r from-sky-400 to-violet-400 px-6 py-2 text-2xl text-white shadow-xl sm:text-3xl short:text-xl">
+            <motion.span
+              className="emoji"
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity }}
+            >
+              🚀
+            </motion.span>
+            <span style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}>우와, 더 큰 숫자 도전!</span>
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/* ---------- 빈 곳을 톡 누르면 반짝 ---------- */
+export interface Sparkle {
+  id: number;
+  x: number;
+  y: number;
+  e: string;
+}
+
+export const SPARKLE_EMOJI = ["✨", "⭐", "🌸", "💫", "🌼", "💖", "🫧", "🍀"];
+
+export function TapSparkles({ items, onDone }: { items: Sparkle[]; onDone: (id: number) => void }) {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[65]">
+      {items.map((s) => (
+        <motion.span
+          key={s.id}
+          className="emoji absolute -translate-x-1/2 -translate-y-1/2 text-4xl"
+          style={{ left: s.x, top: s.y }}
+          initial={{ scale: 0.2, opacity: 1, rotate: -30 }}
+          animate={{ scale: [0.2, 1.4, 1], opacity: [1, 1, 0], y: -50, rotate: 20 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          onAnimationComplete={() => onDone(s.id)}
+        >
+          {s.e}
+        </motion.span>
       ))}
     </div>
   );
@@ -157,6 +327,8 @@ export function ParentSettings({
   totalRounds,
   tapGap,
   cyclePace,
+  sessionMin,
+  onSetSessionMin,
   onToggleSound,
   onToggleVoice,
   onSetLevel,
@@ -173,6 +345,8 @@ export function ParentSettings({
   totalRounds: number;
   tapGap: number;
   cyclePace: CyclePace;
+  sessionMin: number;
+  onSetSessionMin: (m: number) => void;
   onToggleSound: () => void;
   onToggleVoice: () => void;
   onSetLevel: (game: GameId, level: number) => void;
@@ -188,6 +362,7 @@ export function ParentSettings({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          data-no-sparkle
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4"
         >
           <motion.div
@@ -238,18 +413,29 @@ export function ParentSettings({
                 <div className="mb-3 text-sm text-slate-500">
                   3번 연속 잘하면 한 단계 올라가고, 2번 연속 어려워하면 내려가요. 놀이마다 따로
                   맞출 수 있어요. "몇 개일까?"는 다른 놀이보다 어려워서 단계를 잘게 나눴어요.
+                  톡톡 세기·거품 팡팡은 문제를 푸는 단계가 없어서, 나머지 세 놀이에서 지금 나오는
+                  가장 큰 수까지 세요.
                 </div>
                 <div className="space-y-2">
-                  {GAME_IDS.map((g) => (
-                    <LevelRow
-                      key={g}
-                      name={GAME_NAMES[g]}
-                      level={levels[g]}
-                      max={MAX_LEVELS[g]}
-                      label={levelLabel(g, levels[g])}
-                      onChange={(l) => onSetLevel(g, l)}
-                    />
-                  ))}
+                  {GAME_IDS.map((g) =>
+                    isFollowGame(g) ? (
+                      <div key={g} className="rounded-xl bg-white px-3 py-2">
+                        <div className="text-base text-slate-700">{GAME_NAMES[g]}</div>
+                        <div className="text-sm text-slate-500">
+                          {levelLabel(g, levels)} · 다른 놀이의 가장 큰 수에 맞춰요
+                        </div>
+                      </div>
+                    ) : (
+                      <LevelRow
+                        key={g}
+                        name={GAME_NAMES[g]}
+                        level={levels[g]}
+                        max={MAX_LEVELS[g]}
+                        label={levelLabel(g, levels)}
+                        onChange={(l) => onSetLevel(g, l)}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
 
@@ -282,6 +468,29 @@ export function ParentSettings({
                 </div>
               </div>
 
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="mb-2 text-lg">⏰ 놀이 시간 알림</div>
+                <div className="mb-2 text-sm text-slate-500">
+                  이만큼 놀면 다음 성공 직후에 병아리가 "오늘은 여기까지! 내일 또 만나" 하고 오늘 모은
+                  별과 친구를 보여 줘요. 신나게 끝내야 다음에 또 찾아와요.
+                </div>
+                <div className="flex gap-2">
+                  {SESSION_LIMITS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => onSetSessionMin(m)}
+                      className={`flex-1 rounded-xl border-2 py-2 text-lg ${
+                        sessionMin === m
+                          ? "border-violet-400 bg-violet-100"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      {m === 0 ? "끄기" : `${m}분`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
                 <div className="mb-1 text-lg text-slate-700">📊 기록</div>
                 <div>
@@ -301,6 +510,8 @@ export function ParentSettings({
                   <li>수가 많아지면 5개씩 줄을 맞춰 보여 줘요. "다섯, 그리고 하나 더" 하고 묶어서 세는 연습이 돼요.</li>
                   <li>숫자 찾기는 "보고 찾기 → 듣고 찾기 → 개수를 세어서 찾기" 순서로 어려워져요. 숫자 이름은 "오"처럼 읽어 줘요.</li>
                   <li>뭘 할지 고르기 어려울 땐 🎠 빙글빙글을 눌러 보세요. 다섯 놀이가 차례로 바뀌고, 다음에 열면 지난번 다음 놀이부터 이어져요.</li>
+                  <li>스티커북에서 스티커를 누르면 위쪽 장면에 붙고, 그 친구가 놀이 화면에 같이 나와요. 모은 동물 친구는 먹이 주기에 손님으로도 와요.</li>
+                  <li>스티커 72개(동물·탈것·숲속 스티커북)를 다 모으면 별 3개마다 스티커가 하나씩 반짝이 스티커로 바뀌어요.</li>
                   <li>음성이 안 나오면 기기의 한국어 음성(TTS)을 설치해 주세요.</li>
                 </ul>
               </div>
@@ -492,6 +703,7 @@ export function ParentGate({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onPointerDown={onClose}
+          data-no-sparkle
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4"
         >
           <motion.div

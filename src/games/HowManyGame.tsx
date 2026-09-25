@@ -218,7 +218,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   const showChoices = (phase === "play" && !guard.locked) || phase === "done";
 
   return (
-    <GameFrame>
+    <GameFrame scene="picnic">
       <TopBar onHome={onHome} stars={stars} title="몇 개일까?" emoji="🔢" />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">

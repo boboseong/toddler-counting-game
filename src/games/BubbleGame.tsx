@@ -4,7 +4,7 @@ import { playBubble, playSoft, speak, speakDuration } from "../lib/audio";
 import {
   COUNT_WORDS,
   NUM_COLORS,
-  bubbleTarget,
+  bubbleTargetFor,
   mashLimitFor,
   randomInt,
   randomPraise,
@@ -33,12 +33,14 @@ interface PopFx {
 
 type Phase = "play" | "done" | "slow";
 
-const INNER = ["🐟", "⭐", "🐥", "🦋", "🌸", "🐙", "🍓", "🐢", ""];
+const INNER = [
+  "🐟", "⭐", "🐥", "🦋", "🌸", "🐙", "🍓", "🐢", "🐠", "🦀", "🐬", "🍭", "🎈", "🌈", "🐳", "🦄", "",
+];
 
-export default function BubbleGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
+export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after } = useTimers();
   const guard = useRoundGuard(tapGap);
-  const target = bubbleTarget(level);
+  const target = bubbleTargetFor(countMax);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [pops, setPops] = useState<PopFx[]>([]);
   const [n, setN] = useState(0);
@@ -136,7 +138,7 @@ export default function BubbleGame({ level, stars, tapGap, onHome, onWin, onResu
   const locked = guard.locked;
 
   return (
-    <GameFrame>
+    <GameFrame scene="sea">
       {/* 물 속 느낌 배경 오버레이 */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-cyan-100/40 to-sky-300/50" />
 

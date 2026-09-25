@@ -4,6 +4,7 @@ import { playChomp, playDing, playPop, playSoft, speak, speakDuration } from "..
 import {
   ANIMALS,
   COUNT_WORDS,
+  STICKERS,
   NUM_COLORS,
   counterPhrase,
   feedLevel,
@@ -12,6 +13,7 @@ import {
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
+  subj,
   type Animal,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
@@ -34,6 +36,21 @@ interface Round {
   trayCount: number;
   /** 최고 레벨: 딱 맞게 준 다음 "다 줬어요" 를 눌러야 끝난다 */
   needConfirm: boolean;
+  /** 스티커로 모은 친구가 손님으로 왔다 */
+  guest: boolean;
+}
+
+/** 모은 스티커 친구가 손님으로 올 확률 */
+const GUEST_CHANCE = 0.4;
+
+/** 먹이를 먹는 스티커 친구들 */
+function guestsFrom(friends: number[]): Animal[] {
+  const out: Animal[] = [];
+  for (const i of friends) {
+    const s = STICKERS[i];
+    if (s?.food) out.push({ emoji: s.emoji, name: s.name, food: s.food });
+  }
+  return out;
 }
 
 type Phase = "play" | "done" | "slow";
@@ -90,16 +107,22 @@ function slotSizes(count: number) {
   };
 }
 
-export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
+export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
   const prev = useRef<{ animal?: Animal; count?: number }>({});
   const levelRef = useRef(level);
   levelRef.current = level;
+  const friendsRef = useRef(friends);
+  friendsRef.current = friends;
 
   const newRound = (id: number): Round => {
     const lv = feedLevel(levelRef.current);
-    const animal = pick(ANIMALS, prev.current.animal);
+    const guests = guestsFrom(friendsRef.current).filter((g) => g.name !== prev.current.animal?.name);
+    const guest = guests.length > 0 && Math.random() < GUEST_CHANCE;
+    const animal = guest
+      ? pick(guests)
+      : pick(ANIMALS.filter((a) => a.name !== prev.current.animal?.name));
     const count = randomIntExcept(lv.min, lv.max, prev.current.count);
     prev.current = { animal, count };
     return {
@@ -108,6 +131,7 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
       count,
       trayCount: count + 2,
       needConfirm: lv.confirm,
+      guest,
     };
   };
 
@@ -135,7 +159,8 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
   const isFull = fed >= count;
 
   useEffect(() => {
-    const intro = `${food.name} ${counterPhrase(count, food.counter)} 주세요!`;
+    const ask = `${food.name} ${counterPhrase(count, food.counter)} 주세요!`;
+    const intro = round.guest ? `${subj(animal.name)} 놀러 왔어! ${ask}` : ask;
     guard.lock(400 + speakDuration(intro));
     after(400, () => speak(intro, { interrupt: false, pitch: 1.3 }));
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -246,7 +271,7 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
   const slot = slotSizes(count);
 
   return (
-    <GameFrame>
+    <GameFrame scene="farm">
       <TopBar onHome={onHome} stars={stars} title="냠냠 먹이 주기" emoji="🍽️" />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">
@@ -273,6 +298,11 @@ export default function FeedGame({ level, stars, tapGap, onHome, onWin, onResult
             <span className="emoji text-[clamp(4rem,min(22vw,18vh),10rem)] drop-shadow-lg">
               {animal.emoji}
             </span>
+            {round.guest ? (
+              <span className="absolute -left-3 -top-3 whitespace-nowrap rounded-full border-2 border-white bg-violet-400 px-2 py-0.5 text-sm text-white shadow sm:text-base">
+                📒 내 친구
+              </span>
+            ) : null}
             <AnimatePresence>
               {yum > 0 && phase === "play" && !tooFull ? (
                 <motion.span

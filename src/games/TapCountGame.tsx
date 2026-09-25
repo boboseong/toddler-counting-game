@@ -11,7 +11,7 @@ import {
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
-  tapLevel,
+  tapRange,
   type CountItem,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
@@ -62,16 +62,16 @@ function sizesFor(count: number) {
   };
 }
 
-export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onResult }: GameProps) {
+export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
   const prev = useRef<{ item?: CountItem; count?: number }>({});
-  const levelRef = useRef(level);
-  levelRef.current = level;
+  const maxRef = useRef(countMax);
+  maxRef.current = countMax;
 
   const newRound = (id: number): Round => {
     const item = pick(ITEMS, prev.current.item);
-    const { min, max } = tapLevel(levelRef.current);
+    const { min, max } = tapRange(maxRef.current);
     const count = randomIntExcept(min, max, prev.current.count);
     prev.current = { item, count };
     return { id, item, count };
@@ -176,7 +176,7 @@ export default function TapCountGame({ level, stars, tapGap, onHome, onWin, onRe
   const sz = sizesFor(count);
 
   return (
-    <GameFrame>
+    <GameFrame scene="orchard">
       <TopBar onHome={onHome} stars={stars} title="톡톡 세기" emoji="👆" />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">

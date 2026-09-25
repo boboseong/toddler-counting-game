@@ -1,33 +1,61 @@
 import confetti from "canvas-confetti";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { playFanfare, playWhoosh, speak, stopSpeaking, unlockAudio } from "./lib/audio";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type PointerEvent,
+} from "react";
+import {
+  playBonus,
+  playFanfare,
+  playLevelUp,
+  playTwinkle,
+  playWhoosh,
+  speak,
+  stopSpeaking,
+  unlockAudio,
+} from "./lib/audio";
+import {
+  BONUS_CHANCE,
   CYCLE_ORDER,
   CYCLE_PACES,
   CYCLE_RULES,
   cycleNextOf,
   cyclePhrase,
   cycleShouldSwitch,
+  pick,
+  problemMax,
   type CycleReason,
   type GameId,
 } from "./lib/data";
-import { useProgress } from "./hooks/useProgress";
+import { useProgress, type Unlock } from "./hooks/useProgress";
 import Home from "./screens/Home";
 import StickerBook from "./screens/StickerBook";
+import Goodbye from "./screens/Goodbye";
 import TapCountGame from "./games/TapCountGame";
 import HowManyGame from "./games/HowManyGame";
 import FeedGame from "./games/FeedGame";
 import BubbleGame from "./games/BubbleGame";
 import FindGame from "./games/FindGame";
 import {
+  BalloonRise,
+  BonusBadge,
   FlyingStars,
+  LevelUpBadge,
   ParentGate,
   ParentSettings,
+  SPARKLE_EMOJI,
   StickerReveal,
+  TapSparkles,
   type FlyingStarItem,
+  type Sparkle,
 } from "./components/overlays";
 import { CycleBar, CycleTransition } from "./components/cycle";
+import { BuddyContext, type BuddyInfo } from "./components/buddy";
 import type { GameProps, Screen } from "./types";
 
 const GAMES: Record<GameId, ComponentType<GameProps>> = {
@@ -47,18 +75,108 @@ interface CycleTransitionState {
   reason: CycleReason;
 }
 
+/** 라운드 성공 축하 연출. 매번 같지 않게 돌아가며 쓴다 */
+type Celebration = "confetti" | "balloons" | "stars" | "hearts";
+const CELEBRATIONS: Celebration[] = ["confetti", "balloons", "stars", "hearts"];
+const PARTY_COLORS = ["#F87171", "#FBBF24", "#4ADE80", "#60A5FA", "#A78BFA", "#F472B6"];
+
+function fire(opts: confetti.Options) {
+  try {
+    void confetti({ zIndex: 55, ...opts });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 컨페티 모양 이모지 (지원하지 않는 브라우저면 null) */
+function emojiShape(text: string): confetti.Shape | null {
+  try {
+    return confetti.shapeFromText({ text, scalar: 2.4 });
+  } catch {
+    return null;
+  }
+}
+
+function celebrate(kind: Celebration, bonus: boolean) {
+  switch (kind) {
+    case "confetti":
+      fire({ particleCount: 130, spread: 100, startVelocity: 40, origin: { y: 0.6 }, colors: PARTY_COLORS });
+      window.setTimeout(() => {
+        fire({ particleCount: 60, angle: 60, spread: 70, origin: { x: 0, y: 0.7 } });
+        fire({ particleCount: 60, angle: 120, spread: 70, origin: { x: 1, y: 0.7 } });
+      }, 250);
+      break;
+    case "balloons":
+      // 풍선은 BalloonRise 가 그린다. 아래에서 작은 꽃가루만
+      fire({ particleCount: 50, spread: 120, startVelocity: 30, origin: { y: 0.95 }, colors: PARTY_COLORS });
+      break;
+    case "stars":
+      // 하늘에서 별이 쏟아진다
+      [0.2, 0.5, 0.8].forEach((x, i) =>
+        window.setTimeout(
+          () =>
+            fire({
+              particleCount: 45,
+              angle: 270,
+              spread: 100,
+              startVelocity: 12,
+              gravity: 0.7,
+              ticks: 260,
+              origin: { x, y: -0.05 },
+              shapes: ["star"],
+              colors: ["#FDE68A", "#FBBF24", "#FCD34D", "#ffffff"],
+              scalar: 1.4,
+            }),
+          i * 180,
+        ),
+      );
+      break;
+    case "hearts": {
+      const heart = emojiShape("💖");
+      fire({
+        particleCount: 40,
+        spread: 110,
+        startVelocity: 38,
+        origin: { y: 0.65 },
+        ...(heart ? { shapes: [heart], scalar: 2.4 } : { colors: ["#F472B6", "#FB7185", "#F9A8D4"] }),
+      });
+      break;
+    }
+  }
+  if (bonus) {
+    // 보너스 별: 양쪽에서 금빛 불꽃
+    window.setTimeout(() => {
+      fire({ particleCount: 90, angle: 60, spread: 80, startVelocity: 55, origin: { x: 0, y: 0.8 }, shapes: ["star"], colors: ["#FBBF24", "#FDE68A", "#F59E0B"] });
+      fire({ particleCount: 90, angle: 120, spread: 80, startVelocity: 55, origin: { x: 1, y: 0.8 }, shapes: ["star"], colors: ["#FBBF24", "#FDE68A", "#F59E0B"] });
+    }, 450);
+  }
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [gateOpen, setGateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reveal, setReveal] = useState<number | null>(null);
+  const [reveal, setReveal] = useState<Unlock | null>(null);
   const [flying, setFlying] = useState<FlyingStarItem[]>([]);
   const flyId = useRef(0);
+  const [balloons, setBalloons] = useState(0);
+  const [bonusShown, setBonusShown] = useState(false);
+  const [levelUpShown, setLevelUpShown] = useState(false);
+  const [cheer, setCheer] = useState(0);
+  const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const sparkleId = useRef(0);
+  const lastSparkle = useRef(0);
+  const lastCelebration = useRef<Celebration>("confetti");
+  const winsThisVisit = useRef(0);
 
   const {
     progress,
+    visit,
     addStar,
     reportResult,
+    setBuddy,
+    placeInScene,
+    setSessionMin,
     toggleSound,
     toggleVoice,
     setTapGap,
@@ -82,7 +200,7 @@ export default function App() {
   screenRef.current = screen;
   const transitionRef = useRef<CycleTransitionState | null>(null);
   transitionRef.current = transition;
-  const revealRef = useRef<number | null>(null);
+  const revealRef = useRef<Unlock | null>(null);
   revealRef.current = reveal;
   const paceRef = useRef(progress.cyclePace);
   paceRef.current = progress.cyclePace;
@@ -93,6 +211,16 @@ export default function App() {
   /** 스티커 화면이 떠 있어서 미뤄 둔 전환 */
   const pendingSwitch = useRef<CycleTransitionState | null>(null);
   const cycleTimers = useRef<number[]>([]);
+
+  /* ---------- 놀이 시간 알림 ---------- */
+  /** 놀이 화면에 있던 시간(ms). 화면이 꺼져 있던 시간은 빼고 센다 */
+  const playMs = useRef(0);
+  /** 정해진 시간이 지나서, 다음 성공 직후에 "오늘은 여기까지" 를 보여 줄 차례 */
+  const byeDue = useRef(false);
+  /** 스티커 화면이 떠 있어서 미뤄 둔 "오늘은 여기까지" */
+  const pendingBye = useRef(false);
+  const sessionMinRef = useRef(progress.sessionMin);
+  sessionMinRef.current = progress.sessionMin;
 
   const clearCycleTimers = useCallback(() => {
     cycleTimers.current.forEach((t) => window.clearTimeout(t));
@@ -130,6 +258,10 @@ export default function App() {
   const requestSwitch = useCallback(
     (reason: CycleReason) => {
       if (!cycleRef.current) return;
+      if (byeDue.current) {
+        showByeRef.current();
+        return;
+      }
       const cur = screenRef.current;
       if (!isGame(cur)) return;
       const next: CycleTransitionState = { game: cycleNextOf(cur), reason };
@@ -187,6 +319,23 @@ export default function App() {
 
   useEffect(() => clearCycleTimers, [clearCycleTimers]);
 
+  // 놀이 시간 재기 (놀이 화면에 있고, 화면이 켜져 있을 때만)
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      if (document.hidden || !isGame(screenRef.current) || transitionRef.current) return;
+      playMs.current += 1000;
+      const limit = sessionMinRef.current * 60_000;
+      if (limit > 0 && playMs.current >= limit) byeDue.current = true;
+    }, 1000);
+    return () => window.clearInterval(iv);
+  }, []);
+
+  // 알림을 끄거나 시간을 바꾸면 다시 판단한다
+  useEffect(() => {
+    const limit = progress.sessionMin * 60_000;
+    byeDue.current = limit > 0 && playMs.current >= limit;
+  }, [progress.sessionMin]);
+
   /* ---------- 화면 이동 ---------- */
   const goHome = useCallback(() => {
     stopSpeaking();
@@ -200,85 +349,102 @@ export default function App() {
     setScreen(s);
   }, []);
 
-  /** 라운드 성공 → 팡파레 + 컨페티 + 별 + (스티커) + (빙글빙글이면 다음 놀이 판단) */
+  /** "오늘은 여기까지! 내일 또 만나" */
+  const showBye = useCallback(() => {
+    if (revealRef.current !== null) {
+      pendingBye.current = true;
+      return;
+    }
+    pendingBye.current = false;
+    byeDue.current = false;
+    playMs.current = 0;
+    stopSpeaking();
+    stopCycle();
+    setScreen("bye");
+  }, [stopCycle]);
+  const showByeRef = useRef(showBye);
+  showByeRef.current = showBye;
+
+  /**
+   * 라운드 성공 → 팡파레 + 축하 연출(돌아가며) + 별 + (가끔 보너스 별) + (스티커)
+   * + (놀이 시간이 다 됐으면 "오늘은 여기까지") + (빙글빙글이면 다음 놀이 판단)
+   */
   const handleWin = useCallback(() => {
     playFanfare();
-    try {
-      confetti({
-        particleCount: 130,
-        spread: 100,
-        startVelocity: 40,
-        origin: { y: 0.6 },
-        zIndex: 55,
-        colors: ["#F87171", "#FBBF24", "#4ADE80", "#60A5FA", "#A78BFA", "#F472B6"],
-      });
-      window.setTimeout(
-        () =>
-          confetti({
-            particleCount: 60,
-            angle: 60,
-            spread: 70,
-            origin: { x: 0, y: 0.7 },
-            zIndex: 55,
-          }),
-        250,
-      );
-      window.setTimeout(
-        () =>
-          confetti({
-            particleCount: 60,
-            angle: 120,
-            spread: 70,
-            origin: { x: 1, y: 0.7 },
-            zIndex: 55,
-          }),
-        250,
-      );
-    } catch {
-      /* ignore */
-    }
+    winsThisVisit.current += 1;
+    const bonus = winsThisVisit.current > 1 && Math.random() < BONUS_CHANCE;
+    const kind = pick(CELEBRATIONS, lastCelebration.current);
+    lastCelebration.current = kind;
+    celebrate(kind, bonus);
+    if (kind === "balloons") setBalloons((b) => b + 1);
+    setCheer((c) => c + 1);
+
     const id = ++flyId.current;
-    setFlying((f) => [...f, { id }]);
-    const unlocked = addStar();
+    const items: FlyingStarItem[] = [{ id }];
+    if (bonus) {
+      items.push({ id: ++flyId.current, gold: true });
+      playBonus();
+      setBonusShown(true);
+      window.setTimeout(() => setBonusShown(false), 2200);
+    }
+    setFlying((f) => [...f, ...items]);
+    const unlocked = addStar(bonus ? 2 : 1);
     if (unlocked !== null) {
       window.setTimeout(() => {
         setReveal(unlocked);
-        try {
-          confetti({
-            particleCount: 200,
-            spread: 160,
-            startVelocity: 55,
-            origin: { y: 0.5 },
-            zIndex: 65,
-            shapes: ["star", "circle"],
-            colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
-          });
-        } catch {
-          /* ignore */
-        }
+        fire({
+          particleCount: 200,
+          spread: 160,
+          startVelocity: 55,
+          origin: { y: 0.5 },
+          zIndex: 65,
+          shapes: ["star", "circle"],
+          colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
+        });
       }, 1700);
     }
 
+    if (byeDue.current) {
+      // 축하가 끝날 즈음, 다음 라운드가 시작되기 전에
+      clearCycleTimers();
+      later(CYCLE_RULES.afterWinMs, () => showByeRef.current());
+      return;
+    }
+
     if (cycleRef.current) {
-      const s = stats.current;
-      s.wins += 1;
-      setCycleWins(s.wins);
+      const st = stats.current;
+      st.wins += 1;
+      setCycleWins(st.wins);
       const snapshot = {
-        wins: s.wins,
-        misses: s.misses,
-        elapsedMs: performance.now() - s.startedAt,
+        wins: st.wins,
+        misses: st.misses,
+        elapsedMs: performance.now() - st.startedAt,
       };
       if (cycleShouldSwitch(snapshot, paceRef.current)) {
         // 축하가 끝날 즈음, 다음 라운드가 시작되기 전에 넘어간다
         later(CYCLE_RULES.afterWinMs, () => requestSwitch("next"));
       }
     }
-  }, [addStar, later, requestSwitch]);
+  }, [addStar, clearCycleTimers, later, requestSwitch]);
+
+  const levelUpTimers = useRef<number[]>([]);
+  useEffect(() => () => levelUpTimers.current.forEach((t) => window.clearTimeout(t)), []);
 
   const handleResult = useCallback(
     (game: GameId, ok: boolean) => {
-      reportResult(game, ok);
+      const up = reportResult(game, ok);
       if (cycleRef.current && !ok) stats.current.misses += 1;
+      if (up) {
+        // 축하 말이 먼저 나오고, 그 뒤에 "더 큰 숫자 도전!"
+        levelUpTimers.current.push(
+          window.setTimeout(() => {
+            playLevelUp();
+            setLevelUpShown(true);
+            speak("우와, 더 큰 숫자에 도전!", { interrupt: false, pitch: 1.25 });
+          }, 1300),
+          window.setTimeout(() => setLevelUpShown(false), 3600),
+        );
+      }
     },
     [reportResult],
   );
@@ -286,6 +452,10 @@ export default function App() {
   const closeReveal = useCallback(() => {
     setReveal(null);
     revealRef.current = null;
+    if (pendingBye.current) {
+      showByeRef.current();
+      return;
+    }
     const p = pendingSwitch.current;
     if (p && cycleRef.current) {
       pendingSwitch.current = null;
@@ -298,10 +468,38 @@ export default function App() {
     [],
   );
 
-  const onAnyPointerDown = useCallback(() => {
+  const sparkleDone = useCallback(
+    (id: number) => setSparkles((sp) => sp.filter((x) => x.id !== id)),
+    [],
+  );
+
+  const onAnyPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
     unlockAudio();
-    lastTap.current = performance.now();
+    const now = performance.now();
+    lastTap.current = now;
+    // 버튼이 아닌 빈 곳을 누르면 반짝 (세기와는 상관없음)
+    const t = e.target as Element | null;
+    if (!t || t.closest("button, [data-no-sparkle]")) return;
+    if (now - lastSparkle.current < 120) return;
+    lastSparkle.current = now;
+    playTwinkle();
+    const sp: Sparkle = {
+      id: ++sparkleId.current,
+      x: e.clientX,
+      y: e.clientY,
+      e: SPARKLE_EMOJI[Math.floor(Math.random() * SPARKLE_EMOJI.length)],
+    };
+    setSparkles((list) => [...list.slice(-7), sp]);
   }, []);
+
+  const countMax = problemMax(progress.levels);
+  const buddyInfo = useMemo<BuddyInfo | null>(
+    () =>
+      progress.buddy === null
+        ? null
+        : { index: progress.buddy, shiny: progress.buddy < progress.shiny, cheer },
+    [progress.buddy, progress.shiny, cheer],
+  );
 
   let content;
   let contentKey: string = screen;
@@ -313,6 +511,9 @@ export default function App() {
       <Home
         stars={shownStars}
         stickerCount={progress.stickers.length}
+        shiny={progress.shiny}
+        todayStars={progress.today.stars}
+        visit={visit}
         onSelect={go}
         onCycle={startCycle}
         onOpenSettings={() => setGateOpen(true)}
@@ -320,7 +521,23 @@ export default function App() {
     );
   } else if (screen === "stickers") {
     content = (
-      <StickerBook stars={shownStars} unlocked={progress.stickers} onHome={goHome} />
+      <StickerBook
+        stars={shownStars}
+        unlocked={progress.stickers}
+        shiny={progress.shiny}
+        scene={progress.scene}
+        onPlace={placeInScene}
+        onBuddy={setBuddy}
+        onHome={goHome}
+      />
+    );
+  } else if (screen === "bye") {
+    content = (
+      <Goodbye
+        todayStars={progress.today.stars}
+        todayStickers={progress.today.stickers}
+        onDone={goHome}
+      />
     );
   } else if (isGame(screen)) {
     const Game = GAMES[screen];
@@ -329,6 +546,8 @@ export default function App() {
         level={progress.levels[screen]}
         stars={shownStars}
         tapGap={progress.tapGap}
+        countMax={countMax}
+        friends={progress.stickers}
         onHome={goHome}
         onWin={handleWin}
         onResult={(ok) => handleResult(screen, ok)}
@@ -338,6 +557,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
+      <BuddyContext.Provider value={buddyInfo}>
       <div
         className="relative h-[100dvh] w-screen overflow-hidden bg-sky-100 text-slate-800"
         onPointerDownCapture={onAnyPointerDown}
@@ -364,8 +584,12 @@ export default function App() {
           />
         ) : null}
 
+        <BalloonRise burst={balloons} />
+        <BonusBadge show={bonusShown} />
+        <LevelUpBadge show={levelUpShown} />
         <FlyingStars items={flying} onDone={flyDone} />
-        <StickerReveal index={reveal} onClose={closeReveal} />
+        <StickerReveal unlock={reveal} onClose={closeReveal} />
+        <TapSparkles items={sparkles} onDone={sparkleDone} />
         <ParentGate
           open={gateOpen}
           onPass={() => {
@@ -383,6 +607,8 @@ export default function App() {
           totalRounds={progress.totalRounds}
           tapGap={progress.tapGap}
           cyclePace={progress.cyclePace}
+          sessionMin={progress.sessionMin}
+          onSetSessionMin={setSessionMin}
           onToggleSound={toggleSound}
           onToggleVoice={toggleVoice}
           onSetLevel={setLevel}
@@ -392,6 +618,7 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
         />
       </div>
+      </BuddyContext.Provider>
     </MotionConfig>
   );
 }

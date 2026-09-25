@@ -120,7 +120,25 @@ button {
   animation: spin-slow 9s linear infinite;
 }
 
+/* 반짝반짝 */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+}
+.twinkle {
+  display: inline-block;
+  animation: twinkle 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .twinkle,
   .floaty,
   .floaty-slow,
   .sway,

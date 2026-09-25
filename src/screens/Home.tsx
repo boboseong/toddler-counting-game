@@ -1,13 +1,26 @@
 import { motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { playDing, speak } from "../lib/audio";
-import { GAME_IDS, GAME_META, STARS_PER_STICKER, STICKERS, type GameId } from "../lib/data";
+import {
+  GAME_IDS,
+  GAME_META,
+  STARS_PER_STICKER,
+  STICKERS,
+  starPhrase,
+  subj,
+  type GameId,
+} from "../lib/data";
+import type { Visit } from "../hooks/useProgress";
 import { Background, SpeechBubble, StarJar } from "../components/ui";
+import { StickerFace, useBuddy } from "../components/buddy";
 import type { Screen } from "../types";
 
 interface Props {
   stars: number;
   stickerCount: number;
+  shiny: number;
+  todayStars: number;
+  visit: Visit;
   onSelect: (s: Screen) => void;
   onCycle: () => void;
   onOpenSettings: () => void;
@@ -33,8 +46,37 @@ const GREETINGS = [
   "하나, 둘, 셋! 준비됐어?",
 ];
 
-export default function Home({ stars, stickerCount, onSelect, onCycle, onOpenSettings }: Props) {
+/** 다시 찾아온 아이를 기억하는 인사, 오늘 모은 별 이야기를 앞에 붙인다 */
+function greetingsFor(visit: Visit, buddyName: string | null, todayStars: number): string[] {
+  const out: string[] = [];
+  if (visit.returning && buddyName) {
+    out.push(`${visit.yesterday ? "어제" : "지난번에"} 만난 ${subj(buddyName)} 기다리고 있었어!`);
+  } else if (visit.returning) {
+    out.push("다시 왔구나! 보고 싶었어!");
+  }
+  if (todayStars > 0) out.push(`오늘 ${starPhrase(todayStars)} 모았어! 더 놀자!`);
+  return [...out, ...GREETINGS];
+}
+
+export default function Home({
+  stars,
+  stickerCount,
+  shiny,
+  todayStars,
+  visit,
+  onSelect,
+  onCycle,
+  onOpenSettings,
+}: Props) {
+  const buddy = useBuddy();
+  const buddyName = buddy ? STICKERS[buddy.index].name : null;
+  // 홈에 들어온 순간의 인사말 목록 (놀다 돌아와도 첫 인사가 바뀌지 않게 한 번만)
+  const greetings = useMemo(
+    () => greetingsFor(visit, buddyName, todayStars),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const [greet, setGreet] = useState(0);
+  const [buddyHop, setBuddyHop] = useState(0);
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
 
@@ -51,15 +93,26 @@ export default function Home({ stars, stickerCount, onSelect, onCycle, onOpenSet
     pressTimer.current = null;
   };
 
+  // 첫 번째 누름은 지금 보이는 인사를 읽어 주고, 그다음부터 다음 인사로
+  const spoken = useRef(false);
   const tapMascot = () => {
     playDing();
-    const i = (greet + 1) % GREETINGS.length;
+    const i = spoken.current ? (greet + 1) % greetings.length : greet;
+    spoken.current = true;
     setGreet(i);
-    speak(GREETINGS[i]);
+    speak(greetings[i]);
+  };
+
+  const tapBuddy = () => {
+    if (!buddyName) return;
+    playDing();
+    setBuddyHop((h) => h + 1);
+    speak(`${buddyName}도 같이 놀자!`, { pitch: 1.3 });
   };
 
   const toNext = STARS_PER_STICKER - (stars % STARS_PER_STICKER);
-  const allDone = stickerCount >= STICKERS.length;
+  const collected = stickerCount >= STICKERS.length;
+  const allDone = collected && shiny >= STICKERS.length;
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
@@ -83,10 +136,35 @@ export default function Home({ stars, stickerCount, onSelect, onCycle, onOpenSet
           >
             🐥
           </motion.button>
-          <SpeechBubble tail="left" className="text-xl sm:text-2xl short:px-3 short:py-1 short:text-base">
-            {GREETINGS[greet]}
+          <SpeechBubble
+            tail="left"
+            className="max-w-[min(70vw,28rem)] break-keep text-xl sm:text-2xl short:px-3 short:py-1 short:text-base"
+          >
+            {greetings[greet]}
           </SpeechBubble>
+          {buddy ? (
+            <motion.button
+              key={buddyHop}
+              onPointerDown={tapBuddy}
+              animate={buddyHop ? { y: [0, -24, 0], rotate: [0, -10, 10, 0] } : {}}
+              transition={{ duration: 0.6 }}
+              aria-label={`${buddyName} 친구`}
+              className="bob hidden min-[420px]:block"
+            >
+              <StickerFace
+                index={buddy.index}
+                shiny={buddy.shiny}
+                className="text-[clamp(2.6rem,min(10vw,9vh),4.5rem)] drop-shadow-lg short:text-[2.2rem]"
+              />
+            </motion.button>
+          ) : null}
         </div>
+
+        {todayStars > 0 ? (
+          <div className="-mt-1 rounded-full bg-white/80 px-4 py-0.5 text-lg text-amber-600 shadow short:hidden">
+            오늘 모은 별 <span className="emoji">⭐</span> {todayStars}
+          </div>
+        ) : null}
 
         {/* 게임 카드 */}
         <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 short:grid-cols-3 short:gap-2">
@@ -141,7 +219,11 @@ export default function Home({ stars, stickerCount, onSelect, onCycle, onOpenSet
                 내 스티커 {stickerCount > 0 ? `(${stickerCount})` : ""}
               </div>
               <div className="text-sm sm:text-base short:text-xs">
-                {allDone ? "스티커를 모두 모았어요! 🎉" : `별 ${toNext}개 더 모으면 새 친구가 와요!`}
+                {allDone
+                  ? "스티커를 모두 모았어요! 🎉"
+                  : collected
+                    ? `별 ${toNext}개 더 모으면 반짝이 스티커!`
+                    : `별 ${toNext}개 더 모으면 새 친구가 와요!`}
               </div>
             </div>
           </div>

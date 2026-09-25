@@ -13,6 +13,7 @@ export interface Animal {
 export interface Sticker {
   emoji: string;
   name: string;
+  food?: CountItem;
 }
 
 /** 고유어 수사 (하나, 둘, 셋 ...) — 물건을 셀 때 */
@@ -119,55 +120,175 @@ export const ITEMS: CountItem[] = [
   { emoji: "🍌", name: "바나나", counter: "개" },
   { emoji: "🍓", name: "딸기", counter: "개" },
   { emoji: "🍊", name: "귤", counter: "개" },
+  { emoji: "🍑", name: "복숭아", counter: "개" },
+  { emoji: "🍒", name: "체리", counter: "개" },
+  { emoji: "🥕", name: "당근", counter: "개" },
   { emoji: "🍪", name: "쿠키", counter: "개" },
+  { emoji: "🍩", name: "도넛", counter: "개" },
+  { emoji: "🧁", name: "컵케이크", counter: "개" },
+  { emoji: "🍭", name: "사탕", counter: "개" },
+  { emoji: "🍦", name: "아이스크림", counter: "개" },
   { emoji: "🎈", name: "풍선", counter: "개" },
   { emoji: "⭐", name: "별", counter: "개" },
+  { emoji: "⚽", name: "공", counter: "개" },
+  { emoji: "🎁", name: "선물", counter: "개" },
+  { emoji: "🧸", name: "곰인형", counter: "개" },
+  { emoji: "🍄", name: "버섯", counter: "개" },
   { emoji: "🚗", name: "자동차", counter: "대" },
+  { emoji: "🚌", name: "버스", counter: "대" },
+  { emoji: "🚀", name: "로켓", counter: "대" },
+  { emoji: "✈️", name: "비행기", counter: "대" },
   { emoji: "🐤", name: "병아리", counter: "마리" },
   { emoji: "🐟", name: "물고기", counter: "마리" },
   { emoji: "🐞", name: "무당벌레", counter: "마리" },
-  { emoji: "🌼", name: "꽃", counter: "송이" },
-  { emoji: "🧸", name: "곰인형", counter: "개" },
+  { emoji: "🦋", name: "나비", counter: "마리" },
+  { emoji: "🐝", name: "꿀벌", counter: "마리" },
+  { emoji: "🐌", name: "달팽이", counter: "마리" },
   { emoji: "🦆", name: "오리", counter: "마리" },
+  { emoji: "🌼", name: "꽃", counter: "송이" },
+  { emoji: "🌷", name: "튤립", counter: "송이" },
 ];
+
+/** 먹이 */
+const F = {
+  carrot: { emoji: "🥕", name: "당근", counter: "개" },
+  banana: { emoji: "🍌", name: "바나나", counter: "개" },
+  cookie: { emoji: "🍪", name: "쿠키", counter: "개" },
+  bamboo: { emoji: "🎋", name: "대나무", counter: "개" },
+  fish: { emoji: "🐟", name: "물고기", counter: "마리" },
+  apple: { emoji: "🍎", name: "사과", counter: "개" },
+  berry: { emoji: "🍓", name: "딸기", counter: "개" },
+  acorn: { emoji: "🌰", name: "도토리", counter: "개" },
+  corn: { emoji: "🌽", name: "옥수수", counter: "개" },
+  cheese: { emoji: "🧀", name: "치즈", counter: "개" },
+  leaf: { emoji: "🍃", name: "나뭇잎", counter: "장" },
+  meat: { emoji: "🍖", name: "고기", counter: "개" },
+  grape: { emoji: "🍇", name: "포도", counter: "송이" },
+  shrimp: { emoji: "🦐", name: "새우", counter: "마리" },
+  flower: { emoji: "🌸", name: "꽃", counter: "송이" },
+  candy: { emoji: "🍭", name: "사탕", counter: "개" },
+  melon: { emoji: "🍉", name: "수박", counter: "개" },
+  bug: { emoji: "🐛", name: "애벌레", counter: "마리" },
+} satisfies Record<string, CountItem>;
 
 export const ANIMALS: Animal[] = [
-  { emoji: "🐰", name: "토끼", food: { emoji: "🥕", name: "당근", counter: "개" } },
-  { emoji: "🐵", name: "원숭이", food: { emoji: "🍌", name: "바나나", counter: "개" } },
-  { emoji: "🐶", name: "강아지", food: { emoji: "🍪", name: "쿠키", counter: "개" } },
-  { emoji: "🐼", name: "판다", food: { emoji: "🎋", name: "대나무", counter: "개" } },
-  { emoji: "🐱", name: "고양이", food: { emoji: "🐟", name: "물고기", counter: "마리" } },
-  { emoji: "🐘", name: "코끼리", food: { emoji: "🍎", name: "사과", counter: "개" } },
-  { emoji: "🐻", name: "곰", food: { emoji: "🍓", name: "딸기", counter: "개" } },
-  { emoji: "🐿️", name: "다람쥐", food: { emoji: "🌰", name: "도토리", counter: "개" } },
+  { emoji: "🐰", name: "토끼", food: F.carrot },
+  { emoji: "🐵", name: "원숭이", food: F.banana },
+  { emoji: "🐶", name: "강아지", food: F.cookie },
+  { emoji: "🐼", name: "판다", food: F.bamboo },
+  { emoji: "🐱", name: "고양이", food: F.fish },
+  { emoji: "🐘", name: "코끼리", food: F.apple },
+  { emoji: "🐻", name: "곰", food: F.berry },
+  { emoji: "🐿️", name: "다람쥐", food: F.acorn },
+  { emoji: "🐔", name: "닭", food: F.corn },
+  { emoji: "🐭", name: "생쥐", food: F.cheese },
+  { emoji: "🐨", name: "코알라", food: F.leaf },
+  { emoji: "🐷", name: "돼지", food: F.melon },
 ];
 
+/**
+ * 스티커. 앨범 순서대로 하나씩 열린다 (0~23 동물 친구 → 24~47 탈것 친구 → 48~71 숲속 친구).
+ * food 가 있는 친구는 모은 뒤에 먹이 주기 놀이에 손님으로 찾아온다.
+ */
 export const STICKERS: Sticker[] = [
-  { emoji: "🦁", name: "사자" },
-  { emoji: "🐰", name: "토끼" },
-  { emoji: "🐼", name: "판다" },
-  { emoji: "🦊", name: "여우" },
-  { emoji: "🐸", name: "개구리" },
-  { emoji: "🐨", name: "코알라" },
-  { emoji: "🦄", name: "유니콘" },
-  { emoji: "🐙", name: "문어" },
-  { emoji: "🐧", name: "펭귄" },
-  { emoji: "🦋", name: "나비" },
-  { emoji: "🐬", name: "돌고래" },
-  { emoji: "🦖", name: "공룡" },
-  { emoji: "🐢", name: "거북이" },
-  { emoji: "🦩", name: "홍학" },
-  { emoji: "🐳", name: "고래" },
-  { emoji: "🦉", name: "부엉이" },
-  { emoji: "🐯", name: "호랑이" },
-  { emoji: "🐮", name: "소" },
-  { emoji: "🐷", name: "돼지" },
-  { emoji: "🐭", name: "생쥐" },
-  { emoji: "🦒", name: "기린" },
-  { emoji: "🦓", name: "얼룩말" },
-  { emoji: "🐝", name: "꿀벌" },
-  { emoji: "🐌", name: "달팽이" },
+  // 1권: 동물 친구
+  { emoji: "🦁", name: "사자", food: F.meat },
+  { emoji: "🐰", name: "토끼", food: F.carrot },
+  { emoji: "🐼", name: "판다", food: F.bamboo },
+  { emoji: "🦊", name: "여우", food: F.grape },
+  { emoji: "🐸", name: "개구리", food: F.bug },
+  { emoji: "🐨", name: "코알라", food: F.leaf },
+  { emoji: "🦄", name: "유니콘", food: F.candy },
+  { emoji: "🐙", name: "문어", food: F.shrimp },
+  { emoji: "🐧", name: "펭귄", food: F.fish },
+  { emoji: "🦋", name: "나비", food: F.flower },
+  { emoji: "🐬", name: "돌고래", food: F.fish },
+  { emoji: "🦖", name: "공룡", food: F.leaf },
+  { emoji: "🐢", name: "거북이", food: F.berry },
+  { emoji: "🦩", name: "홍학", food: F.shrimp },
+  { emoji: "🐳", name: "고래", food: F.shrimp },
+  { emoji: "🦉", name: "부엉이", food: F.bug },
+  { emoji: "🐯", name: "호랑이", food: F.meat },
+  { emoji: "🐮", name: "소", food: F.corn },
+  { emoji: "🐷", name: "돼지", food: F.melon },
+  { emoji: "🐭", name: "생쥐", food: F.cheese },
+  { emoji: "🦒", name: "기린", food: F.leaf },
+  { emoji: "🦓", name: "얼룩말", food: F.apple },
+  { emoji: "🐝", name: "꿀벌", food: F.flower },
+  { emoji: "🐌", name: "달팽이", food: F.berry },
+  // 2권: 탈것 친구
+  { emoji: "🚗", name: "자동차" },
+  { emoji: "🚌", name: "버스" },
+  { emoji: "🚒", name: "소방차" },
+  { emoji: "🚓", name: "경찰차" },
+  { emoji: "🚑", name: "구급차" },
+  { emoji: "🚜", name: "트랙터" },
+  { emoji: "🚂", name: "기차" },
+  { emoji: "✈️", name: "비행기" },
+  { emoji: "🚁", name: "헬리콥터" },
+  { emoji: "🚀", name: "로켓" },
+  { emoji: "⛵", name: "돛단배" },
+  { emoji: "🚲", name: "자전거" },
+  { emoji: "🛵", name: "오토바이" },
+  { emoji: "🚕", name: "택시" },
+  { emoji: "🚚", name: "트럭" },
+  { emoji: "🏎️", name: "경주용 차" },
+  { emoji: "🛸", name: "비행접시" },
+  { emoji: "🚠", name: "케이블카" },
+  { emoji: "🚤", name: "모터보트" },
+  { emoji: "🛴", name: "킥보드" },
+  { emoji: "🚃", name: "전철" },
+  { emoji: "🚢", name: "큰 배" },
+  { emoji: "🛶", name: "카누" },
+  { emoji: "🚅", name: "고속열차" },
+  // 3권: 숲속 친구
+  { emoji: "🐔", name: "닭", food: F.corn },
+  { emoji: "🦆", name: "오리", food: F.corn },
+  { emoji: "🐴", name: "말", food: F.carrot },
+  { emoji: "🐑", name: "양", food: F.leaf },
+  { emoji: "🐐", name: "염소", food: F.leaf },
+  { emoji: "🦙", name: "라마", food: F.apple },
+  { emoji: "🐿️", name: "다람쥐", food: F.acorn },
+  { emoji: "🦔", name: "고슴도치", food: F.bug },
+  { emoji: "🦝", name: "너구리", food: F.grape },
+  { emoji: "🦦", name: "수달", food: F.fish },
+  { emoji: "🐹", name: "햄스터", food: F.acorn },
+  { emoji: "🦜", name: "앵무새", food: F.grape },
+  { emoji: "🦚", name: "공작", food: F.corn },
+  { emoji: "🦘", name: "캥거루", food: F.leaf },
+  { emoji: "🐒", name: "원숭이", food: F.banana },
+  { emoji: "🦥", name: "나무늘보", food: F.leaf },
+  { emoji: "🐊", name: "악어", food: F.fish },
+  { emoji: "🦛", name: "하마", food: F.melon },
+  { emoji: "🦏", name: "코뿔소", food: F.apple },
+  { emoji: "🐘", name: "코끼리", food: F.apple },
+  { emoji: "🦍", name: "고릴라", food: F.banana },
+  { emoji: "🦌", name: "사슴", food: F.leaf },
+  { emoji: "🐻", name: "곰", food: F.berry },
+  { emoji: "🐶", name: "강아지", food: F.cookie },
 ];
+
+export interface Album {
+  title: string;
+  emoji: string;
+  /** STICKERS 안의 범위 [start, end) */
+  start: number;
+  end: number;
+}
+
+export const ALBUMS: Album[] = [
+  { title: "동물 친구", emoji: "🦁", start: 0, end: 24 },
+  { title: "탈것 친구", emoji: "🚗", start: 24, end: 48 },
+  { title: "숲속 친구", emoji: "🐔", start: 48, end: 72 },
+];
+
+export function albumOf(sticker: number): number {
+  const i = ALBUMS.findIndex((a) => sticker >= a.start && sticker < a.end);
+  return i < 0 ? ALBUMS.length - 1 : i;
+}
+
+/** 스티커 꾸미기 장면에 한 번에 놓을 수 있는 친구 수 (같이 세기 좋은 만큼) */
+export const SCENE_MAX = 10;
 
 export const STARS_PER_STICKER = 3;
 
@@ -178,6 +299,14 @@ export const PRAISES = [
   "참 잘했어요!",
   "멋져요!",
   "우와, 똑똑해!",
+  "짝짝짝!",
+  "최고최고!",
+  "우와, 해냈다!",
+  "야호, 성공!",
+  "너무 멋지다!",
+  "척척 잘하네!",
+  "반짝반짝 빛나!",
+  "엄지 척!",
 ];
 
 export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find";
@@ -321,17 +450,37 @@ export interface CountLevel {
   max: number;
 }
 
-/** 톡톡 세기: 단계별 범위 */
-export const TAP_LEVELS: CountLevel[] = [
-  { min: 1, max: 3 },
-  { min: 1, max: 4 },
-  { min: 1, max: 5 },
-  { min: 3, max: 7 },
-  { min: 5, max: 10 },
-  { min: 8, max: 13 },
-  { min: 10, max: 16 },
-  { min: 12, max: 19 },
-];
+/**
+ * 문제를 푸는 단계가 없는 놀이(톡톡 세기 · 거품 팡팡)는 세기만 하면 끝나서 스스로 난이도를 잴 수 없다.
+ * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 먹이 주기 · 숫자 찾기)에서
+ * 지금 다루는 가장 큰 수까지 센다.
+ */
+export const FOLLOW_GAMES: GameId[] = ["tap", "bubbles"];
+
+export function isFollowGame(game: GameId): boolean {
+  return FOLLOW_GAMES.includes(game);
+}
+
+/** 문제를 푸는 놀이들의 지금 단계에서 나오는 가장 큰 수 */
+export function problemMax(levels: Record<GameId, number>): number {
+  return Math.max(
+    howManyLevel(levels.howmany).max,
+    feedLevel(levels.feed).max,
+    findLevel(levels.find).max,
+  );
+}
+
+/** 톡톡 세기: 1~최고 수. 5를 넘으면 너무 작은 수는 빼고 위쪽 60% 정도에서 낸다 */
+export function tapRange(maxN: number): CountLevel {
+  const max = Math.min(MAX_NUMBER, Math.max(2, maxN));
+  const min = max <= 5 ? 1 : Math.max(1, Math.round(max * 0.6));
+  return { min, max };
+}
+
+/** 거품 팡팡: 최고 수까지 센다 */
+export function bubbleTargetFor(maxN: number): number {
+  return Math.min(MAX_NUMBER, Math.max(2, maxN));
+}
 
 /** 먹이 주기: 단계별 범위. confirm 이면 딱 맞게 준 뒤 "다 줬어요" 를 눌러야 끝난다 */
 export interface FeedLevel extends CountLevel {
@@ -381,9 +530,6 @@ export const HOWMANY_LEVELS: HowManyLevel[] = [
   { min: 10, max: 19, choices: 3, spread: "near" },
 ];
 
-/** 거품 팡팡: 단계별로 여기까지 센다 */
-export const BUBBLE_TARGETS = [5, 7, 10, 13, 16, 19];
-
 /**
  * 숫자 찾기: 흩어진 숫자 중에서 말한 숫자를 찾는다.
  * - items: 화면에 흩어 놓는 숫자 개수
@@ -423,10 +569,10 @@ export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
 };
 
 export const MAX_LEVELS: Record<GameId, number> = {
-  tap: TAP_LEVELS.length,
+  tap: 1,
   howmany: HOWMANY_LEVELS.length,
   feed: FEED_LEVELS.length,
-  bubbles: BUBBLE_TARGETS.length,
+  bubbles: 1,
   find: FIND_LEVELS.length,
 };
 
@@ -434,10 +580,6 @@ export function clampLevel(game: GameId, level: number): number {
   const max = MAX_LEVELS[game];
   if (!Number.isFinite(level)) return 1;
   return Math.min(max, Math.max(1, Math.round(level)));
-}
-
-export function tapLevel(level: number): CountLevel {
-  return TAP_LEVELS[clampLevel("tap", level) - 1];
 }
 
 export function feedLevel(level: number): FeedLevel {
@@ -448,19 +590,16 @@ export function howManyLevel(level: number): HowManyLevel {
   return HOWMANY_LEVELS[clampLevel("howmany", level) - 1];
 }
 
-export function bubbleTarget(level: number): number {
-  return BUBBLE_TARGETS[clampLevel("bubbles", level) - 1];
-}
-
 export function findLevel(level: number): FindLevel {
   return FIND_LEVELS[clampLevel("find", level) - 1];
 }
 
-/** 설정 화면에 보여 줄 단계 설명 */
-export function levelLabel(game: GameId, level: number): string {
+/** 설정 화면에 보여 줄 단계 설명 (톡톡 세기·거품 팡팡은 levels 전체를 보고 정한다) */
+export function levelLabel(game: GameId, levels: Record<GameId, number>): string {
+  const level = levels[game];
   switch (game) {
     case "tap": {
-      const s = tapLevel(level);
+      const s = tapRange(problemMax(levels));
       return `${s.min}~${s.max}`;
     }
     case "feed": {
@@ -474,7 +613,7 @@ export function levelLabel(game: GameId, level: number): string {
       return `${s.min}~${s.max} · 보기 ${s.choices}개${extra}`;
     }
     case "bubbles":
-      return `${bubbleTarget(level)}까지`;
+      return `${bubbleTargetFor(problemMax(levels))}까지`;
     case "find": {
       const s = findLevel(level);
       const kinds = s.prompts.map((p) => FIND_PROMPT_LABELS[p]).join("·");
@@ -586,8 +725,12 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+let lastPraise = "";
+
+/** 칭찬 한 마디 (바로 앞과 같은 말은 피한다) */
 export function randomPraise(): string {
-  return PRAISES[randomInt(0, PRAISES.length - 1)];
+  lastPraise = pick(PRAISES, lastPraise);
+  return lastPraise;
 }
 
 /** 받침 유무 판별 */
@@ -620,4 +763,17 @@ export function copula(word: string): string {
 /** "세 개", "다섯 마리" */
 export function counterPhrase(n: number, counter: string): string {
   return `${COUNTER_PREFIX[n - 1]} ${counter}`;
+}
+
+/* ---------- 축하 · 놀이 시간 ---------- */
+
+/** 이 확률로 "보너스 별" (별 2개 + 특별 축하). 첫 성공에는 주지 않는다 */
+export const BONUS_CHANCE = 1 / 6;
+
+/** 부모 설정: 놀이 시간 알림 (분, 0 = 끔) */
+export const SESSION_LIMITS = [0, 10, 15, 20];
+
+/** "별 다섯 개" (19 를 넘으면 숫자 그대로) */
+export function starPhrase(n: number): string {
+  return n >= 1 && n <= MAX_NUMBER ? `별 ${counterPhrase(n, "개")}` : `별 ${n}개`;
 }
