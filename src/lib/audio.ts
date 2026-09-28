@@ -1,5 +1,7 @@
 /* 효과음 + 한국어 음성 안내 */
 
+import { cleanForSpeech } from "./phrases";
+
 let ctx: AudioContext | null = null;
 let soundOn = true;
 let voiceOn = true;
@@ -145,7 +147,91 @@ export function playBonus() {
   [1568, 1319, 1760, 1568, 2093].forEach((n, i) => tone(n, 0.9 + i * 0.07, 0.25, "sine", 0.12));
 }
 
-/* ---------------- 음성 ---------------- */
+/* ---------------- 음성 ----------------
+ * 1순위: Gemini TTS 로 미리 만든 음성 파일 (public/voice, 목록은 voice-manifest.json)
+ * 2순위: 파일이 없거나 늦게 오면 브라우저 TTS (기기마다 목소리가 다르다)
+ */
+
+/** 문장 → [파일 이름, 길이(ms)] */
+type Manifest = Record<string, [string, number]>;
+
+let manifest: Manifest = {};
+if (typeof window !== "undefined") {
+  // 목록이 커서 첫 화면 번들과 따로 받는다. 받기 전에 말하면 브라우저 TTS 로
+  void import("./voice-manifest.json")
+    .then((m) => {
+      manifest = m.default as unknown as Manifest;
+    })
+    .catch(() => {
+      /* ignore */
+    });
+}
+
+const VOICE_BASE = `${import.meta.env.BASE_URL}voice/`;
+/** 음성 파일을 이만큼까지 기다리고, 넘으면 브라우저 TTS 로 */
+const LOAD_WAIT_MS = 700;
+/** 디코딩해 둔 음성 개수 (오래된 것부터 버린다) */
+const BUFFER_CACHE = 120;
+
+const buffers = new Map<string, Promise<AudioBuffer | null>>();
+
+function decode(c: AudioContext, data: ArrayBuffer): Promise<AudioBuffer | null> {
+  return new Promise((resolve) => {
+    try {
+      // 옛 Safari 는 콜백 방식만 된다
+      const p = c.decodeAudioData(data, resolve, () => resolve(null));
+      if (p && typeof p.then === "function") p.then(resolve, () => resolve(null));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function loadClip(file: string): Promise<AudioBuffer | null> {
+  const hit = buffers.get(file);
+  if (hit) {
+    // 최근에 쓴 것으로 옮긴다
+    buffers.delete(file);
+    buffers.set(file, hit);
+    return hit;
+  }
+  const c = getCtx();
+  if (!c) return Promise.resolve(null);
+  const p = fetch(VOICE_BASE + file)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+    .then((data) => decode(c, data))
+    .catch(() => null);
+  p.then((b) => {
+    if (!b) buffers.delete(file); // 실패하면 다음에 다시 받아 본다
+  });
+  buffers.set(file, p);
+  while (buffers.size > BUFFER_CACHE) {
+    const oldest = buffers.keys().next().value;
+    if (oldest === undefined) break;
+    buffers.delete(oldest);
+  }
+  return p;
+}
+
+function clipOf(text: string): [string, number] | undefined {
+  const key = cleanForSpeech(text);
+  const clip = manifest[key];
+  if (!clip && import.meta.env.DEV && Object.keys(manifest).length > 0) {
+    console.warn(`[voice] 음성 파일 없음 (npm run voice:gen): ${key}`);
+  }
+  return clip;
+}
+
+/** 곧 말할 문장들의 음성 파일을 미리 받아 둔다 */
+export function prefetchSpeech(texts: string | string[]) {
+  if (!voiceOn) return;
+  for (const t of Array.isArray(texts) ? texts : [texts]) {
+    const clip = manifest[cleanForSpeech(t)];
+    if (clip) void loadClip(clip[0]);
+  }
+}
+
+/* ----- 브라우저 TTS (파일이 없을 때) ----- */
 
 let voices: SpeechSynthesisVoice[] = [];
 
@@ -182,75 +268,186 @@ function pickKoreanVoice(): SpeechSynthesisVoice | null {
 
 export interface SpeakOptions {
   interrupt?: boolean;
+  /** 브라우저 TTS 일 때만 쓰인다 (음성 파일은 말투가 이미 정해져 있다) */
   rate?: number;
   pitch?: number;
 }
 
-let pendingSpeak: number | null = null;
-
-/** TTS 가 그대로 읽어 버리는 기호(물결표, 따옴표, 괄호 등)를 지운다 */
-const SPEECH_SYMBOLS = /[~\u223c\uff5e'"\u201c\u201d\u2018\u2019()\[\]{}*\u00b7\u2022\u2026_|<>^`#]/g;
-
-export function cleanForSpeech(text: string): string {
-  return text.replace(SPEECH_SYMBOLS, " ").replace(/\s+/g, " ").trim();
-}
-
-/** 이 문장을 말하는 데 걸리는 대략의 시간(ms). 라운드 시작 잠금 길이에 쓴다 */
-export function speakDuration(text: string): number {
-  if (!voiceOn) return 1200;
+/** 이 문장을 말하는 데 걸리는 대략의 시간(ms) (음성 파일이 없을 때) */
+function estimateMs(text: string): number {
   const syllables = (cleanForSpeech(text).match(/[\uac00-\ud7a3]/g) ?? []).length;
   return Math.min(4000, Math.max(1500, 300 + syllables * 190));
 }
 
-function doSpeak(text: string, rate: number, pitch: number) {
-  try {
-    const u = new SpeechSynthesisUtterance(cleanForSpeech(text));
-    u.lang = "ko-KR";
-    u.rate = rate;
-    u.pitch = pitch;
-    u.volume = 1;
-    const v = pickKoreanVoice();
-    if (v) u.voice = v;
-    window.speechSynthesis.speak(u);
-  } catch {
-    /* ignore */
+/** 이 문장(들)을 말하는 데 걸리는 시간(ms). 안내 잠금 길이에 쓴다 */
+export function speakDuration(text: string | string[]): number {
+  if (!voiceOn) return 1200;
+  const parts = Array.isArray(text) ? text : [text];
+  const total = parts.reduce((sum, t) => {
+    const clip = manifest[cleanForSpeech(t)];
+    return sum + (clip ? clip[1] + 120 : estimateMs(t));
+  }, 0);
+  return Math.min(9000, Math.max(900, total));
+}
+
+/* ----- 차례로 말하기 ----- */
+
+interface QueueItem {
+  text: string;
+  rate: number;
+  pitch: number;
+}
+
+let queue: QueueItem[] = [];
+let running = false;
+/** 끊을 때마다 올라간다. 진행 중이던 말하기는 자기 번호가 아니면 멈춘다 */
+let generation = 0;
+let currentSource: AudioBufferSourceNode | null = null;
+/** 지금 기다리는 중인 말하기를 바로 끝낸다 */
+let abortCurrent: (() => void) | null = null;
+let lastCancel = 0;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function playBuffer(buf: AudioBuffer): Promise<void> {
+  const c = getCtx();
+  if (!c) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.connect(c.destination);
+      currentSource = src;
+      const done = () => {
+        if (currentSource === src) currentSource = null;
+        abortCurrent = null;
+        resolve();
+      };
+      src.onended = done;
+      abortCurrent = () => {
+        try {
+          src.stop();
+        } catch {
+          /* ignore */
+        }
+        done();
+      };
+      src.start();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function speakTTS(item: QueueItem): Promise<void> {
+  if (!("speechSynthesis" in window)) return;
+  // Chrome 은 cancel() 직후 speak() 를 종종 무시한다
+  const since = performance.now() - lastCancel;
+  if (since < 80) await wait(80 - since);
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      abortCurrent = null;
+      window.clearTimeout(guard);
+      resolve();
+    };
+    // onend 가 안 오는 브라우저가 있어서 예상 시간이 지나면 넘어간다
+    const guard = window.setTimeout(done, estimateMs(item.text) + 1500);
+    abortCurrent = done;
+    try {
+      const u = new SpeechSynthesisUtterance(cleanForSpeech(item.text));
+      u.lang = "ko-KR";
+      u.rate = item.rate;
+      u.pitch = item.pitch;
+      u.volume = 1;
+      const v = pickKoreanVoice();
+      if (v) u.voice = v;
+      u.onend = done;
+      u.onerror = done;
+      window.speechSynthesis.speak(u);
+    } catch {
+      done();
+    }
+  });
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const t = window.setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        window.clearTimeout(t);
+        resolve(v);
+      },
+      () => {
+        window.clearTimeout(t);
+        resolve(null);
+      },
+    );
+  });
+}
+
+async function sayOne(item: QueueItem, gen: number) {
+  const clip = clipOf(item.text);
+  if (clip) {
+    const buf = await withTimeout(loadClip(clip[0]), LOAD_WAIT_MS);
+    if (gen !== generation) return;
+    if (buf) return playBuffer(buf);
   }
+  return speakTTS(item);
+}
+
+async function pump() {
+  if (running) return;
+  running = true;
+  const gen = generation;
+  while (queue.length > 0 && gen === generation) {
+    const item = queue.shift()!;
+    await sayOne(item, gen);
+  }
+  running = false;
+  // 기다리는 동안 끊고 새로 말하기가 들어왔으면 이어서
+  if (queue.length > 0) void pump();
 }
 
 /**
- * 한국어로 말하기.
- * Chrome 은 cancel() 직후 speak() 를 종종 무시하므로, 끊고 말할 때는 잠깐 뒤에 speak 한다.
- * 그 사이에 들어온 이어 말하기(interrupt:false)는 순서를 지키기 위해 같이 늦춘다.
+ * 한국어로 말하기. 여러 문장을 주면 차례로 이어서 말한다.
+ * interrupt(기본): 지금 하던 말을 끊고 바로 / interrupt:false: 하던 말 뒤에 이어서
  */
-export function speak(text: string, opts: SpeakOptions = {}) {
+export function speak(text: string | string[], opts: SpeakOptions = {}) {
   if (!voiceOn) return;
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (typeof window === "undefined") return;
   const { interrupt = true, rate = 0.9, pitch = 1.15 } = opts;
-  try {
-    if (interrupt) {
-      if (pendingSpeak !== null) window.clearTimeout(pendingSpeak);
-      window.speechSynthesis.cancel();
-      pendingSpeak = window.setTimeout(() => {
-        pendingSpeak = null;
-        doSpeak(text, rate, pitch);
-      }, 60);
-    } else if (pendingSpeak !== null) {
-      window.setTimeout(() => doSpeak(text, rate, pitch), 80);
-    } else {
-      doSpeak(text, rate, pitch);
-    }
-  } catch {
-    /* ignore */
+  if (interrupt) stopSpeaking();
+  for (const t of Array.isArray(text) ? text : [text]) {
+    if (cleanForSpeech(t)) queue.push({ text: t, rate, pitch });
   }
+  void pump();
 }
 
 export function stopSpeaking() {
-  try {
-    if (pendingSpeak !== null) {
-      window.clearTimeout(pendingSpeak);
-      pendingSpeak = null;
+  generation += 1;
+  queue = [];
+  const abort = abortCurrent;
+  abortCurrent = null;
+  abort?.();
+  if (currentSource) {
+    try {
+      currentSource.stop();
+    } catch {
+      /* ignore */
     }
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    currentSource = null;
+  }
+  try {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      lastCancel = performance.now();
+    }
   } catch {
     /* ignore */
   }

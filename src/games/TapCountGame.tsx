@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playPop, playSoft, playTap, speak, speakDuration } from "../lib/audio";
+import { playPop, playSoft, playTap, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { P } from "../lib/phrases";
 import {
-  COUNT_WORDS,
   ITEMS,
   NUM_COLORS,
   counterPhrase,
@@ -96,7 +96,8 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
 
   // 라운드 시작: 안내가 끝날 때까지 잠금
   useEffect(() => {
-    const intro = `${round.item.name} 몇 ${round.item.counter}? 하나씩 눌러 봐!`;
+    const intro = P.tapIntro(round.item);
+    prefetchSpeech([intro, P.itemCount(round.item, round.count)]);
     guard.lock(400 + speakDuration(intro));
     after(400, () => speak(intro, { interrupt: false }));
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -118,7 +119,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
     speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
     after(3000, () => {
       resetRound();
-      const again = "천천히, 하나씩 눌러 봐!";
+      const again = P.tapAgain;
       guard.lock(speakDuration(again));
       speak(again);
     });
@@ -130,9 +131,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
     setPraise(p);
     const ok = repeats.current < REPEATS_FOR_MISS;
     after(700, () => {
-      speak(`${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`, {
-        interrupt: false,
-      });
+      speak([P.itemCount(round.item, round.count), p], { interrupt: false });
       onWin();
       onResult(ok);
     });
@@ -162,7 +161,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
     setTapped(next);
     const n = next.length;
     playPop(n);
-    speak(COUNT_WORDS[n - 1], { rate: 0.85, pitch: 1.2 });
+    speak(P.count(n), { rate: 0.85, pitch: 1.2 });
 
     if (n === round.count) {
       if (guard.isMashing(mashLimitFor(round.count))) slowRound();

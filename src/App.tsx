@@ -25,7 +25,6 @@ import {
   CYCLE_PACES,
   CYCLE_RULES,
   cycleNextOf,
-  cyclePhrase,
   cycleShouldSwitch,
   pick,
   problemMax,
@@ -33,6 +32,7 @@ import {
   type GameId,
 } from "./lib/data";
 import { useProgress, type Unlock } from "./hooks/useProgress";
+import { P } from "./lib/phrases";
 import Home from "./screens/Home";
 import StickerBook from "./screens/StickerBook";
 import Goodbye from "./screens/Goodbye";
@@ -243,7 +243,7 @@ export default function App() {
       setScreen(game);
       // 다음에 앱을 열면 이 다음 놀이부터 이어진다
       setCycleNext(CYCLE_ORDER.indexOf(game) + 1);
-      later(150, () => speak(cyclePhrase(game, reason), { pitch: 1.2 }));
+      later(150, () => speak(P.cycle(game, reason), { pitch: 1.2 }));
       later(CYCLE_RULES.transitionMs, () => {
         setTransition(null);
         stats.current.startedAt = performance.now();
@@ -439,7 +439,7 @@ export default function App() {
           window.setTimeout(() => {
             playLevelUp();
             setLevelUpShown(true);
-            speak("우와, 더 큰 숫자에 도전!", { interrupt: false, pitch: 1.25 });
+            speak(P.levelUp, { interrupt: false, pitch: 1.25 });
           }, 1300),
           window.setTimeout(() => setLevelUpShown(false), 3600),
         );

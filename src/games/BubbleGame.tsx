@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { playBubble, playSoft, speak, speakDuration } from "../lib/audio";
+import { playBubble, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { P } from "../lib/phrases";
 import {
   COUNT_WORDS,
   NUM_COLORS,
@@ -65,7 +66,8 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
   });
 
   useEffect(() => {
-    const intro = "거품을 톡톡 터뜨리면서 같이 세어 보자!";
+    const intro = P.bubbleIntro;
+    prefetchSpeech([intro, P.bubbleDone(target)]);
     guard.lock(400 + speakDuration(intro));
     after(400, () => speak(intro, { interrupt: false }));
     // 처음에 몇 개 미리 띄우기
@@ -101,7 +103,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
     nRef.current = next;
     setN(next);
     playBubble(next);
-    speak(COUNT_WORDS[next - 1], { rate: 0.85, pitch: 1.2 });
+    speak(P.count(next), { rate: 0.85, pitch: 1.2 });
 
     const fx: PopFx = { id: b.id, x: e.clientX, y: e.clientY, n: next };
     setPops((p) => [...p, fx]);
@@ -116,7 +118,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
         speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
         after(3000, () => {
           restart();
-          const again = "천천히, 하나씩 터뜨려 봐!";
+          const again = P.bubbleAgain;
           guard.lock(speakDuration(again));
           speak(again);
         });
@@ -126,7 +128,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
       const p = randomPraise();
       setPraise(p);
       after(700, () => {
-        speak(`와! ${COUNT_WORDS[target - 1]}까지 다 셌어요! ${p}`, { interrupt: false });
+        speak([P.bubbleDone(target), p], { interrupt: false });
         onWin();
         onResult(true);
       });

@@ -3,13 +3,13 @@ import { useRef, useState } from "react";
 import { playDing, playPop, speak } from "../lib/audio";
 import {
   ALBUMS,
-  COUNT_WORDS,
   NUM_COLORS,
   STARS_PER_STICKER,
   STICKERS,
   albumOf,
 } from "../lib/data";
 import type { SceneSpot } from "../hooks/useProgress";
+import { P } from "../lib/phrases";
 import { useTimers } from "../hooks/useTimers";
 import { GameFrame, TopBar } from "../components/ui";
 import { StickerFace } from "../components/buddy";
@@ -43,7 +43,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
 
   const tapSticker = (i: number) => {
     if (!unlocked.includes(i)) {
-      speak("별을 더 모으면 만날 수 있어요!");
+      speak(P.moreStars);
       return;
     }
     if (countingRef.current) return;
@@ -51,14 +51,14 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
     hop(i);
     onBuddy(i);
     const placed = onPlace(i);
-    speak(placed ? `${STICKERS[i].name}, 폴짝!` : `${STICKERS[i].name}!`, { pitch: 1.3 });
+    speak(placed ? P.stickerHop(STICKERS[i].name) : P.stickerName(STICKERS[i].name), { pitch: 1.3 });
   };
 
   const tapInScene = (i: number) => {
     if (countingRef.current) return;
     playPop(2);
     hop(i);
-    speak(`${STICKERS[i].name}!`, { pitch: 1.3 });
+    speak(P.stickerName(STICKERS[i].name), { pitch: 1.3 });
   };
 
   /** 장면에 있는 친구를 하나씩 짚으며 같이 센다 */
@@ -67,16 +67,16 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
     countingRef.current = true;
     clearAll();
     const step = 750;
-    speak("같이 세어 보자!");
+    speak(P.countScene);
     scene.forEach((_, k) => {
       after(1100 + k * step, () => {
         setCounting(k);
         playPop(k + 1);
-        speak(COUNT_WORDS[k], { rate: 0.85, pitch: 1.2 });
+        speak(P.count(k + 1), { rate: 0.85, pitch: 1.2 });
       });
     });
     after(1100 + scene.length * step + 200, () => {
-      speak(`친구들이 모두 ${COUNT_WORDS[scene.length - 1]}!`, { pitch: 1.25 });
+      speak(P.friendsTotal(scene.length), { pitch: 1.25 });
     });
     after(1100 + scene.length * step + 2400, () => {
       setCounting(-1);

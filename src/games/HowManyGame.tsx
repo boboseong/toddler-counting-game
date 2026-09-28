@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playDing, playPop, playSoft, speak, speakDuration } from "../lib/audio";
+import { playDing, playPop, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { P, type Line } from "../lib/phrases";
 import {
-  COUNT_WORDS,
   ITEMS,
   NUM_COLORS,
   countStepMs,
@@ -98,15 +98,16 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     clearIdle();
     idleTimer.current = window.setTimeout(() => {
       if (phaseRef.current !== "play") return;
-      speak("같이 세어 볼까?");
+      speak(P.countTogether);
       setPhase("busy");
-      after(1100, () => animateCount(() => reopen(`몇 ${round.item.counter}일까?`)));
+      after(1100, () => animateCount(() => reopen([P.howManyAgain(round.item.counter)])));
     }, 10000 + round.count * 600); // 많을수록 세는 시간을 더 준다
   };
 
   useEffect(() => {
     // "풍선 몇 개일까?" 를 말하는 동안에는 숫자 버튼이 없고, 말이 끝나면 아래에 나타난다
-    const intro = `${round.item.name} 몇 ${round.item.counter}일까?`;
+    const intro = P.howManyIntro(round.item);
+    prefetchSpeech([intro, P.right, P.itemCount(round.item, round.count)]);
     guard.lock(400 + speakDuration(intro));
     after(400, () => speak(intro, { interrupt: false }));
     scheduleIdleHint();
@@ -123,7 +124,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
         setHintIndex(i);
         setCountedUpTo(i + 1);
         playPop(i + 1);
-        speak(COUNT_WORDS[i], { rate: 0.85, pitch: 1.2 });
+        speak(P.count(i + 1), { rate: 0.85, pitch: 1.2 });
       });
     }
     after(count * step + 350, () => {
@@ -144,7 +145,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   };
 
   /** 보기를 다시 섞고, 안내가 끝나면 다시 보여 준다 */
-  const reopen = (hint: string) => {
+  const reopen = (hint: Line) => {
     setRound((r) => ({ ...r, choices: shuffle(r.choices) }));
     guard.lock(speakDuration(hint));
     speak(hint, { interrupt: false });
@@ -162,7 +163,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     after(3000, () => {
       guard.resetRound();
       setCountedUpTo(0);
-      reopen("천천히 보고, 숫자를 눌러 봐!");
+      reopen([P.lookAndPress]);
     });
   };
 
@@ -186,11 +187,9 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       setPraise(p);
       playDing();
       onResult(true);
-      speak("맞았어요!", { rate: 0.95, pitch: 1.25 });
+      speak(P.right, { rate: 0.95, pitch: 1.25 });
       after(700, () => {
-        speak(`${round.item.name} ${counterPhrase(round.count, round.item.counter)}! ${p}`, {
-          interrupt: false,
-        });
+        speak([P.itemCount(round.item, round.count), p], { interrupt: false });
         onWin();
       });
       after(3800, nextRound);
@@ -199,13 +198,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       playSoft();
       setWobble(n);
       onResult(false);
-      speak("음, 다시 같이 세어 볼까?");
+      speak(P.wrongCountTogether);
       after(600, () => setWobble(null));
       after(1400, () =>
         animateCount(() => {
-          reopen(
-            `${round.item.name} ${counterPhrase(round.count, round.item.counter)}! 이제 같은 색 숫자를 눌러 봐!`,
-          );
+          reopen([P.itemCount(round.item, round.count), P.sameColor]);
         }),
       );
     }

@@ -6,11 +6,10 @@ import {
   GAME_META,
   STARS_PER_STICKER,
   STICKERS,
-  starPhrase,
-  subj,
   type GameId,
 } from "../lib/data";
 import type { Visit } from "../hooks/useProgress";
+import { P } from "../lib/phrases";
 import { Background, SpeechBubble, StarJar } from "../components/ui";
 import { StickerFace, useBuddy } from "../components/buddy";
 import type { Screen } from "../types";
@@ -40,22 +39,16 @@ const CARDS: { id: GameId | "cycle"; emoji: string; title: string; sub: string; 
   { id: "cycle" as const, ...CYCLE_CARD },
 ];
 
-const GREETINGS = [
-  "안녕! 같이 숫자 세어 볼까?",
-  "삐약! 오늘도 재미있게 놀자!",
-  "하나, 둘, 셋! 준비됐어?",
-];
-
 /** 다시 찾아온 아이를 기억하는 인사, 오늘 모은 별 이야기를 앞에 붙인다 */
 function greetingsFor(visit: Visit, buddyName: string | null, todayStars: number): string[] {
   const out: string[] = [];
   if (visit.returning && buddyName) {
-    out.push(`${visit.yesterday ? "어제" : "지난번에"} 만난 ${subj(buddyName)} 기다리고 있었어!`);
+    out.push(P.buddyWaiting(visit.yesterday, buddyName));
   } else if (visit.returning) {
-    out.push("다시 왔구나! 보고 싶었어!");
+    out.push(P.missedYou);
   }
-  if (todayStars > 0) out.push(`오늘 ${starPhrase(todayStars)} 모았어! 더 놀자!`);
-  return [...out, ...GREETINGS];
+  if (todayStars > 0) out.push(P.todayStars(todayStars));
+  return [...out, ...P.greetings];
 }
 
 export default function Home({
@@ -107,7 +100,7 @@ export default function Home({
     if (!buddyName) return;
     playDing();
     setBuddyHop((h) => h + 1);
-    speak(`${buddyName}도 같이 놀자!`, { pitch: 1.3 });
+    speak(P.buddyPlay(buddyName), { pitch: 1.3 });
   };
 
   const toNext = STARS_PER_STICKER - (stars % STARS_PER_STICKER);

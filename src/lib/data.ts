@@ -434,16 +434,6 @@ export function cycleNextOf(game: GameId): GameId {
 
 export type CycleReason = "start" | "next" | "idle";
 
-/** 전환 때 말할 문장 */
-export function cyclePhrase(game: GameId, reason: CycleReason): string {
-  const name = GAME_META[game].title;
-  const bang = name.endsWith("?") ? "" : "!"; // "몇 개일까?!" 가 되지 않게
-  if (reason === "start") return `먼저 ${name}${bang}`;
-  if (reason === "idle") return `다른 놀이 해 볼까? 이번엔 ${name}${bang}`;
-  const v = [`이번엔 ${name}${bang}`, `다음은 ${name}${bang}`, `${name} 하러 가자!`];
-  return v[randomInt(0, v.length - 1)];
-}
-
 /** 한 라운드에 나오는 수의 범위 */
 export interface CountLevel {
   min: number;

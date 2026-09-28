@@ -36,8 +36,19 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // 폰트는 한 번 받으면 오프라인에서도 쓰이도록 런타임 캐시
+        // 자주 나오는 짧은 음성(c-*)은 앱과 함께 미리 받는다. 나머지(x-*)는 한 번 들으면 캐시
+        globPatterns: ["**/*.{js,css,html,png,svg,ico,webmanifest}", "voice/c-*.mp3"],
         runtimeCaching: [
+          {
+            urlPattern: /\/voice\/x-[^/]+\.mp3$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "voice",
+              expiration: { maxEntries: 3000, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // 폰트는 한 번 받으면 오프라인에서도 쓰이도록 런타임 캐시
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: "CacheFirst",

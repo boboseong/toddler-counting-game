@@ -22,6 +22,7 @@ import {
   type GameId,
 } from "../lib/data";
 import { playDing, playSoft, speak } from "../lib/audio";
+import { P } from "../lib/phrases";
 import type { Unlock } from "../hooks/useProgress";
 import { StickerFace } from "./buddy";
 
@@ -49,10 +50,10 @@ export function StickerReveal({
     openedAt.current = performance.now();
     const name = STICKERS[index].name;
     const say = shiny
-      ? `우와! ${name} 스티커가 반짝반짝해졌어요!`
-      : newAlbum
-        ? `와! 새 스티커북이 열렸어요! ${album?.title}! 첫 번째 친구는 ${name}!`
-        : `와! 새 친구가 왔어요! ${name}!`;
+      ? P.revealShiny(name)
+      : newAlbum && album
+        ? P.revealAlbum(album.title, name)
+        : P.revealNew(name);
     speak(say, { pitch: 1.3 });
     const t = window.setTimeout(onClose, 6500);
     return () => window.clearTimeout(t);

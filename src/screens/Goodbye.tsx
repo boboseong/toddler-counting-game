@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { speak } from "../lib/audio";
-import { STICKERS, starPhrase } from "../lib/data";
+import { STICKERS } from "../lib/data";
+import { P } from "../lib/phrases";
 import { Background, SpeechBubble } from "../components/ui";
 
 interface Props {
@@ -21,12 +22,10 @@ export default function Goodbye({ todayStars, todayStickers, onDone }: Props) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const names = todayStickers.map((i) => STICKERS[i].name);
-    const friends = names.length > 0 ? ` 새 친구 ${names.slice(0, 3).join(", ")}도 만났지?` : "";
-    const say =
-      todayStars > 0
-        ? `오늘은 여기까지! ${starPhrase(todayStars)}나 모았어!${friends} 내일 또 만나!`
-        : "오늘은 여기까지! 내일 또 만나!";
+    const say = P.bye(
+      todayStars,
+      todayStickers.map((i) => STICKERS[i].name),
+    );
     const t1 = window.setTimeout(() => speak(say, { pitch: 1.2 }), 300);
     const t2 = window.setTimeout(() => setReady(true), MIN_MS);
     return () => {

@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { playChomp, playDing, playPop, playSoft, speak, speakDuration } from "../lib/audio";
+import { playChomp, playDing, playPop, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { P } from "../lib/phrases";
 import {
   ANIMALS,
-  COUNT_WORDS,
   STICKERS,
   NUM_COLORS,
   counterPhrase,
@@ -13,7 +13,6 @@ import {
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
-  subj,
   type Animal,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
@@ -159,8 +158,9 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
   const isFull = fed >= count;
 
   useEffect(() => {
-    const ask = `${food.name} ${counterPhrase(count, food.counter)} 주세요!`;
-    const intro = round.guest ? `${subj(animal.name)} 놀러 왔어! ${ask}` : ask;
+    const ask = P.feedAsk(food, count);
+    const intro = round.guest ? [P.guestHello(animal.name), ask] : [ask];
+    prefetchSpeech([...intro, P.feedThanks(food, count)]);
     guard.lock(400 + speakDuration(intro));
     after(400, () => speak(intro, { interrupt: false, pitch: 1.3 }));
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -183,7 +183,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     speak(s, { interrupt: false }); // 마지막 숫자를 끊지 않고 이어서
     after(3000, () => {
       resetRound();
-      const again = `천천히, ${food.name} 하나씩 줘 봐!`;
+      const again = P.feedSlow(food);
       guard.lock(speakDuration(again));
       speak(again, { pitch: 1.3 });
     });
@@ -196,10 +196,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     // 과식했으면 그때 이미 실패로 보고했으므로 여기서는 성공일 때만 보고한다
     const ok = overfed.current === 0;
     after(800, () => {
-      speak(`냠냠, ${food.name} ${counterPhrase(count, food.counter)}! 고마워!`, {
-        interrupt: false,
-        pitch: 1.3,
-      });
+      speak(P.feedThanks(food, count), { interrupt: false, pitch: 1.3 });
       onWin();
       if (ok) onResult(true);
     });
@@ -224,7 +221,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
       overfed.current += 1;
       playSoft();
       setTooFull(true);
-      speak("배불러요! 그만 주세요!", { pitch: 1.3 });
+      speak(P.tooFull, { pitch: 1.3 });
       after(1200, () => setTooFull(false));
       if (overfed.current === 1) onResult(false);
       return;
@@ -239,13 +236,13 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     const n = next.length;
     playPop(n);
     after(180, playChomp);
-    speak(COUNT_WORDS[n - 1], { rate: 0.85, pitch: 1.2 });
+    speak(P.count(n), { rate: 0.85, pitch: 1.2 });
 
     if (n === count) {
       if (guard.isMashing(mashLimitFor(count))) {
         slowRound();
       } else if (needConfirm) {
-        after(900, () => speak("다 줬으면 초록 버튼을 눌러 줘!", { interrupt: false }));
+        after(900, () => speak(P.pressGreen, { interrupt: false }));
       } else {
         finish();
       }
@@ -258,7 +255,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     if (!guard.accept()) return;
     if (eatenRef.current.length < count) {
       playSoft();
-      speak("아직 배고파요! 더 주세요!", { pitch: 1.3 });
+      speak(P.stillHungry, { pitch: 1.3 });
       return;
     }
     playDing();

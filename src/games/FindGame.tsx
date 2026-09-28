@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { playDing, playSoft, speak, speakDuration } from "../lib/audio";
+import { playDing, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { P, type Line } from "../lib/phrases";
 import {
   ITEMS,
   NUM_COLORS,
   copula,
-  counterPhrase,
   findDistractors,
   findLevel,
   mashLimitFor,
@@ -16,8 +16,6 @@ import {
   randomPraise,
   randomSlowPhrase,
   shuffle,
-  subj,
-  topic,
   type CountItem,
   type FindPrompt,
 } from "../lib/data";
@@ -231,21 +229,20 @@ function isPortrait() {
 }
 
 /** 말할 문장과 보여 줄 문장 */
-function textsFor(r: Round) {
+function textsFor(r: Round): { intro: Line; ask: string; particle: string; win: string } {
   const name = numeralName(r.target); // "오"
   const particle = obj(name).slice(name.length); // 을/를
   if (r.prompt === "count") {
-    const phrase = counterPhrase(r.target, r.item.counter); // "다섯 개"
-    const ask = `${obj(phrase)} 뜻하는 숫자를 찾아줘!`;
+    const ask = P.findCount(r.target, r.item.counter);
     return {
-      intro: `${subj(r.item.name)} ${phrase}! ${ask}`,
+      intro: [P.itemCount(r.item, r.target), ask],
       ask,
       particle,
-      win: `맞아! ${topic(phrase)} 숫자 ${name}!`,
+      win: P.findWinCount(r.target, r.item.counter),
     };
   }
-  const ask = `숫자 ${name}${particle} 찾아줘!`;
-  return { intro: ask, ask, particle, win: `찾았다! 숫자 ${name}!` };
+  const ask = P.findNumeral(r.target);
+  return { intro: [ask], ask, particle, win: P.findWinNumeral(r.target) };
 }
 
 const PLAY_STYLE = {
@@ -312,7 +309,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     if (phaseRef.current !== "play") return;
     setHint(true);
     setRevealed(true);
-    speak(`${texts.ask} 여기 있을까?`);
+    speak([texts.ask, P.hereMaybe]);
   };
 
   const scheduleIdleHint = () => {
@@ -322,6 +319,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   };
 
   useEffect(() => {
+    prefetchSpeech([...texts.intro, texts.win]);
     guard.lock(400 + speakDuration(texts.intro));
     after(400, () => speak(texts.intro, { interrupt: false }));
     scheduleIdleHint();
@@ -356,7 +354,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     speak(s, { interrupt: false });
     after(3000, () => {
       resetRoundState();
-      const again = `천천히 보고, ${texts.ask}`;
+      const again = [P.lookSlowly, texts.ask];
       guard.lock(speakDuration(again));
       speak(again);
       scheduleIdleHint();
@@ -385,7 +383,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
       playDing();
       if (wrongs.current === 0) onResult(true);
       after(600, () => {
-        speak(`${texts.win} ${p}`, { interrupt: false, pitch: 1.25 });
+        speak([texts.win, p], { interrupt: false, pitch: 1.25 });
         setBanner(true);
         onWin();
       });
@@ -401,7 +399,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     setRevealed(true);
     if (wrongs.current === 1) onResult(false);
     if (wrongs.current >= 2) setHint(true);
-    const say = `이건 숫자 ${copula(numeralName(n))}. ${texts.ask}`;
+    const say = [P.findWrong(n), texts.ask];
     guard.lock(speakDuration(say));
     speak(say);
     after(600, () => setWobble(null));
