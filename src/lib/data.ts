@@ -407,8 +407,11 @@ export const CYCLE_RULES = {
   hardCapMs: 300_000,
   /** 전환 화면("이번엔 거품 팡팡!")을 보여 주는 시간 */
   transitionMs: 2000,
-  /** 성공 직후 축하가 끝날 즈음. 각 놀이가 다음 라운드를 시작하는 3.8초보다 조금 앞 */
-  afterWinMs: 3400,
+  /**
+   * 성공(onWin) 뒤 스티커 공개·다음 놀이로 넘어가기까지 적어도 이만큼 축하를 보여 준다.
+   * 그 뒤에도 칭찬·"더 큰 숫자 도전!" 을 말하는 중이면 끝날 때까지 기다린다 (그동안 놀이는 멈춰 둔다)
+   */
+  afterWinMs: 2000,
 };
 
 export interface CycleStats {

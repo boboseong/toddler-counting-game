@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MASH_LIMIT } from "../lib/data";
+import { afterSpeech } from "../lib/audio";
+
+/** 정해 둔 잠금 시간이 지나도 아직 말하는 중이면 이만큼까지 더 기다린다 */
+const LOCK_SPEECH_WAIT_MS = 6000;
 
 /**
  * 라운드 입력 보호.
- * - lock(ms): 안내 음성이 나가는 동안 입력을 잠근다 (화면에는 "잘 들어 봐" 표시)
+ * - lock(ms): 안내 음성이 나가는 동안 입력을 잠근다 (화면에는 "잘 들어 봐" 표시). ms 가 지나도 말하는 중이면 끝날 때까지
  * - accept(): 잠금 중이거나 직전 탭에서 tapGap(ms) 이 지나지 않았으면 false 를 돌려주고 무시 횟수를 센다
  * - isMashing(limit?): 이번 라운드에서 무시된 탭이 limit(기본 MASH_LIMIT) 이상이면 "막 누르는 중"
  */
@@ -20,11 +24,20 @@ export function useRoundGuard(tapGap: number) {
     lockedRef.current = true;
     setLocked(true);
     if (lockTimer.current) window.clearTimeout(lockTimer.current);
-    lockTimer.current = window.setTimeout(() => {
-      lockedRef.current = false;
-      lastTap.current = 0;
-      setLocked(false);
-    }, ms);
+    // 앞선 말(칭찬 등)이 길어 안내가 늦게 끝나도, 실제로 말이 끝날 때 풀린다
+    afterSpeech(
+      ms,
+      LOCK_SPEECH_WAIT_MS,
+      () => {
+        lockTimer.current = null;
+        lockedRef.current = false;
+        lastTap.current = 0;
+        setLocked(false);
+      },
+      (id) => {
+        lockTimer.current = id;
+      },
+    );
   }, []);
 
   /** 잠금 없이 바로 받기 */

@@ -10,6 +10,7 @@ import {
   type PointerEvent,
 } from "react";
 import {
+  afterSpeech,
   playBonus,
   playFanfare,
   playLevelUp,
@@ -33,6 +34,7 @@ import {
 } from "./lib/data";
 import { useProgress, type Unlock } from "./hooks/useProgress";
 import { P } from "./lib/phrases";
+import { dropHeld, setHeld } from "./lib/hold";
 import Home from "./screens/Home";
 import StickerBook from "./screens/StickerBook";
 import Goodbye from "./screens/Goodbye";
@@ -79,6 +81,11 @@ interface CycleTransitionState {
 type Celebration = "confetti" | "balloons" | "stars" | "hearts";
 const CELEBRATIONS: Celebration[] = ["confetti", "balloons", "stars", "hearts"];
 const PARTY_COLORS = ["#F87171", "#FBBF24", "#4ADE80", "#60A5FA", "#A78BFA", "#F472B6"];
+
+/** 성공 뒤 칭찬·레벨업 말이 길어지면 이만큼까지 기다렸다가 스티커 공개·전환으로 넘어간다 */
+const CHEER_WAIT_MAX_MS = 4500;
+/** 전환 화면의 "이번엔 거품 팡팡!" 이 늦게 끝나면 이만큼까지 기다렸다가 놀이를 시작한다 */
+const TRANSITION_WAIT_MAX_MS = 2500;
 
 function fire(opts: confetti.Options) {
   try {
@@ -206,6 +213,7 @@ export default function App() {
   /** 스티커 화면이 떠 있어서 미뤄 둔 전환 */
   const pendingSwitch = useRef<CycleTransitionState | null>(null);
   const cycleTimers = useRef<number[]>([]);
+  const revealTimers = useRef<number[]>([]);
 
   /* ---------- 놀이 시간 알림 ---------- */
   /** 놀이 화면에 있던 시간(ms). 화면이 꺼져 있던 시간은 빼고 센다 */
@@ -240,11 +248,18 @@ export default function App() {
       // 다음에 앱을 열면 이 다음 놀이부터 이어진다
       setCycleNext(CYCLE_ORDER.indexOf(game) + 1);
       later(150, () => speak(P.cycle(game, reason), { pitch: 1.2 }));
-      later(CYCLE_RULES.transitionMs, () => {
-        setTransition(null);
-        stats.current.startedAt = performance.now();
-        lastTap.current = performance.now();
-      });
+      // "이번엔 거품 팡팡!" 이 다 끝난 뒤에 놀이가 나오고 첫 안내를 시작한다
+      afterSpeech(
+        CYCLE_RULES.transitionMs,
+        TRANSITION_WAIT_MAX_MS,
+        () => {
+          setTransition(null);
+          dropHeld();
+          stats.current.startedAt = performance.now();
+          lastTap.current = performance.now();
+        },
+        (id) => cycleTimers.current.push(id),
+      );
     },
     [clearCycleTimers, later, setCycleNext],
   );
@@ -313,6 +328,15 @@ export default function App() {
   }, [cycleOn, requestSwitch]);
 
   useEffect(() => clearCycleTimers, [clearCycleTimers]);
+  useEffect(
+    () => () => {
+      revealTimers.current.forEach((t) => window.clearTimeout(t));
+      setHeld(false);
+    },
+    [],
+  );
+  // 화면이 바뀌면(홈·작별·다음 놀이) 멈춰 둔 놀이는 사라지므로, 미뤄 둔 일은 버리고 멈춤을 푼다
+  useEffect(() => dropHeld(), [screen]);
 
   // 놀이 시간 재기 (놀이 화면에 있고, 화면이 켜져 있을 때만)
   useEffect(() => {
@@ -385,30 +409,12 @@ export default function App() {
     }
     setFlying((f) => [...f, ...items]);
     const unlocked = addStar(bonus ? 2 : 1);
-    if (unlocked !== null) {
-      window.setTimeout(() => {
-        setReveal(unlocked);
-        fx.shake(1);
-        fire({
-          particleCount: 200,
-          spread: 160,
-          startVelocity: 55,
-          origin: { y: 0.5 },
-          zIndex: 65,
-          shapes: ["star", "circle"],
-          colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
-        });
-      }, 1700);
-    }
 
+    // 이번 성공 뒤에 이어질 일: 오늘은 여기까지 / 빙글빙글 다음 놀이
+    let after: "bye" | "switch" | null = null;
     if (byeDue.current) {
-      // 축하가 끝날 즈음, 다음 라운드가 시작되기 전에
-      clearCycleTimers();
-      later(CYCLE_RULES.afterWinMs, () => showByeRef.current());
-      return;
-    }
-
-    if (cycleRef.current) {
+      after = "bye";
+    } else if (cycleRef.current) {
       const st = stats.current;
       st.wins += 1;
       setCycleWins(st.wins);
@@ -417,12 +423,51 @@ export default function App() {
         misses: st.misses,
         elapsedMs: performance.now() - st.startedAt,
       };
-      if (cycleShouldSwitch(snapshot, paceRef.current)) {
-        // 축하가 끝날 즈음, 다음 라운드가 시작되기 전에 넘어간다
-        later(CYCLE_RULES.afterWinMs, () => requestSwitch("next"));
-      }
+      if (cycleShouldSwitch(snapshot, paceRef.current)) after = "switch";
     }
-  }, [addStar, clearCycleTimers, later, requestSwitch]);
+    if (unlocked === null && after === null) return;
+
+    // 스티커 공개·전환이 이어지면 놀이 화면이 뒤에서 다음 라운드를 시작하지 않게 멈춰 두고,
+    // 칭찬(과 "더 큰 숫자 도전!")이 다 끝난 뒤에 넘어간다
+    setHeld(true);
+    if (after !== null) clearCycleTimers();
+    const winScreen = screenRef.current;
+    afterSpeech(
+      CYCLE_RULES.afterWinMs,
+      CHEER_WAIT_MAX_MS,
+      () => {
+        if (unlocked !== null) {
+          // 스티커를 닫은 뒤에 "오늘은 여기까지" / 다음 놀이 (그새 다른 화면으로 갔으면 안 함)
+          const sameScreen = screenRef.current === winScreen && isGame(winScreen);
+          if (sameScreen && after === "bye") pendingBye.current = true;
+          else if (sameScreen && after === "switch" && cycleRef.current && isGame(winScreen)) {
+            pendingSwitch.current = { game: cycleNextOf(winScreen), reason: "next" };
+          }
+          // 스티커가 떠 있는 동안 뒤의 놀이는 멈춰 둔다 (닫으면 풀림)
+          if (isGame(screenRef.current)) setHeld(true);
+          setLevelUpShown(false);
+          setReveal(unlocked);
+          revealRef.current = unlocked;
+          fx.shake(1);
+          fire({
+            particleCount: 200,
+            spread: 160,
+            startVelocity: 55,
+            origin: { y: 0.5 },
+            zIndex: 65,
+            shapes: ["star", "circle"],
+            colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
+          });
+        } else if (after === "bye") {
+          showByeRef.current();
+        } else {
+          requestSwitch("next");
+        }
+      },
+      // 스티커 공개는 홈으로 가도 보여 준다. 전환·작별은 홈으로 가면(stopCycle) 취소
+      (id) => (unlocked !== null ? revealTimers : cycleTimers).current.push(id),
+    );
+  }, [addStar, clearCycleTimers, requestSwitch]);
 
   const levelUpTimers = useRef<number[]>([]);
   useEffect(() => () => levelUpTimers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -449,15 +494,20 @@ export default function App() {
   const closeReveal = useCallback(() => {
     setReveal(null);
     revealRef.current = null;
+    // 스티커 이름을 말하던 중에 닫았으면 끊고, 멈춰 둔 놀이가 새 라운드 안내를 바로 시작하게 한다
+    stopSpeaking();
     if (pendingBye.current) {
       showByeRef.current();
       return;
     }
     const p = pendingSwitch.current;
-    if (p && cycleRef.current) {
+    if (p && cycleRef.current && isGame(screenRef.current)) {
       pendingSwitch.current = null;
       cycleGo(p.game, p.reason);
+      return;
     }
+    pendingSwitch.current = null;
+    setHeld(false);
   }, [cycleGo]);
 
   const flyDone = useCallback(

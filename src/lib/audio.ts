@@ -299,7 +299,8 @@ interface QueueItem {
 }
 
 let queue: QueueItem[] = [];
-let running = false;
+/** 지금 돌고 있는 말하기의 번호 (-1: 없음) */
+let pumpGen = -1;
 /** 끊을 때마다 올라간다. 진행 중이던 말하기는 자기 번호가 아니면 멈춘다 */
 let generation = 0;
 let currentSource: AudioBufferSourceNode | null = null;
@@ -341,11 +342,12 @@ function playBuffer(buf: AudioBuffer): Promise<void> {
   });
 }
 
-async function speakTTS(item: QueueItem): Promise<void> {
+async function speakTTS(item: QueueItem, gen: number): Promise<void> {
   if (!("speechSynthesis" in window)) return;
   // Chrome 은 cancel() 직후 speak() 를 종종 무시한다
   const since = performance.now() - lastCancel;
   if (since < 80) await wait(80 - since);
+  if (gen !== generation) return; // 기다리는 사이에 끊겼으면 옛 말은 하지 않는다
   return new Promise((resolve) => {
     let settled = false;
     const done = () => {
@@ -398,20 +400,46 @@ async function sayOne(item: QueueItem, gen: number) {
     if (gen !== generation) return;
     if (buf) return playBuffer(buf);
   }
-  return speakTTS(item);
+  return speakTTS(item, gen);
 }
 
 async function pump() {
-  if (running) return;
-  running = true;
+  // 끊긴 옛 말하기가 음성 파일을 기다리는 중이어도 새 말은 바로 시작한다 (옛 것은 알아서 멈춘다)
   const gen = generation;
+  if (pumpGen === gen) return;
+  pumpGen = gen;
   while (queue.length > 0 && gen === generation) {
     const item = queue.shift()!;
     await sayOne(item, gen);
   }
-  running = false;
-  // 기다리는 동안 끊고 새로 말하기가 들어왔으면 이어서
-  if (queue.length > 0) void pump();
+  if (pumpGen === gen) pumpGen = -1;
+}
+
+/** 지금 말하고 있거나 말할 차례가 남아 있으면 true */
+export function isSpeaking(): boolean {
+  return pumpGen !== -1 || queue.length > 0;
+}
+
+/**
+ * 말이 끝날 때까지 기다렸다가 fn 을 부른다 (적어도 minMs, 길어도 minMs + maxWaitMs 뒤).
+ * 화면을 바꾸는 일(스티커 공개·놀이 전환·안내 잠금 풀기)을 실제 소리에 맞추는 데 쓴다.
+ * 타이머 id 는 track 으로 넘겨 주므로 부르는 쪽에서 취소할 수 있다.
+ */
+export function afterSpeech(
+  minMs: number,
+  maxWaitMs: number,
+  fn: () => void,
+  track: (id: number) => void,
+) {
+  const deadline = performance.now() + minMs + maxWaitMs;
+  const tick = (ms: number) =>
+    track(
+      window.setTimeout(() => {
+        if (isSpeaking() && performance.now() < deadline) tick(100);
+        else fn();
+      }, ms),
+    );
+  tick(minMs);
 }
 
 /**
