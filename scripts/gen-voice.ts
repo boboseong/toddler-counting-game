@@ -39,30 +39,40 @@ const VOICES: Record<Role, string> = {
   animal: process.env.GEMINI_VOICE_ANIMAL || "Puck",
 };
 
-const PERSONA: Record<Role, string> = {
-  narrator:
-    "You are the voice of a cute baby chick guide in a Korean counting game for 2- and 3-year-old children. " +
-    "Speak natural standard Korean with a bright, warm, gentle, slightly high voice, clearly and a little slowly, " +
-    "like a kind preschool teacher talking to a toddler.",
-  animal:
-    "You are a cute, hungry little animal in a Korean game for toddlers. " +
-    "Speak natural standard Korean in a playful, bouncy, adorable voice, a little higher than normal.",
+/*
+ * 이 TTS 모델은 받은 글을 전부 읽어 버린다 ("Say cheerfully: …" 같은 앞말까지).
+ * 그래서 연기 지시는 AUDIO PROFILE / DIRECTOR'S NOTES 형식으로 주고, 읽을 글은 TRANSCRIPT 아래에만 둔다.
+ * (이 형식에서는 지시문이 읽히지 않고 길이가 지시 없이 읽을 때와 같았다)
+ */
+const PROFILE: Record<Role, string> = {
+  narrator: "a cute baby chick who guides 2- and 3-year-old children in a Korean counting game",
+  animal: "a cute, hungry little animal visiting a Korean counting game for toddlers",
 };
 
-const DIRECTION: Record<Style, string> = {
-  count:
-    "Say this one Korean counting word slowly and clearly, with a happy, encouraging tone, " +
-    "as if pointing at an object while counting together with the child",
-  cheer: "Say this with joy and excitement, praising and celebrating with the child",
-  ask: "Say this as a friendly, curious question or request to the child",
-  talk: "Say this warmly and gently",
+const VOICE_NOTES: Record<Role, string> = {
+  narrator: "Bright, warm, gentle and slightly high, like a kind preschool teacher talking to a toddler. Natural standard Korean.",
+  animal: "Playful, bouncy and adorable, a little higher than normal. Natural standard Korean.",
+};
+
+const STYLE_NOTES: Record<Style, string> = {
+  count: "One counting word, said slowly and clearly with a happy, encouraging tone, as if pointing at an object while counting together.",
+  cheer: "Joyful and excited, praising and celebrating with the child.",
+  ask: "A friendly, curious question or request to the child. A little slow.",
+  talk: "Warm and gentle. A little slow.",
 };
 
 /** 말투 지시를 바꾸면 이 값을 올린다 (모든 문장을 다시 만든다) */
-const PROMPT_VERSION = 1;
+const PROMPT_VERSION = 2;
 
 function promptFor(p: PhraseSpec): string {
-  return `${PERSONA[p.role]}\n${DIRECTION[p.style]}. Read only the Korean text below, exactly as written, adding nothing:\n\n${p.text}`;
+  return [
+    `# AUDIO PROFILE: ${PROFILE[p.role]}`,
+    "## DIRECTOR'S NOTES",
+    `Voice: ${VOICE_NOTES[p.role]}`,
+    `Style: ${STYLE_NOTES[p.style]}`,
+    "## TRANSCRIPT",
+    p.text,
+  ].join("\n");
 }
 
 function fileFor(p: PhraseSpec): string {
@@ -106,7 +116,7 @@ async function pickModel(): Promise<string> {
     .map((m) => m.name.replace(/^models\//, ""));
   if (tts.length === 0) throw new Error("TTS 모델이 없어요. GEMINI_TTS_MODEL 로 직접 정해 주세요.");
   const version = (n: string) => Number(/gemini-(\d+(?:\.\d+)?)/.exec(n)?.[1] ?? 0);
-  const rank = (n: string) => (/3[.-]8/.test(n) ? 1000 : 0) + version(n) * 10 + (/flash/.test(n) ? 1 : 0) - (/preview/.test(n) ? 0.5 : 0);
+  const rank = (n: string) => (/3[.-]8/.test(n) ? 1000 : 0) + version(n) * 10 + (/flash/.test(n) ? 1 : 0) - (/preview/.test(n) ? 0.5 : 0) - (/lite/.test(n) ? 2 : 0);
   tts.sort((a, b) => rank(b) - rank(a));
   console.log(`TTS 모델 후보: ${tts.join(", ")}`);
   return tts[0];
@@ -275,11 +285,19 @@ async function main() {
   const concurrency = Math.max(1, Number(process.env.GEMINI_CONCURRENCY || 3));
   let done = 0;
   let failed = 0;
-  let sinceSave = 0;
   let next = 0;
+  /** 하루 한도에 걸리면 모두 멈춘다 (몇 시간씩 기다리지 않는다) */
+  let quotaHit = "";
+  const stop = () => {
+    writeManifest(manifest);
+    console.log(`\n중간 저장: ${done}개 만듦. 다시 실행하면 이어서 만들어요.`);
+    process.exit(130);
+  };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
 
   async function worker() {
-    while (next < queue.length) {
+    while (next < queue.length && !quotaHit) {
       const p = queue[next++];
       for (let attempt = 1; ; attempt++) {
         try {
@@ -288,13 +306,15 @@ async function main() {
           writeFileSync(path.join(OUT_DIR, file), toMp3(audio));
           manifest[p.text] = [file, Math.round((audio.pcm.length / audio.rate) * 1000)];
           done++;
-          if (++sinceSave >= 20) {
-            writeManifest(manifest);
-            sinceSave = 0;
-          }
+          writeManifest(manifest); // 중간에 멈춰도 만든 것은 남게 매번 저장
           if (done % 25 === 0) console.log(`  ${done}/${queue.length}`);
           break;
         } catch (e) {
+          if (e instanceof Retry && e.waitMs > 5 * 60_000) {
+            // 무료 등급의 하루 요청 한도 등: 오늘은 여기까지
+            quotaHit = `요청 한도에 걸렸어요. 약 ${Math.ceil(e.waitMs / 3_600_000)}시간 뒤에 다시 실행하세요.`;
+            break;
+          }
           const retry = e instanceof Retry && attempt < 7;
           if (!retry) {
             failed++;
@@ -310,8 +330,9 @@ async function main() {
 
   await Promise.all(Array.from({ length: concurrency }, worker));
   writeManifest(manifest);
-  console.log(`완료: ${done}개 만듦, ${failed}개 실패. (npm run voice:check 로 확인)`);
-  if (failed > 0) process.exitCode = 1;
+  if (quotaHit) console.log(quotaHit);
+  console.log(`완료: ${done}개 만듦, ${failed}개 실패, 남은 것 ${todo.length - done}개. (npm run voice:check 로 확인)`);
+  if (failed > 0 || quotaHit) process.exitCode = 1;
 }
 
 void main();
