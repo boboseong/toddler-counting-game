@@ -48,12 +48,11 @@ import {
   LevelUpBadge,
   ParentGate,
   ParentSettings,
-  SPARKLE_EMOJI,
   StickerReveal,
-  TapSparkles,
   type FlyingStarItem,
-  type Sparkle,
 } from "./components/overlays";
+import { FxLayer } from "./fx/FxLayer";
+import { fx } from "./fx/bus";
 import { CycleBar, CycleTransition } from "./components/cycle";
 import { BuddyContext, type BuddyInfo } from "./components/buddy";
 import type { GameProps, Screen } from "./types";
@@ -163,8 +162,7 @@ export default function App() {
   const [bonusShown, setBonusShown] = useState(false);
   const [levelUpShown, setLevelUpShown] = useState(false);
   const [cheer, setCheer] = useState(0);
-  const [sparkles, setSparkles] = useState<Sparkle[]>([]);
-  const sparkleId = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   const lastSparkle = useRef(0);
   const lastCelebration = useRef<Celebration>("confetti");
   const winsThisVisit = useRef(0);
@@ -179,6 +177,7 @@ export default function App() {
     setSessionMin,
     toggleSound,
     toggleVoice,
+    toggleHaptics,
     setTapGap,
     setCycleNext,
     setCyclePace,
@@ -468,28 +467,20 @@ export default function App() {
     [],
   );
 
-  const sparkleDone = useCallback(
-    (id: number) => setSparkles((sp) => sp.filter((x) => x.id !== id)),
-    [],
-  );
-
   const onAnyPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
     unlockAudio();
     const now = performance.now();
     lastTap.current = now;
-    // 버튼이 아닌 빈 곳을 누르면 반짝 (세기와는 상관없음)
+    // 캐릭터들이 누른 곳을 쳐다본다
+    fx.look(e.clientX, e.clientY);
+    // 버튼이 아닌 빈 곳을 누르면 반짝 (세기와는 상관없음). 배경 소품이면 소품이 반응한다
     const t = e.target as Element | null;
     if (!t || t.closest("button, [data-no-sparkle]")) return;
     if (now - lastSparkle.current < 120) return;
     lastSparkle.current = now;
     playTwinkle();
-    const sp: Sparkle = {
-      id: ++sparkleId.current,
-      x: e.clientX,
-      y: e.clientY,
-      e: SPARKLE_EMOJI[Math.floor(Math.random() * SPARKLE_EMOJI.length)],
-    };
-    setSparkles((list) => [...list.slice(-7), sp]);
+    fx.poke(e.clientX, e.clientY);
+    fx.burst(e.clientX, e.clientY, "sparkle");
   }, []);
 
   const countMax = problemMax(progress.levels);
@@ -562,6 +553,7 @@ export default function App() {
         className="relative h-[100dvh] w-screen overflow-hidden bg-sky-100 text-slate-800"
         onPointerDownCapture={onAnyPointerDown}
       >
+        <div ref={rootRef} className="h-full w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={contentKey}
@@ -584,12 +576,14 @@ export default function App() {
           />
         ) : null}
 
+        </div>
+
         <BalloonRise burst={balloons} />
         <BonusBadge show={bonusShown} />
         <LevelUpBadge show={levelUpShown} />
         <FlyingStars items={flying} onDone={flyDone} />
         <StickerReveal unlock={reveal} onClose={closeReveal} />
-        <TapSparkles items={sparkles} onDone={sparkleDone} />
+        <FxLayer shakeTarget={rootRef} />
         <ParentGate
           open={gateOpen}
           onPass={() => {
@@ -611,6 +605,8 @@ export default function App() {
           onSetSessionMin={setSessionMin}
           onToggleSound={toggleSound}
           onToggleVoice={toggleVoice}
+          hapticsOn={progress.hapticsOn}
+          onToggleHaptics={toggleHaptics}
           onSetLevel={setLevel}
           onSetTapGap={setTapGap}
           onSetCyclePace={setCyclePace}

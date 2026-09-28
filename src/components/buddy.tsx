@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useContext, useEffect, useState } from "react";
 import { STICKERS } from "../lib/data";
+import { Glyph, hasArt } from "../art/Glyph";
+import type { Mood } from "../art/types";
 
 /** 같이 노는 스티커 친구. cheer 가 바뀔 때마다(라운드 성공) 박수를 친다 */
 export interface BuddyInfo {
@@ -15,24 +17,26 @@ export function useBuddy() {
   return useContext(BuddyContext);
 }
 
-/** 스티커 이모지 (반짝이 스티커면 금빛 후광) */
+/** 스티커 그림 (반짝이 스티커면 금빛 후광). 자체 제작 그림이 있으면 그림으로 */
 export function StickerFace({
   index,
   shiny,
   className = "",
+  mood,
 }: {
   index: number;
   shiny: boolean;
   className?: string;
+  mood?: Mood;
 }) {
   return (
     <span
-      className={`emoji relative inline-block ${className}`}
+      className={`relative inline-block leading-none ${className}`}
       style={shiny ? { filter: "drop-shadow(0 0 6px #fbbf24) drop-shadow(0 0 2px #fde68a)" } : undefined}
     >
-      {STICKERS[index].emoji}
+      <Glyph emoji={STICKERS[index].emoji} mood={mood} />
       {shiny ? (
-        <span className="twinkle absolute -right-2 -top-2 text-[0.45em]" aria-hidden>
+        <span className="twinkle emoji absolute -right-2 -top-2 text-[0.45em]" aria-hidden>
           ✨
         </span>
       ) : null}
@@ -57,6 +61,8 @@ export function GameBuddy() {
   }, [cheer]);
 
   if (!buddy) return null;
+  // 자체 제작 그림 친구는 표정으로 기뻐하고, 이모지 친구는 박수 손을 띄운다
+  const art = hasArt(STICKERS[buddy.index].emoji);
   return (
     <div className="pointer-events-none absolute bottom-2 left-2 z-[5] sm:bottom-3 sm:left-4">
       <motion.div
@@ -68,11 +74,12 @@ export function GameBuddy() {
         <StickerFace
           index={buddy.index}
           shiny={buddy.shiny}
+          mood={clap ? "cheer" : "idle"}
           className="text-[clamp(2.4rem,min(10vw,8vh),3.8rem)] opacity-90 drop-shadow"
         />
       </motion.div>
       <AnimatePresence>
-        {clap ? (
+        {clap && !art ? (
           <motion.span
             initial={{ opacity: 0, scale: 0.4, y: 0 }}
             animate={{ opacity: 1, scale: [1, 1.3, 1], y: -18 }}

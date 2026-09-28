@@ -15,6 +15,7 @@ import {
   type GameId,
 } from "../lib/data";
 import { setSoundOn, setVoiceOn } from "../lib/audio";
+import { setHapticsOn } from "../fx/bus";
 
 export type { GameId };
 
@@ -55,6 +56,8 @@ export interface Progress {
   levels: Record<GameId, number>;
   soundOn: boolean;
   voiceOn: boolean;
+  /** 누를 때 짧은 진동 (지원하는 기기만) */
+  hapticsOn: boolean;
   totalRounds: number;
   /** 세는 탭 사이 최소 간격(ms) */
   tapGap: number;
@@ -90,6 +93,7 @@ const DEFAULT: Progress = {
   levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1 },
   soundOn: true,
   voiceOn: true,
+  hapticsOn: true,
   totalRounds: 0,
   tapGap: DEFAULT_TAP_GAP,
   cycleNext: 0,
@@ -239,6 +243,7 @@ export function useProgress() {
     save(progress);
     setSoundOn(progress.soundOn);
     setVoiceOn(progress.voiceOn);
+    setHapticsOn(progress.hapticsOn);
   }, [progress]);
 
   /**
@@ -346,6 +351,10 @@ export function useProgress() {
     setProgress((p) => ({ ...p, voiceOn: !p.voiceOn }));
   }, []);
 
+  const toggleHaptics = useCallback(() => {
+    setProgress((p) => ({ ...p, hapticsOn: !p.hapticsOn }));
+  }, []);
+
   const setTapGap = useCallback((ms: number) => {
     setProgress((p) => ({ ...p, tapGap: ms }));
   }, []);
@@ -372,6 +381,7 @@ export function useProgress() {
       ...DEFAULT,
       soundOn: ref.current.soundOn,
       voiceOn: ref.current.voiceOn,
+      hapticsOn: ref.current.hapticsOn,
       tapGap: ref.current.tapGap,
       cyclePace: ref.current.cyclePace,
       sessionMin: ref.current.sessionMin,
@@ -393,6 +403,7 @@ export function useProgress() {
     setSessionMin,
     toggleSound,
     toggleVoice,
+    toggleHaptics,
     setTapGap,
     setCycleNext,
     setCyclePace,

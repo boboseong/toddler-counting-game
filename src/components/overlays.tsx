@@ -287,36 +287,6 @@ export function LevelUpBadge({ show }: { show: boolean }) {
   );
 }
 
-/* ---------- 빈 곳을 톡 누르면 반짝 ---------- */
-export interface Sparkle {
-  id: number;
-  x: number;
-  y: number;
-  e: string;
-}
-
-export const SPARKLE_EMOJI = ["✨", "⭐", "🌸", "💫", "🌼", "💖", "🫧", "🍀"];
-
-export function TapSparkles({ items, onDone }: { items: Sparkle[]; onDone: (id: number) => void }) {
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[65]">
-      {items.map((s) => (
-        <motion.span
-          key={s.id}
-          className="emoji absolute -translate-x-1/2 -translate-y-1/2 text-4xl"
-          style={{ left: s.x, top: s.y }}
-          initial={{ scale: 0.2, opacity: 1, rotate: -30 }}
-          animate={{ scale: [0.2, 1.4, 1], opacity: [1, 1, 0], y: -50, rotate: 20 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          onAnimationComplete={() => onDone(s.id)}
-        >
-          {s.e}
-        </motion.span>
-      ))}
-    </div>
-  );
-}
-
 /* ---------- 부모님 설정 ---------- */
 export function ParentSettings({
   open,
@@ -331,6 +301,8 @@ export function ParentSettings({
   onSetSessionMin,
   onToggleSound,
   onToggleVoice,
+  hapticsOn,
+  onToggleHaptics,
   onSetLevel,
   onSetTapGap,
   onSetCyclePace,
@@ -349,6 +321,8 @@ export function ParentSettings({
   onSetSessionMin: (m: number) => void;
   onToggleSound: () => void;
   onToggleVoice: () => void;
+  hapticsOn: boolean;
+  onToggleHaptics: () => void;
   onSetLevel: (game: GameId, level: number) => void;
   onSetTapGap: (ms: number) => void;
   onSetCyclePace: (pace: CyclePace) => void;
@@ -383,7 +357,8 @@ export function ParentSettings({
 
             <div className="space-y-3">
               <Row label="효과음" value={soundOn} onToggle={onToggleSound} />
-              <Row label="음성 안내 (한국어 TTS)" value={voiceOn} onToggle={onToggleVoice} />
+              <Row label="음성 안내" value={voiceOn} onToggle={onToggleVoice} />
+              <Row label="누를 때 진동 (지원 기기만)" value={hapticsOn} onToggle={onToggleHaptics} />
 
               <div className="rounded-2xl bg-slate-50 p-4">
                 <div className="mb-2 text-lg">누르기 속도</div>

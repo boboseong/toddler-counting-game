@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { NUM_COLORS, STARS_PER_STICKER } from "../lib/data";
 import { GameBuddy } from "./buddy";
+import { Glyph } from "../art/Glyph";
 
 /* ---------- 배경 ---------- */
 
@@ -121,7 +122,7 @@ export function TopBar({
         ) : null}
         {title ? (
           <div className="hidden items-center gap-2 rounded-2xl bg-white/80 px-4 py-2 text-xl text-slate-700 shadow sm:flex sm:text-2xl">
-            {emoji ? <span className="emoji text-2xl">{emoji}</span> : null}
+            {emoji ? <Glyph emoji={emoji} className="text-2xl" /> : null}
             <span>{title}</span>
           </div>
         ) : null}
@@ -159,12 +160,12 @@ export function StarJar({ stars }: { stars: number }) {
         return (
           <motion.span
             key={i}
-            className="emoji text-xl sm:text-3xl"
+            className="inline-block text-xl leading-none sm:text-3xl"
             style={on ? undefined : { filter: "grayscale(1)", opacity: next ? 0.55 : 0.25 }}
             animate={next ? { scale: [1, 1.25, 1] } : {}}
             transition={next ? { duration: 0.9, repeat: Infinity } : undefined}
           >
-            ⭐
+            <Glyph emoji="⭐" />
           </motion.span>
         );
       })}
@@ -272,7 +273,7 @@ export function WinBanner({
       <div className="flex flex-col items-center gap-2 rounded-[2.5rem] border-8 border-yellow-300 bg-white/95 px-8 py-6 text-center shadow-2xl short:gap-0.5 short:rounded-3xl short:border-4 short:px-5 short:py-2">
         <div className="text-2xl text-amber-500 sm:text-3xl short:text-lg">{praise}</div>
         <div className="flex items-center gap-4 short:gap-2">
-          <span className="emoji text-6xl sm:text-7xl short:text-4xl">{emoji}</span>
+          <Glyph emoji={emoji} mood="cheer" className="text-6xl sm:text-7xl short:text-4xl" />
           <BigNumeral n={n} className="text-8xl sm:text-9xl short:text-6xl" />
         </div>
         <div className="text-3xl text-slate-700 sm:text-4xl short:text-xl">{label}!</div>
@@ -280,12 +281,12 @@ export function WinBanner({
           {Array.from({ length: n }).map((_, i) => (
             <motion.span
               key={i}
-              className={`emoji ${n > 10 ? "text-2xl sm:text-3xl short:text-lg" : "text-3xl sm:text-4xl short:text-xl"}`}
+              className={`inline-block leading-none ${n > 10 ? "text-2xl sm:text-3xl short:text-lg" : "text-3xl sm:text-4xl short:text-xl"}`}
               initial={{ scale: 0, rotate: -30 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.3 + i * 0.12, type: "spring", stiffness: 400 }}
             >
-              ⭐
+              <Glyph emoji="⭐" />
             </motion.span>
           ))}
         </div>
@@ -321,11 +322,11 @@ export function SlowBanner({ text }: { text: string }) {
     >
       <div className="flex flex-col items-center gap-2 rounded-[2.5rem] border-8 border-sky-300 bg-white/95 px-8 py-6 text-center shadow-2xl">
         <motion.span
-          className="emoji text-7xl sm:text-8xl"
+          className="inline-block text-7xl leading-none sm:text-8xl"
           animate={{ x: [0, 12, 0] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
         >
-          🐢
+          <Glyph emoji="🐢" mood="sleepy" />
         </motion.span>
         <div className="text-3xl text-sky-600 sm:text-4xl">천천히, 하나씩!</div>
         <div className="text-xl text-slate-500 sm:text-2xl">{text}</div>
