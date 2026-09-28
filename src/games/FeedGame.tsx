@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { playChomp, playDing, playPop, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
 import { P } from "../lib/phrases";
 import {
@@ -27,6 +27,10 @@ import {
   WinBanner,
 } from "../components/ui";
 import type { GameProps } from "../types";
+import { Glyph } from "../art/Glyph";
+import type { Mood } from "../art/types";
+import { fx, centerOf } from "../fx/bus";
+import { useMood } from "../fx/useMood";
 
 interface Round {
   id: number;
@@ -156,6 +160,22 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
   const food = animal.food;
   const fed = eaten.length;
   const isFull = fed >= count;
+  const locked = guard.locked;
+  const animalRef = useRef<HTMLSpanElement>(null);
+  // 동물 표정: 기다릴 땐 입 벌리고, 먹으면 냠냠, 너무 많으면 볼 빵빵, 다 먹으면 폴짝
+  const baseMood: Mood =
+    phase === "done"
+      ? "cheer"
+      : tooFull
+        ? "full"
+        : phase === "slow"
+          ? "hmm"
+          : locked
+            ? "talk"
+            : isFull
+              ? "happy"
+              : "hungry";
+  const [animalMood, flashAnimal] = useMood(baseMood);
 
   useEffect(() => {
     const ask = P.feedAsk(food, count);
@@ -191,6 +211,11 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
 
   const finish = () => {
     setPhase("done");
+    // 마지막 먹이가 입에 들어간 뒤 하트가 퐁퐁
+    after(560, () => {
+      fx.burstAt(animalRef.current, "hearts", { count: 9 });
+      fx.haptic([10, 40, 10]);
+    });
     const p = randomPraise();
     setPraise(p);
     // 과식했으면 그때 이미 실패로 보고했으므로 여기서는 성공일 때만 보고한다
@@ -207,7 +232,30 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     });
   };
 
-  const handleFeed = (rid: number, i: number) => {
+  /** 먹이가 동물 입으로 날아가서 냠 */
+  const flyToMouth = (from: HTMLElement) => {
+    const start = centerOf(from);
+    const mouth = centerOf(animalRef.current);
+    const box = animalRef.current?.getBoundingClientRect();
+    if (!start || !mouth || !box) return;
+    const target = { x: mouth.x, y: box.top + box.height * 0.55 };
+    fx.fly({
+      from: start,
+      to: target,
+      emoji: food.emoji,
+      size: box.width * 0.35,
+      arc: 90,
+      duration: 0.5,
+      onArrive: () => {
+        playChomp();
+        setYum((y) => y + 1);
+        flashAnimal("eating", 650);
+        fx.burst(target.x, target.y, "pop", { count: 6 });
+      },
+    });
+  };
+
+  const handleFeed = (rid: number, i: number, e: PointerEvent<HTMLButtonElement>) => {
     if (rid !== roundIdRef.current) return;
     if (phaseRef.current !== "play") {
       guard.noteIgnored();
@@ -220,6 +268,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
       if (!guard.accept()) return;
       overfed.current += 1;
       playSoft();
+      fx.haptic(40);
       setTooFull(true);
       speak(P.tooFull, { pitch: 1.3 });
       after(1200, () => setTooFull(false));
@@ -232,10 +281,10 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     const next = [...eatenRef.current, i];
     eatenRef.current = next;
     setEaten(next);
-    setYum((y) => y + 1);
     const n = next.length;
     playPop(n);
-    after(180, playChomp);
+    fx.haptic(12);
+    flyToMouth(e.currentTarget);
     speak(P.count(n), { rate: 0.85, pitch: 1.2 });
 
     if (n === count) {
@@ -255,6 +304,8 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     if (!guard.accept()) return;
     if (eatenRef.current.length < count) {
       playSoft();
+      flashAnimal("hungry", 1200);
+      fx.haptic(30);
       speak(P.stillHungry, { pitch: 1.3 });
       return;
     }
@@ -263,7 +314,6 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
     else finish();
   };
 
-  const locked = guard.locked;
   const tray = traySizes(trayCount);
   const slot = slotSizes(count);
 
@@ -276,24 +326,17 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
         <div className="flex w-full max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6 short:gap-3">
           <motion.div
             key={`${round.id}-animal`}
-            animate={
-              phase === "done"
-                ? { rotate: [0, -12, 12, -12, 12, 0], scale: [1, 1.15, 1] }
-                : tooFull
-                  ? { x: [0, -10, 10, -10, 10, 0] }
-                  : yum > 0
-                    ? { scale: [1, 1.2, 0.95, 1] }
-                    : {}
-            }
-            transition={
-              phase === "done"
-                ? { duration: 1.2, repeat: Infinity }
-                : { duration: 0.45 }
-            }
-            className={`relative ${phase === "play" && yum === 0 ? "bob" : ""}`}
+            animate={tooFull ? { x: [0, -10, 10, -10, 10, 0] } : yum > 0 ? { scale: [1, 1.08, 0.97, 1] } : {}}
+            transition={{ duration: 0.45 }}
+            className="relative"
           >
-            <span className="emoji text-[clamp(4rem,min(22vw,18vh),10rem)] drop-shadow-lg">
-              {animal.emoji}
+            <span ref={animalRef} className="inline-block leading-none">
+              <Glyph
+                emoji={animal.emoji}
+                mood={animalMood}
+                fullness={Math.min(1, fed / count)}
+                className="text-[clamp(4rem,min(22vw,18vh),10rem)] drop-shadow-lg"
+              />
             </span>
             {round.guest ? (
               <span className="absolute -left-3 -top-3 whitespace-nowrap rounded-full border-2 border-white bg-violet-400 px-2 py-0.5 text-sm text-white shadow sm:text-base">
@@ -328,18 +371,18 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
             {phase === "done" ? (
               <>
                 <motion.span
-                  className="emoji absolute -left-4 top-0 text-4xl"
+                  className="absolute -left-4 top-0 text-4xl leading-none"
                   animate={{ y: [-5, -30], opacity: [1, 0] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
                 >
-                  💕
+                  <Glyph emoji="💖" />
                 </motion.span>
                 <motion.span
-                  className="emoji absolute -right-4 top-4 text-4xl"
+                  className="absolute -right-4 top-4 text-3xl leading-none"
                   animate={{ y: [-5, -30], opacity: [1, 0] }}
                   transition={{ duration: 1.2, repeat: Infinity, delay: 0.5 }}
                 >
-                  💖
+                  <Glyph emoji="💖" />
                 </motion.span>
               </>
             ) : null}
@@ -347,7 +390,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
 
           <SpeechBubble tail="left" className="flex flex-col items-center gap-2 px-6 py-4 short:gap-1 short:px-4 short:py-2">
             <div className="flex items-center gap-3">
-              <span className="emoji text-5xl sm:text-6xl short:text-4xl">{food.emoji}</span>
+              <Glyph emoji={food.emoji} className="text-5xl sm:text-6xl short:text-4xl" />
               <BigNumeral n={count} className="text-[clamp(3.5rem,10vh,6rem)] short:text-[2.6rem]" />
               <span className="text-2xl text-slate-600 sm:text-3xl short:text-xl">
                 {food.counter} 주세요!
@@ -366,7 +409,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
                   }}
                 >
                   {i < fed ? (
-                    <span className={`emoji ${slot.emoji}`}>{food.emoji}</span>
+                    <Glyph emoji={food.emoji} mood="happy" className={slot.emoji} />
                   ) : (
                     <span className={`text-slate-300 ${slot.num}`}>{i + 1}</span>
                   )}
@@ -410,17 +453,17 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
                       layout
                       initial={{ scale: 0 }}
                       animate={{ scale: 1, opacity: phase === "done" ? 0.4 : 1 }}
-                      exit={{ y: -220, scale: 0.2, opacity: 0, rotate: 30 }}
+                      exit={{ scale: 0, opacity: 0, transition: { duration: 0.12 } }}
                       transition={{ type: "spring", stiffness: 300, damping: 20, delay: i * tray.delay }}
                       whileTap={{ scale: 0.85 }}
-                      onPointerDown={() => handleFeed(round.id, i)}
+                      onPointerDown={(e) => handleFeed(round.id, i, e)}
                       aria-label={food.name}
                       className={`flex items-center justify-center border-white bg-white shadow-[0_6px_0_0_rgba(0,0,0,0.1)] ${tray.item} ${
                         phase === "play" ? "bob" : ""
                       }`}
                       style={{ animationDelay: `${(i % 7) * 0.15}s` }}
                     >
-                      <span className={`emoji ${tray.emoji}`}>{food.emoji}</span>
+                      <Glyph emoji={food.emoji} className={tray.emoji} />
                     </motion.button>
                   ))}
               </AnimatePresence>
