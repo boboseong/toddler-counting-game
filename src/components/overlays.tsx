@@ -25,6 +25,8 @@ import { playDing, playSoft, speak } from "../lib/audio";
 import { P } from "../lib/phrases";
 import type { Unlock } from "../hooks/useProgress";
 import { StickerFace } from "./buddy";
+import { Glyph } from "../art/Glyph";
+import { Chick } from "../art/Chick";
 
 /** 새 스티커 화면은 이 시간 동안은 눌러도 닫히지 않는다 (막 눌러서 지나쳐 버리지 않게) */
 const REVEAL_MIN_MS = 2000;
@@ -95,7 +97,7 @@ export function StickerReveal({
             <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
             {newAlbum && album ? (
               <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
-                <span className="emoji">{album.emoji}</span> {album.title}
+                <Glyph emoji={album.emoji} /> {album.title}
               </div>
             ) : null}
             <motion.div
@@ -106,6 +108,7 @@ export function StickerReveal({
               <StickerFace
                 index={index}
                 shiny={shiny}
+                mood="cheer"
                 className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
               />
             </motion.div>
@@ -159,7 +162,7 @@ export function FlyingStars({
       {items.map((it) => (
         <motion.div
           key={it.id}
-          className="emoji absolute text-6xl"
+          className="absolute text-6xl leading-none"
           style={{
             left: cx - 30 + (it.gold ? 50 : 0),
             top: cy - 30,
@@ -181,7 +184,7 @@ export function FlyingStars({
           }}
           onAnimationComplete={() => onDone(it.id)}
         >
-          {it.gold ? "🌟" : "⭐"}
+          <Glyph emoji={it.gold ? "🌟" : "⭐"} mood="cheer" />
         </motion.div>
       ))}
     </div>
@@ -189,7 +192,8 @@ export function FlyingStars({
 }
 
 /* ---------- 풍선이 둥실둥실 (축하 연출 중 하나) ---------- */
-const BALLOONS = ["🎈", "🎈", "🎈", "🎀", "🎈", "🪁", "🎈", "🎈", "🎈", "🎈"];
+const BALLOONS = Array.from({ length: 10 }, () => "🎈");
+const BALLOON_HUES = [0, 200, 35, 265, 320, 180, 0, 230, 300, 20];
 
 export function BalloonRise({ burst }: { burst: number }) {
   const [shown, setShown] = useState(0);
@@ -201,7 +205,8 @@ export function BalloonRise({ burst }: { burst: number }) {
         x: 4 + ((i * 97) % 90),
         delay: (i % 5) * 0.12 + Math.random() * 0.2,
         dur: 2.2 + Math.random() * 0.8,
-        hue: randomInt(0, 360),
+        // 빨간 풍선을 돌려서 예쁜 색만 (초록·올리브는 탁해 보여서 뺀다)
+        hue: BALLOON_HUES[i % BALLOON_HUES.length],
       })),
     [burst], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -219,13 +224,13 @@ export function BalloonRise({ burst }: { burst: number }) {
       {items.map((b, i) => (
         <motion.span
           key={`${shown}-${i}`}
-          className="emoji absolute bottom-0 text-6xl sm:text-7xl"
+          className="absolute bottom-0 text-6xl leading-none sm:text-7xl"
           style={{ left: `${b.x}%`, filter: `hue-rotate(${b.hue}deg)` }}
           initial={{ y: "20vh", x: 0, rotate: 0 }}
           animate={{ y: "-115vh", x: [0, 18, -14, 10], rotate: [0, 8, -8, 0] }}
           transition={{ duration: b.dur, delay: b.delay, ease: "easeIn" }}
         >
-          {b.e}
+          <Glyph emoji={b.e} mood={i % 2 ? "happy" : "cheer"} />
         </motion.span>
       ))}
     </div>
@@ -246,11 +251,11 @@ export function BonusBadge({ show }: { show: boolean }) {
         >
           <div className="flex items-center gap-2 rounded-full border-4 border-white bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-2 text-3xl text-white shadow-xl sm:text-4xl short:text-2xl">
             <motion.span
-              className="emoji"
+              className="inline-block leading-none"
               animate={{ rotate: 360 }}
               transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
             >
-              🌟
+              <Glyph emoji="🌟" />
             </motion.span>
             <span style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}>보너스 별!</span>
           </div>
@@ -274,11 +279,11 @@ export function LevelUpBadge({ show }: { show: boolean }) {
         >
           <div className="flex items-center gap-2 rounded-full border-4 border-white bg-gradient-to-r from-sky-400 to-violet-400 px-6 py-2 text-2xl text-white shadow-xl sm:text-3xl short:text-xl">
             <motion.span
-              className="emoji"
+              className="inline-block leading-none"
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 0.6, repeat: Infinity }}
             >
-              🚀
+              <Glyph emoji="🚀" mood="cheer" />
             </motion.span>
             <span style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}>우와, 더 큰 숫자 도전!</span>
           </div>
@@ -713,6 +718,33 @@ export function ParentGate({
               닫기
             </button>
           </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/* ---------- 같이 춤추는 병아리 (라운드 성공마다) ---------- */
+export function CheerChick({ cheer }: { cheer: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (cheer === 0) return;
+    setShown(cheer);
+    const t = window.setTimeout(() => setShown(0), 2600);
+    return () => window.clearTimeout(t);
+  }, [cheer]);
+  return (
+    <AnimatePresence>
+      {shown ? (
+        <motion.div
+          key={shown}
+          className="pointer-events-none fixed bottom-0 right-[16%] z-[54] text-[clamp(4rem,min(16vw,16vh),7rem)] short:text-[3.5rem]"
+          initial={{ y: "110%", rotate: -10 }}
+          animate={{ y: "8%", rotate: 0 }}
+          exit={{ y: "120%", transition: { duration: 0.3 } }}
+          transition={{ type: "spring", stiffness: 260, damping: 14 }}
+        >
+          <Chick mood="cheer" />
         </motion.div>
       ) : null}
     </AnimatePresence>

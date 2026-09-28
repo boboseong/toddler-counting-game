@@ -13,6 +13,7 @@ import { P } from "../lib/phrases";
 import { useTimers } from "../hooks/useTimers";
 import { GameFrame, TopBar } from "../components/ui";
 import { StickerFace } from "../components/buddy";
+import { Glyph } from "../art/Glyph";
 
 interface Props {
   stars: number;
@@ -95,8 +96,8 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
         <div className="relative h-[clamp(130px,30vh,260px)] w-full max-w-3xl shrink-0 overflow-hidden rounded-[2rem] border-4 border-white shadow-xl short:h-[34vh] short:rounded-2xl">
           <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-sky-100 to-sky-50" />
           <div className="absolute bottom-0 left-0 right-0 h-[48%] rounded-t-[40%] bg-gradient-to-t from-lime-300 to-lime-200" />
-          <span className="emoji absolute right-3 top-2 text-3xl">☀️</span>
-          <span className="emoji absolute left-4 top-3 text-2xl opacity-80">☁️</span>
+          <Glyph emoji="☀️" className="absolute right-3 top-2 text-3xl" />
+          <Glyph emoji="☁️" className="absolute left-4 top-3 text-2xl opacity-80" />
 
           {scene.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xl text-slate-500 sm:text-2xl">
@@ -127,6 +128,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
                   <StickerFace
                     index={s.i}
                     shiny={isShiny(s.i)}
+                    mood={active || bounce === s.i ? "cheer" : counting >= 0 && counted ? "happy" : "idle"}
                     className="text-[clamp(2.2rem,min(9vw,8vh),3.8rem)] drop-shadow"
                   />
                   {counting >= 0 && counted ? (
@@ -165,12 +167,12 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
               {Array.from({ length: STARS_PER_STICKER }).map((_, i) => (
                 <motion.span
                   key={i}
-                  className="emoji text-2xl sm:text-3xl"
+                  className="inline-block text-2xl leading-none sm:text-3xl"
                   animate={i < filled ? { scale: [1, 1.2, 1] } : {}}
                   transition={{ delay: i * 0.15 }}
                   style={{ opacity: i < filled ? 1 : 0.25 }}
                 >
-                  ⭐
+                  <Glyph emoji="⭐" />
                 </motion.span>
               ))}
             </div>
@@ -189,7 +191,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
                       : "border-white bg-white/80 text-slate-500"
                   }`}
                 >
-                  <span className="emoji text-2xl">{al.emoji}</span>
+                  <Glyph emoji={al.emoji} className="text-2xl" />
                   <span className="hidden sm:inline">{al.title}</span>
                 </button>
               ))}

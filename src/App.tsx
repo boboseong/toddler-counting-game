@@ -44,6 +44,7 @@ import FindGame from "./games/FindGame";
 import {
   BalloonRise,
   BonusBadge,
+  CheerChick,
   FlyingStars,
   LevelUpBadge,
   ParentGate,
@@ -87,15 +88,6 @@ function fire(opts: confetti.Options) {
   }
 }
 
-/** 컨페티 모양 이모지 (지원하지 않는 브라우저면 null) */
-function emojiShape(text: string): confetti.Shape | null {
-  try {
-    return confetti.shapeFromText({ text, scalar: 2.4 });
-  } catch {
-    return null;
-  }
-}
-
 function celebrate(kind: Celebration, bonus: boolean) {
   switch (kind) {
     case "confetti":
@@ -131,14 +123,18 @@ function celebrate(kind: Celebration, bonus: boolean) {
       );
       break;
     case "hearts": {
-      const heart = emojiShape("💖");
-      fire({
-        particleCount: 40,
-        spread: 110,
-        startVelocity: 38,
-        origin: { y: 0.65 },
-        ...(heart ? { shapes: [heart], scalar: 2.4 } : { colors: ["#F472B6", "#FB7185", "#F9A8D4"] }),
-      });
+      // 자체 제작 하트 조각이 화면 여기저기서 퐁퐁
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      [
+        [0.5, 0.55],
+        [0.22, 0.7],
+        [0.78, 0.7],
+        [0.35, 0.35],
+        [0.65, 0.35],
+      ].forEach(([x, y], i) =>
+        window.setTimeout(() => fx.burst(w * x, h * y, "hearts", { count: 9 }), i * 140),
+      );
       break;
     }
   }
@@ -375,6 +371,7 @@ export default function App() {
     const kind = pick(CELEBRATIONS, lastCelebration.current);
     lastCelebration.current = kind;
     celebrate(kind, bonus);
+    if (bonus) fx.shake(0.8);
     if (kind === "balloons") setBalloons((b) => b + 1);
     setCheer((c) => c + 1);
 
@@ -391,6 +388,7 @@ export default function App() {
     if (unlocked !== null) {
       window.setTimeout(() => {
         setReveal(unlocked);
+        fx.shake(1);
         fire({
           particleCount: 200,
           spread: 160,
@@ -578,6 +576,7 @@ export default function App() {
 
         </div>
 
+        {isGame(screen) && !transition ? <CheerChick cheer={cheer} /> : null}
         <BalloonRise burst={balloons} />
         <BonusBadge show={bonusShown} />
         <LevelUpBadge show={levelUpShown} />

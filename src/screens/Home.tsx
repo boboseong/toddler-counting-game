@@ -118,7 +118,7 @@ export default function Home({
 
       <div className="relative z-10 flex items-center justify-between px-4 pt-4 short:pt-2 sm:px-6">
         <div className="text-2xl text-slate-500 sm:text-3xl short:text-xl">
-          <span className="emoji">🎈</span> 숫자 놀이터
+          <Glyph emoji="🎈" /> 숫자 놀이터
         </div>
         <StarJar stars={stars} />
       </div>
