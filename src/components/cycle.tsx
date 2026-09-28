@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { CYCLE_ORDER, GAME_META, type CycleReason, type GameId } from "../lib/data";
 import { SpeechBubble } from "./ui";
+import { Chick } from "../art/Chick";
+import { Glyph } from "../art/Glyph";
 
 /* ---------- 전환 화면: "이번엔 거품 팡팡!" ---------- */
 export function CycleTransition({ game, reason }: { game: GameId; reason: CycleReason }) {
@@ -30,7 +32,7 @@ export function CycleTransition({ game, reason }: { game: GameId; reason: CycleR
         animate={{ opacity: 1, x: 0 }}
         className="relative flex items-center gap-3 px-4"
       >
-        <span className="emoji text-5xl sm:text-6xl short:text-4xl">🐥</span>
+        <Chick mood="cheer" className="text-5xl sm:text-6xl short:text-4xl" />
         <SpeechBubble
           tail="left"
           className="break-keep text-center text-2xl sm:text-3xl short:px-4 short:py-1.5 short:text-lg"
@@ -47,11 +49,11 @@ export function CycleTransition({ game, reason }: { game: GameId; reason: CycleR
         className="relative mt-6 flex h-[clamp(7rem,26vh,11rem)] w-[clamp(7rem,26vh,11rem)] items-center justify-center rounded-[2.5rem] border-8 border-white bg-white/30 shadow-2xl short:mt-2"
       >
         <motion.span
-          className="emoji text-[clamp(4rem,15vh,6.5rem)]"
+          className="inline-block text-[clamp(4rem,15vh,6.5rem)] leading-none"
           animate={{ y: [0, -14, 0], rotate: [0, -6, 6, 0] }}
           transition={{ duration: 0.9, repeat: Infinity }}
         >
-          {meta.emoji}
+          <Glyph emoji={meta.emoji} mood="happy" />
         </motion.span>
       </motion.div>
 
@@ -75,13 +77,10 @@ export function CycleTransition({ game, reason }: { game: GameId; reason: CycleR
         {CYCLE_ORDER.map((g, i) => (
           <span key={g} className="flex items-center gap-2">
             {i > 0 ? <span className="text-slate-300">›</span> : null}
-            <span
-              className={`emoji transition-all ${
-                i === idx ? "text-4xl short:text-3xl" : "text-2xl opacity-40 short:text-xl"
-              }`}
-            >
-              {GAME_META[g].emoji}
-            </span>
+            <Glyph
+              emoji={GAME_META[g].emoji}
+              className={`transition-all ${i === idx ? "text-4xl short:text-3xl" : "text-2xl opacity-40 short:text-xl"}`}
+            />
           </span>
         ))}
       </motion.div>
@@ -146,11 +145,10 @@ export function CycleBar({
           const active = g === current;
           return (
             <span key={g} className="relative flex flex-col items-center">
-              <span
-                className={`emoji transition-all ${active ? "text-2xl sm:text-3xl" : "text-base opacity-40 sm:text-lg"}`}
-              >
-                {GAME_META[g].emoji}
-              </span>
+              <Glyph
+                emoji={GAME_META[g].emoji}
+                className={`transition-all ${active ? "text-2xl sm:text-3xl" : "text-base opacity-40 sm:text-lg"}`}
+              />
               {active ? (
                 <span className="mt-0.5 flex gap-0.5">
                   {Array.from({ length: needed }).map((_, i) => (

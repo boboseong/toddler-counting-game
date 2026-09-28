@@ -4,6 +4,8 @@ import { speak } from "../lib/audio";
 import { STICKERS } from "../lib/data";
 import { P } from "../lib/phrases";
 import { Background, SpeechBubble } from "../components/ui";
+import { Chick } from "../art/Chick";
+import { Glyph } from "../art/Glyph";
 
 interface Props {
   todayStars: number;
@@ -49,20 +51,7 @@ export default function Goodbye({ todayStars, todayStickers, onDone }: Props) {
       <Background scene="dusk" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <motion.span
-          className="emoji relative text-[clamp(4rem,min(18vw,16vh),7rem)] drop-shadow-lg"
-          animate={{ rotate: [0, -6, 0, 6, 0], y: [0, 4, 0] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          🐥
-          <motion.span
-            className="absolute -right-6 -top-4 text-[0.4em]"
-            animate={{ y: [0, -14], opacity: [1, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity }}
-          >
-            💤
-          </motion.span>
-        </motion.span>
+        <Chick mood="sleepy" className="text-[clamp(4rem,min(18vw,16vh),7rem)] drop-shadow-lg" />
         <SpeechBubble tail="left" className="text-2xl sm:text-3xl short:py-1.5 short:text-xl">
           오늘은 여기까지!
         </SpeechBubble>
@@ -74,12 +63,12 @@ export default function Goodbye({ todayStars, todayStickers, onDone }: Props) {
           {Array.from({ length: drawn }).map((_, i) => (
             <motion.span
               key={i}
-              className="emoji text-3xl sm:text-4xl short:text-2xl"
+              className="inline-block text-3xl leading-none sm:text-4xl short:text-2xl"
               initial={{ scale: 0, rotate: -40 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.4 + i * 0.12, type: "spring", stiffness: 400 }}
             >
-              ⭐
+              <Glyph emoji="⭐" />
             </motion.span>
           ))}
           {todayStars > MAX_DRAWN ? (
@@ -91,9 +80,7 @@ export default function Goodbye({ todayStars, todayStickers, onDone }: Props) {
           <div className="mt-1 flex items-center gap-2 text-xl text-slate-500 short:mt-0 short:text-base">
             <span>새 친구</span>
             {todayStickers.slice(-6).map((i) => (
-              <span key={i} className="emoji text-4xl short:text-3xl">
-                {STICKERS[i].emoji}
-              </span>
+              <Glyph key={i} emoji={STICKERS[i].emoji} mood="happy" className="text-4xl short:text-3xl" />
             ))}
           </div>
         ) : null}

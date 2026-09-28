@@ -31,6 +31,10 @@ import {
   WinBanner,
 } from "../components/ui";
 import type { GameProps } from "../types";
+import { Chick } from "../art/Chick";
+import { Glyph } from "../art/Glyph";
+import { useMood } from "../fx/useMood";
+import { fx } from "../fx/bus";
 
 /* ---------- 숫자가 숨는 장면 ---------- */
 
@@ -280,6 +284,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   const [praise, setPraise] = useState("");
   const [slowText, setSlowText] = useState("");
   const [portrait, setPortrait] = useState(isPortrait);
+  const [chickMood, flashChick] = useMood(guard.locked ? "talk" : "idle");
 
   // 화면을 돌리면 격자 모양을 바꿔서 숫자가 겹치지 않게 다시 놓는다
   useEffect(() => {
@@ -309,6 +314,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     if (phaseRef.current !== "play") return;
     setHint(true);
     setRevealed(true);
+    flashChick("surprised", 900);
     speak([texts.ask, P.hereMaybe]);
   };
 
@@ -377,6 +383,8 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
       }
       setPhase("done");
       setFound(true);
+      flashChick("cheer", 3600);
+      fx.haptic([10, 40, 10]);
       setWrongN(null);
       const p = randomPraise();
       setPraise(p);
@@ -394,6 +402,8 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     // 오답: 흔들리면서 "이건 숫자 1이야. 숫자 5를 찾아줘!"
     wrongs.current += 1;
     playSoft();
+    flashChick("hmm", 1400);
+    fx.haptic(30);
     setWobble(n);
     setWrongN(n);
     setRevealed(true);
@@ -445,9 +455,9 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.3 + i * 0.08, type: "spring", stiffness: 400 }}
-              className={`emoji ${cls}`}
+              className={`inline-block leading-none ${cls}`}
             >
-              {item.emoji}
+              <Glyph emoji={item.emoji} />
             </motion.span>
           ))}
         </div>
@@ -472,7 +482,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
       <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2 short:pb-2 short:pt-0">
         {/* 질문 */}
         <div className="flex items-center justify-center gap-3">
-          <span className="emoji text-5xl sm:text-6xl short:text-3xl">🐥</span>
+          <Chick mood={chickMood} className="text-5xl sm:text-6xl short:text-3xl" />
           <SpeechBubble
             tail="left"
             className="break-keep text-center text-xl sm:text-2xl short:px-4 short:py-1.5 short:text-base"

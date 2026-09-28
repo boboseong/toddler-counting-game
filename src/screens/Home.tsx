@@ -1,6 +1,9 @@
 import { motion } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
-import { playDing, speak } from "../lib/audio";
+import { playDing, speak, speakDuration } from "../lib/audio";
+import { Chick } from "../art/Chick";
+import { Glyph } from "../art/Glyph";
+import { useMood } from "../fx/useMood";
 import {
   GAME_IDS,
   GAME_META,
@@ -69,6 +72,7 @@ export default function Home({
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [greet, setGreet] = useState(0);
+  const [mood, flashMood] = useMood("idle", 20000);
   const [buddyHop, setBuddyHop] = useState(0);
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
@@ -94,6 +98,7 @@ export default function Home({
     spoken.current = true;
     setGreet(i);
     speak(greetings[i]);
+    flashMood("talk", speakDuration(greetings[i]));
   };
 
   const tapBuddy = () => {
@@ -124,10 +129,10 @@ export default function Home({
           <motion.button
             onPointerDown={tapMascot}
             whileTap={{ scale: 0.85, rotate: -10 }}
-            className="bob emoji text-[clamp(3.5rem,min(14vw,12vh),7rem)] drop-shadow-lg short:text-[2.6rem]"
+            className="text-[clamp(3.5rem,min(14vw,12vh),7rem)] drop-shadow-lg short:text-[2.6rem]"
             aria-label="병아리 친구"
           >
-            🐥
+            <Chick mood={mood} />
           </motion.button>
           <SpeechBubble
             tail="left"
@@ -177,14 +182,13 @@ export default function Home({
               }`}
               style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
             >
-              <span
-                className={`emoji text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] drop-shadow short:text-[2rem] ${
+              <Glyph
+                emoji={g.emoji}
+                className={`text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] drop-shadow short:text-[2rem] ${
                   g.id === "cycle" ? "spin-slow" : "wiggle"
                 }`}
                 style={{ animationDelay: `${i * 0.3}s` }}
-              >
-                {g.emoji}
-              </span>
+              />
               <span
                 className="text-2xl sm:text-3xl short:text-lg"
                 style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}
@@ -222,13 +226,12 @@ export default function Home({
           </div>
           <div className="flex gap-1">
             {Array.from({ length: STARS_PER_STICKER }).map((_, i) => (
-              <span
+              <Glyph
                 key={i}
-                className="emoji text-3xl sm:text-4xl short:text-2xl"
+                emoji="⭐"
+                className="text-3xl sm:text-4xl short:text-2xl"
                 style={{ opacity: i < stars % STARS_PER_STICKER || allDone ? 1 : 0.3 }}
-              >
-                ⭐
-              </span>
+              />
             ))}
           </div>
         </motion.button>

@@ -59,6 +59,7 @@ button {
 .chew,
 .talk,
 .flap,
+.flap-r,
 .sway-part,
 .drift {
   transform-box: fill-box;
@@ -103,6 +104,17 @@ button {
   }
   to {
     transform: rotate(22deg);
+  }
+}
+.flap-r {
+  animation: flap-r 0.22s ease-in-out infinite alternate;
+}
+@keyframes flap-r {
+  from {
+    transform: rotate(18deg);
+  }
+  to {
+    transform: rotate(-22deg);
   }
 }
 /* 나무·풀이 살랑 */
@@ -239,6 +251,7 @@ button {
   .wiggle,
   .spin-slow,
   .flap,
+  .flap-r,
   .sway-part,
   .drift {
     animation: none;

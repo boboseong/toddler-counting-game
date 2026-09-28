@@ -21,6 +21,10 @@ import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { Dots, GameFrame, SlowBanner, SpeechBubble, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
+import { Chick } from "../art/Chick";
+import { Glyph } from "../art/Glyph";
+import { useMood } from "../fx/useMood";
+import { fx } from "../fx/bus";
 
 interface Round {
   id: number;
@@ -80,6 +84,8 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
   const [praise, setPraise] = useState("");
   const [slowText, setSlowText] = useState("");
   const [countedUpTo, setCountedUpTo] = useState(0);
+  // 병아리 표정: 안내·같이 세는 중에는 말하는 입, 정답이면 폴짝, 틀리면 갸우뚱
+  const [chickMood, flashChick] = useMood(phase === "busy" || guard.locked ? "talk" : "idle");
 
   const roundIdRef = useRef(round.id);
   roundIdRef.current = round.id;
@@ -186,6 +192,8 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       const p = randomPraise();
       setPraise(p);
       playDing();
+      flashChick("cheer", 3200);
+      fx.haptic([10, 40, 10]);
       onResult(true);
       speak(P.right, { rate: 0.95, pitch: 1.25 });
       after(700, () => {
@@ -196,6 +204,8 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     } else {
       setPhase("busy");
       playSoft();
+      flashChick("hmm", 1300);
+      fx.haptic(30);
       setWobble(n);
       onResult(false);
       speak(P.wrongCountTogether);
@@ -221,7 +231,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-between overflow-y-auto px-4 pb-4 pt-2 no-scrollbar short:pb-2 short:pt-0">
         {/* 질문 */}
         <div className="flex items-center gap-3">
-          <span className="emoji text-5xl sm:text-6xl short:text-3xl">🐥</span>
+          <Chick mood={chickMood} className="text-5xl sm:text-6xl short:text-3xl" />
           <SpeechBubble tail="left" className="text-2xl sm:text-3xl short:px-4 short:py-1.5 short:text-lg">
             {item.name} 몇 {item.counter}일까?
           </SpeechBubble>
@@ -254,7 +264,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   transition={{ duration: 0.4, delay: active || counted ? 0 : i * sz.delay }}
                   className="relative flex items-center justify-center"
                 >
-                  <span className={`emoji drop-shadow ${sz.emoji}`}>{item.emoji}</span>
+                  <Glyph
+                    emoji={item.emoji}
+                    mood={active ? "surprised" : counted || phase === "done" ? "happy" : "idle"}
+                    className={`drop-shadow ${sz.emoji}`}
+                  />
                   {counted ? (
                     <motion.span
                       initial={{ scale: 0 }}
