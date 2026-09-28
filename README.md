@@ -79,7 +79,7 @@ npm run deploy     # gh-pages 브랜치로 배포 (GitHub Pages)
 
 React 19 · Vite 7 · Tailwind CSS 4 · Framer Motion · vite-plugin-pwa
 
-### 음성 만들기 (Gemini TTS)
+### 음성 만들기 (Gemini TTS · OpenRouter)
 
 앱이 말하는 모든 문장은 `src/lib/phrases.ts` 에 모여 있고(약 2,300문장), 아래 명령으로 음성 파일을 만듭니다.
 
@@ -88,6 +88,10 @@ GEMINI_API_KEY=... npm run voice:gen   # public/voice/*.mp3 + src/lib/voice-mani
 npm run voice:check                    # 빠진 음성 확인
 ```
 
+- `OPENROUTER_API_KEY` 가 있으면 OpenRouter(`/api/v1/audio/speech`)로 같은 Gemini TTS 를 불러 만듭니다(하루 요청 한도 없음, 사용량만큼 과금). 모델은 `OPENROUTER_TTS_MODEL`(기본 `google/gemini-3.8-flash-tts`)로 바꿀 수 있습니다.
+  ```bash
+  OPENROUTER_API_KEY=... npm run voice:gen
+  ```
 - 키는 환경 변수로만 넘기고 파일에 저장하지 마세요.
 - 이미 만든 문장은 건너뛰므로 중간에 멈춰도 다시 실행하면 이어서 만듭니다. 문장을 고치면 그 문장만 다시 만듭니다.
 - 모델은 `GEMINI_TTS_MODEL`(비우면 가장 최신 TTS 모델), 목소리는 `GEMINI_VOICE_NARRATOR`(병아리) · `GEMINI_VOICE_ANIMAL`(동물 손님)로 바꿀 수 있습니다.

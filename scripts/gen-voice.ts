@@ -2,6 +2,7 @@
  * Gemini TTS 로 앱의 모든 문장 음성을 만든다.
  *
  *   GEMINI_API_KEY=... npm run voice:gen
+ *   OPENROUTER_API_KEY=... npm run voice:gen   (OpenRouter 를 거쳐 같은 Gemini TTS 를 쓴다)
  *
  * - 문장 목록: src/lib/phrases.ts 의 allPhrases()
  * - 결과: public/voice/*.mp3 + src/lib/voice-manifest.json ({ 문장: [파일, 길이ms] })
@@ -9,11 +10,14 @@
  * - 문장·목소리·말투 지시가 바뀌면 파일 이름(해시)이 바뀌어 그 문장만 다시 만든다
  *
  * 환경 변수
- *   GEMINI_API_KEY        (필수) 키는 이 변수에서만 읽고 어디에도 저장하지 않는다
+ *   OPENROUTER_API_KEY    있으면 OpenRouter 로 만든다 (Gemini 무료 등급 하루 한도를 피할 때)
+ *   OPENROUTER_TTS_MODEL  OpenRouter 모델 ID (기본 google/gemini-3.8-flash-tts)
+ *   GEMINI_API_KEY        OpenRouter 키가 없을 때 Gemini API 를 직접 쓴다
+ *                         키는 환경 변수에서만 읽고 어디에도 저장하지 않는다
  *   GEMINI_TTS_MODEL      모델 ID. 비우면 모델 목록에서 가장 최신 TTS 모델을 고른다
  *   GEMINI_VOICE_NARRATOR 병아리(해설) 목소리 (기본 Leda)
  *   GEMINI_VOICE_ANIMAL   동물 손님 목소리 (기본 Puck)
- *   GEMINI_CONCURRENCY    동시에 보낼 요청 수 (기본 3)
+ *   GEMINI_CONCURRENCY    동시에 보낼 요청 수 (기본 Gemini 3, OpenRouter 6)
  *   VOICE_LIMIT           이번에 만들 최대 개수 (시험용)
  *   VOICE_ONLY            core 면 자주 나오는 문장만
  *   --prune               목록에 없는 옛 파일을 지운다
@@ -85,6 +89,7 @@ function fileFor(p: PhraseSpec): string {
 
 /* ---------- Gemini API ---------- */
 
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const KEY = process.env.GEMINI_API_KEY;
 
 async function api(url: string, init: RequestInit = {}): Promise<Response> {
@@ -185,6 +190,33 @@ async function synthesize(model: string, p: PhraseSpec): Promise<Audio> {
   };
 }
 
+/* ---------- OpenRouter (/audio/speech: 원시 PCM 24kHz 16bit mono 를 돌려준다) ---------- */
+
+const OPENROUTER_API = "https://openrouter.ai/api/v1";
+
+async function synthesizeOpenRouter(model: string, p: PhraseSpec): Promise<Audio> {
+  const r = await fetch(`${OPENROUTER_API}/audio/speech`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${OPENROUTER_KEY ?? ""}` },
+    body: JSON.stringify({ model, input: promptFor(p), voice: VOICES[p.role], response_format: "pcm" }),
+  });
+  if (r.status === 429 || r.status >= 500) {
+    const after = Number(r.headers.get("retry-after") ?? 0);
+    throw new Retry(`${r.status} ${(await r.text()).slice(0, 200)}`, after > 0 ? after * 1000 : 0);
+  }
+  if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 300)}`);
+  const mime = r.headers.get("content-type") ?? "";
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (/json/i.test(mime)) throw new Retry(`오디오 없음 (${buf.toString("utf8").slice(0, 200)})`, 0);
+  if (/wav/i.test(mime)) return fromWav(buf);
+  if (!/pcm|l16/i.test(mime)) throw new Error(`모르는 오디오 형식: ${mime}`);
+  if (buf.length < 2400) throw new Retry("오디오가 너무 짧아요", 0);
+  return {
+    pcm: new Int16Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length - (buf.length % 2))),
+    rate: parseRate(mime),
+  };
+}
+
 /* ---------- 후처리: 앞뒤 무음 자르기 · 음량 맞추기 · MP3 ---------- */
 
 function trim({ pcm, rate }: Audio): Audio {
@@ -275,14 +307,17 @@ async function main() {
   console.log(`문장 ${phrases.length}개 중 만들 것 ${todo.length}개 (이번에 ${queue.length}개)`);
   if (queue.length === 0) return;
 
-  if (!KEY) {
-    console.error("GEMINI_API_KEY 환경 변수가 없어요.");
+  if (!OPENROUTER_KEY && !KEY) {
+    console.error("OPENROUTER_API_KEY 나 GEMINI_API_KEY 환경 변수가 필요해요.");
     process.exit(1);
   }
-  const model = await pickModel();
-  console.log(`모델: ${model} / 목소리: 해설 ${VOICES.narrator}, 동물 ${VOICES.animal}`);
+  const model = OPENROUTER_KEY ? process.env.OPENROUTER_TTS_MODEL || "google/gemini-3.8-flash-tts" : await pickModel();
+  const synth = OPENROUTER_KEY ? synthesizeOpenRouter : synthesize;
+  console.log(
+    `${OPENROUTER_KEY ? "OpenRouter" : "Gemini"} 모델: ${model} / 목소리: 해설 ${VOICES.narrator}, 동물 ${VOICES.animal}`,
+  );
 
-  const concurrency = Math.max(1, Number(process.env.GEMINI_CONCURRENCY || 3));
+  const concurrency = Math.max(1, Number(process.env.GEMINI_CONCURRENCY || (OPENROUTER_KEY ? 6 : 3)));
   let done = 0;
   let failed = 0;
   let next = 0;
@@ -301,7 +336,7 @@ async function main() {
       const p = queue[next++];
       for (let attempt = 1; ; attempt++) {
         try {
-          const audio = normalize(trim(await synthesize(model, p)));
+          const audio = normalize(trim(await synth(model, p)));
           const file = fileFor(p);
           writeFileSync(path.join(OUT_DIR, file), toMp3(audio));
           manifest[p.text] = [file, Math.round((audio.pcm.length / audio.rate) * 1000)];
