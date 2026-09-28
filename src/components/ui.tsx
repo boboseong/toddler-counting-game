@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { NUM_COLORS, STARS_PER_STICKER } from "../lib/data";
 import { GameBuddy } from "./buddy";
 import { Glyph } from "../art/Glyph";
+import { Barn, Basket, Crab, Prop, Shell, Sunflower, Tree } from "../art/scenery";
 
 /* ---------- 배경 ---------- */
 
@@ -11,83 +12,155 @@ export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "to
 
 interface SceneSpec {
   sky: string;
-  ground: string;
+  /** 먼 언덕 · 가까운 언덕 색 */
+  hills: [string, string];
   /** 해 자리 */
-  light: string;
+  light: "sun" | "moon" | "sunCloud";
   /** 오른쪽 아래 풀밭 위 소품 (왼쪽 아래는 같이 노는 친구 자리) */
-  right: string;
+  right: ReactNode;
 }
+
+const PROP_SIZE = "text-[clamp(2.2rem,min(8vw,9vh),4rem)] short:text-[2.2rem]";
 
 const SCENES: Record<Scene, SceneSpec> = {
   sky: {
     sky: "from-sky-200 via-sky-50 to-amber-50",
-    ground: "from-lime-200 to-lime-100/60",
-    light: "☀️",
-    right: "🌷🌼",
+    hills: ["#d9f99d", "#bef264"],
+    light: "sun",
+    right: (
+      <>
+        <Prop emoji="🌷" className={PROP_SIZE} />
+        <Prop emoji="🌼" className={PROP_SIZE} />
+      </>
+    ),
   },
   orchard: {
     sky: "from-sky-200 via-sky-50 to-lime-50",
-    ground: "from-green-300 to-lime-100/60",
-    light: "☀️",
-    right: "🌳🍎",
+    hills: ["#bbf7d0", "#86efac"],
+    light: "sun",
+    right: (
+      <>
+        <Prop art={Tree} className="text-[clamp(3rem,min(11vw,13vh),5.5rem)] short:text-[3rem]" />
+        <Prop emoji="🍎" className={PROP_SIZE} sound="chomp" />
+      </>
+    ),
   },
   picnic: {
     sky: "from-cyan-100 via-sky-50 to-yellow-50",
-    ground: "from-lime-200 to-lime-100/60",
-    light: "🌤️",
-    right: "🧺🌼",
+    hills: ["#d9f99d", "#bef264"],
+    light: "sunCloud",
+    right: (
+      <>
+        <Prop art={Basket} className={PROP_SIZE} sound="chomp" />
+        <Prop emoji="🌼" className={PROP_SIZE} />
+      </>
+    ),
   },
   farm: {
     sky: "from-sky-200 via-orange-50 to-amber-50",
-    ground: "from-yellow-200 to-lime-100/60",
-    light: "☀️",
-    right: "🌻🏡",
+    hills: ["#fef08a", "#d9f99d"],
+    light: "sun",
+    right: (
+      <>
+        <Prop art={Sunflower} className="text-[clamp(2.6rem,min(9vw,11vh),4.6rem)] short:text-[2.6rem]" />
+        <Prop art={Barn} className={PROP_SIZE} />
+      </>
+    ),
   },
   sea: {
     sky: "from-sky-200 via-cyan-50 to-cyan-50",
-    ground: "from-amber-200 to-amber-100/60",
-    light: "☀️",
-    right: "🐚🦀",
+    hills: ["#a5f3fc", "#fde68a"],
+    light: "sun",
+    right: (
+      <>
+        <Prop art={Shell} className={PROP_SIZE} sound="bubble" />
+        <Prop art={Crab} className={PROP_SIZE} sound="bubble" />
+      </>
+    ),
   },
   dusk: {
     sky: "from-violet-200 via-pink-50 to-amber-50",
-    ground: "from-emerald-200 to-lime-100/60",
-    light: "🌙",
-    right: "✨🌟",
+    hills: ["#a7f3d0", "#6ee7b7"],
+    light: "moon",
+    right: (
+      <>
+        <Prop emoji="⭐" className={PROP_SIZE} />
+        <Prop emoji="🌟" className={PROP_SIZE} />
+      </>
+    ),
   },
   town: {
     sky: "from-sky-200 via-sky-50 to-rose-50",
-    ground: "from-lime-200 to-lime-100/60",
-    light: "☀️",
-    right: "",
+    hills: ["#d9f99d", "#bef264"],
+    light: "sun",
+    right: null,
   },
 };
+
+/** 천천히 흘러가는 구름 */
+function DriftCloud({ top, size, delay, duration }: { top: string; size: string; delay: number; duration: number }) {
+  return (
+    <div
+      className="drift absolute left-0 opacity-80"
+      style={{ top, fontSize: size, animationDelay: `${delay}s`, animationDuration: `${duration}s` }}
+    >
+      <svg viewBox="0 0 100 60" width="1.6em" height="1em" aria-hidden>
+        <path
+          d="M18 52 C 4 52 2 34 16 32 C 14 18 32 12 42 22 C 48 6 74 8 76 26 C 92 26 96 50 80 52 Z"
+          fill="#fff"
+        />
+      </svg>
+    </div>
+  );
+}
 
 export function Background({ scene = "sky" }: { scene?: Scene }) {
   const sp = SCENES[scene];
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className={`absolute inset-0 bg-gradient-to-b ${sp.sky}`} />
-      <div className="floaty absolute -left-10 top-10 h-40 w-64 rounded-full bg-white/70 blur-md" />
-      <div className="floaty-slow absolute right-[-40px] top-24 h-32 w-56 rounded-full bg-white/60 blur-md" />
-      <div className="floaty absolute bottom-24 left-1/3 h-28 w-52 rounded-full bg-white/50 blur-md" />
-      <div className="floaty-slow absolute right-6 top-6 text-6xl opacity-90 emoji">{sp.light}</div>
+      <div className="floaty absolute -left-10 top-10 h-40 w-64 rounded-full bg-white/60 blur-md" />
+      <div className="floaty-slow absolute right-[-40px] top-24 h-32 w-56 rounded-full bg-white/50 blur-md" />
+      <DriftCloud top="14%" size="3.5rem" delay={-8} duration={46} />
+      <DriftCloud top="30%" size="2.4rem" delay={-30} duration={62} />
+      {/* 해 · 달 (누르면 웃는다) */}
+      <div className="floaty-slow absolute right-4 top-[5.5rem] opacity-90 sm:top-24 short:right-[30%] short:top-2">
+        <Prop
+          emoji={sp.light === "moon" ? "🌙" : "☀️"}
+          base={sp.light === "moon" ? "sleepy" : "idle"}
+          className="text-6xl short:text-5xl"
+        />
+        {sp.light === "sunCloud" ? (
+          <span className="absolute -bottom-3 -left-6 text-4xl">
+            <Glyph emoji="☁️" />
+          </span>
+        ) : null}
+      </div>
       {scene === "dusk" ? (
         <>
-          <span className="twinkle emoji absolute left-[12%] top-[18%] text-2xl">✨</span>
-          <span className="twinkle emoji absolute left-[48%] top-[9%] text-xl" style={{ animationDelay: "0.8s" }}>
-            ⭐
+          <span className="twinkle absolute left-[12%] top-[18%] text-2xl">
+            <Glyph emoji="⭐" />
           </span>
-          <span className="twinkle emoji absolute right-[22%] top-[30%] text-2xl" style={{ animationDelay: "1.6s" }}>
-            ✨
+          <span className="twinkle absolute left-[48%] top-[9%] text-xl" style={{ animationDelay: "0.8s" }}>
+            <Glyph emoji="🌟" />
+          </span>
+          <span className="twinkle absolute right-[22%] top-[30%] text-2xl" style={{ animationDelay: "1.6s" }}>
+            <Glyph emoji="⭐" />
           </span>
         </>
       ) : null}
-      <div className={`absolute bottom-0 left-0 right-0 h-24 rounded-t-[50%] bg-gradient-to-t ${sp.ground}`} />
+      {/* 언덕 두 겹 */}
+      <svg
+        className="absolute bottom-0 left-0 h-32 w-full short:h-20"
+        viewBox="0 0 400 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path d="M0 50 C 60 20 120 30 190 48 C 260 66 320 26 400 40 L400 100 L0 100 Z" fill={sp.hills[0]} />
+        <path d="M0 74 C 80 52 160 58 230 70 C 300 82 350 60 400 66 L400 100 L0 100 Z" fill={sp.hills[1]} />
+      </svg>
       {sp.right ? (
-        <div className="emoji absolute bottom-2 right-2 text-3xl opacity-70 sm:bottom-3 sm:right-3 sm:text-5xl short:text-3xl">
-          {sp.right}
-        </div>
+        <div className="absolute bottom-2 right-2 flex items-end gap-1 opacity-90 sm:bottom-3 sm:right-3">{sp.right}</div>
       ) : null}
     </div>
   );

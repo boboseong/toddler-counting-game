@@ -15,6 +15,8 @@ import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { BigNumeral, GameFrame, ListenChip, SlowBanner, TopBar } from "../components/ui";
 import type { GameProps } from "../types";
+import { Glyph } from "../art/Glyph";
+import { fx } from "../fx/bus";
 
 interface Bubble {
   id: number;
@@ -105,9 +107,11 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
     playBubble(next);
     speak(P.count(next), { rate: 0.85, pitch: 1.2 });
 
-    const fx: PopFx = { id: b.id, x: e.clientX, y: e.clientY, n: next };
-    setPops((p) => [...p, fx]);
-    after(900, () => setPops((p) => p.filter((x) => x.id !== fx.id)));
+    const pop: PopFx = { id: b.id, x: e.clientX, y: e.clientY, n: next };
+    setPops((p) => [...p, pop]);
+    after(900, () => setPops((p) => p.filter((x) => x.id !== pop.id)));
+    fx.burst(e.clientX, e.clientY, "pop", { count: 8 + next, color: `hsl(${b.hue} 85% 65%)` });
+    fx.haptic(15);
 
     if (next >= target) {
       if (guard.isMashing(mashLimitFor(target))) {
@@ -223,11 +227,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
                 }}
               >
                 <span className="absolute left-[18%] top-[14%] h-[18%] w-[26%] rotate-[-30deg] rounded-full bg-white/90" />
-                {b.emoji ? (
-                  <span className="emoji" style={{ fontSize: b.size * 0.42 }}>
-                    {b.emoji}
-                  </span>
-                ) : null}
+                {b.emoji ? <Glyph emoji={b.emoji} style={{ fontSize: b.size * 0.42 }} /> : null}
               </button>
             </motion.div>
           ))}
@@ -248,7 +248,6 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
               transition={{ duration: 0.9 }}
             >
               <BigNumeral n={p.n} className="text-7xl" />
-              <span className="emoji absolute -right-8 -top-6 text-4xl">✨</span>
             </motion.div>
           ))}
         </AnimatePresence>

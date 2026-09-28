@@ -22,7 +22,8 @@ import { useRoundGuard } from "../hooks/useRoundGuard";
 import { Dots, GameFrame, SlowBanner, SpeechBubble, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
 import { Chick } from "../art/Chick";
-import { Glyph } from "../art/Glyph";
+import { Glyph, reactionOf } from "../art/Glyph";
+import { REACTIONS } from "../art/reactions";
 import { useMood } from "../fx/useMood";
 import { fx } from "../fx/bus";
 
@@ -173,7 +174,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     });
   };
 
-  const handleChoice = (rid: number, n: number) => {
+  const handleChoice = (rid: number, n: number, el?: HTMLElement) => {
     if (rid !== roundIdRef.current) return;
     if (phaseRef.current !== "play") {
       guard.noteIgnored();
@@ -193,6 +194,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       setPraise(p);
       playDing();
       flashChick("cheer", 3200);
+      fx.burstAt(el, "stars", { count: 14 });
       fx.haptic([10, 40, 10]);
       onResult(true);
       speak(P.right, { rate: 0.95, pitch: 1.25 });
@@ -256,7 +258,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   initial={{ scale: 0, opacity: 0 }}
                   animate={
                     active
-                      ? { scale: [1, 1.45, 1.15], y: [0, -18, -8], opacity: 1 }
+                      ? { scale: [1, 1.3, 1.12], y: [0, -12, -6], opacity: 1 }
                       : counted
                         ? { scale: 1.05, y: -4, opacity: 1 }
                         : { scale: 1, y: 0, opacity: 1 }
@@ -264,11 +266,17 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   transition={{ duration: 0.4, delay: active || counted ? 0 : i * sz.delay }}
                   className="relative flex items-center justify-center"
                 >
-                  <Glyph
-                    emoji={item.emoji}
-                    mood={active ? "surprised" : counted || phase === "done" ? "happy" : "idle"}
-                    className={`drop-shadow ${sz.emoji}`}
-                  />
+                  <motion.span
+                    className="inline-block leading-none"
+                    animate={active ? REACTIONS[reactionOf(item.emoji)] : {}}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <Glyph
+                      emoji={item.emoji}
+                      mood={active ? "surprised" : counted || phase === "done" ? "happy" : "idle"}
+                      className={`drop-shadow ${sz.emoji}`}
+                    />
+                  </motion.span>
                   {counted ? (
                     <motion.span
                       initial={{ scale: 0 }}
@@ -306,7 +314,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                   exit={{ scale: 0, opacity: 0, rotate: 20 }}
                   transition={{ type: "spring", stiffness: 350, damping: 18 }}
                   whileTap={{ scale: 0.9 }}
-                  onPointerDown={() => handleChoice(round.id, n)}
+                  onPointerDown={(e) => handleChoice(round.id, n, e.currentTarget)}
                   aria-label={`${n}`}
                   className={`pressable flex h-[clamp(96px,min(28vw,24vh),190px)] w-[clamp(84px,min(24vw,20vh),160px)] flex-col items-center justify-center rounded-[2rem] border-4 border-white text-white shadow-[0_10px_0_0_rgba(0,0,0,0.15)] short:h-[92px] short:w-[88px] short:gap-1 short:rounded-2xl ${
                     n > 10 ? "gap-1" : "gap-2"

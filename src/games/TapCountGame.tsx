@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { playPop, playSoft, playTap, prefetchSpeech, speak, speakDuration } from "../lib/audio";
 import { P } from "../lib/phrases";
 import {
@@ -18,6 +18,9 @@ import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { BigNumeral, GameFrame, ListenChip, SlowBanner, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
+import { Glyph, reactionOf } from "../art/Glyph";
+import { REACTIONS } from "../art/reactions";
+import { fx } from "../fx/bus";
 
 interface Round {
   id: number;
@@ -142,7 +145,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
     });
   };
 
-  const handleTap = (rid: number, i: number) => {
+  const handleTap = (rid: number, i: number, e: PointerEvent<HTMLButtonElement>) => {
     if (rid !== roundIdRef.current) return; // 사라지는 중인 이전 라운드 버튼
     if (phaseRef.current !== "play") {
       guard.noteIgnored();
@@ -161,6 +164,9 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
     setTapped(next);
     const n = next.length;
     playPop(n);
+    // 셀수록 반짝이가 조금씩 많아진다
+    fx.burstAt(e.currentTarget, "pop", { count: 5 + n, color: NUM_COLORS[(n - 1) % NUM_COLORS.length] });
+    fx.haptic(12);
     speak(P.count(n), { rate: 0.85, pitch: 1.2 });
 
     if (n === round.count) {
@@ -182,7 +188,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
         {/* 상단: 현재 숫자 */}
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-3 rounded-full bg-white/80 px-5 py-2 text-xl text-slate-600 shadow sm:text-2xl short:py-1 short:text-base">
-            <span className="emoji text-2xl">{item.emoji}</span>
+            <Glyph emoji={item.emoji} className="text-2xl" />
             <span>{item.name} 톡톡 세어 봐요</span>
           </div>
           <div className="mt-2 flex h-[clamp(4.5rem,16vh,9rem)] items-center justify-center">
@@ -232,17 +238,17 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
               return (
                 <motion.button
                   key={i}
-                  onPointerDown={() => handleTap(round.id, i)}
+                  onPointerDown={(e) => handleTap(round.id, i, e)}
                   whileTap={{ scale: 0.85 }}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={
                     counted
-                      ? { scale: [1, 1.25, 1], rotate: [0, -10, 10, 0], opacity: 1 }
+                      ? { scale: [1, 1.12, 1], opacity: 1 }
                       : { scale: 1, opacity: locked ? 0.6 : 1 }
                   }
                   transition={
                     counted
-                      ? { duration: 0.5 }
+                      ? { duration: 0.6 }
                       : { type: "spring", stiffness: 300, damping: 18, delay: i * sz.delay }
                   }
                   className={`relative flex items-center justify-center border-white bg-white shadow-[0_8px_0_0_rgba(0,0,0,0.1)] ${sz.item} ${
@@ -254,7 +260,13 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
                   }}
                   aria-label={`${item.name} ${i + 1}`}
                 >
-                  <span className={`emoji ${sz.emoji}`}>{item.emoji}</span>
+                  <motion.span
+                    className="inline-block leading-none"
+                    animate={counted ? REACTIONS[reactionOf(item.emoji)] : {}}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <Glyph emoji={item.emoji} mood={counted ? "happy" : "idle"} className={sz.emoji} />
+                  </motion.span>
                   {counted ? (
                     <motion.span
                       initial={{ scale: 0 }}

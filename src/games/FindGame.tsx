@@ -367,7 +367,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     });
   };
 
-  const handleTap = (rid: number, n: number) => {
+  const handleTap = (rid: number, n: number, el?: HTMLElement) => {
     if (rid !== roundIdRef.current) return;
     if (phaseRef.current !== "play") {
       guard.noteIgnored();
@@ -384,6 +384,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
       setPhase("done");
       setFound(true);
       flashChick("cheer", 3600);
+      fx.burstAt(el, "stars", { count: 16 });
       fx.haptic([10, 40, 10]);
       setWrongN(null);
       const p = randomPraise();
@@ -530,7 +531,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
                     animate={animate}
                     transition={transition}
                     whileTap={{ scale: 0.9 }}
-                    onPointerDown={() => handleTap(round.id, s.n)}
+                    onPointerDown={(e) => handleTap(round.id, s.n, e.currentTarget)}
                     aria-label={`숫자 ${s.n}`}
                     className="absolute h-[var(--fsh)] w-[var(--fs)]"
                     style={{
