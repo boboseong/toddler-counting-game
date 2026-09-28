@@ -274,6 +274,11 @@ function writeManifest(m: Manifest) {
   writeFileSync(MANIFEST, `${JSON.stringify(sorted, null, 0).replace(/\],"/g, '],\n"')}\n`);
 }
 
+/** 이 문장을 읽는 데 넉넉히 걸릴 시간 (보통 음절당 0.3초 안팎) */
+function maxMs(text: string): number {
+  return 1500 + 450 * (text.match(/[가-힣0-9A-Za-z]/g)?.length ?? 1);
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
@@ -337,6 +342,9 @@ async function main() {
       for (let attempt = 1; ; attempt++) {
         try {
           const audio = normalize(trim(await synth(model, p)));
+          // 짧은 말에 모델이 문장을 지어 붙이는 일이 있다 (예: "하마!" → 19초). 너무 길면 다시 만든다
+          const ms = (audio.pcm.length / audio.rate) * 1000;
+          if (ms > maxMs(p.text)) throw new Retry(`너무 길어요 (${Math.round(ms)}ms)`, 0);
           const file = fileFor(p);
           writeFileSync(path.join(OUT_DIR, file), toMp3(audio));
           manifest[p.text] = [file, Math.round((audio.pcm.length / audio.rate) * 1000)];
