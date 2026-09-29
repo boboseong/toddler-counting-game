@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { playBubble, playSoft, prefetchSpeech, speak, speakDuration } from "../lib/audio";
 import { P } from "../lib/phrases";
@@ -142,6 +142,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
 
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
   const locked = guard.locked;
+  const reduceMotion = useReducedMotion();
 
   return (
     <GameFrame scene="sea">
@@ -196,43 +197,53 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
         </div>
       </div>
 
-      {/* 거품들 */}
-      <div className="absolute inset-0 z-10 overflow-hidden">
-        <AnimatePresence>
-          {bubbles.map((b) => (
-            <motion.div
-              key={b.id}
-              className="absolute"
-              style={{
-                // 작은 화면에서도 오른쪽으로 잘리지 않게 위치를 화면 안으로 고정
-                left: `min(${b.x}%, calc(100% - ${b.size + 8}px))`,
-                bottom: -b.size - 20,
-              }}
-              initial={{ y: 0 }}
-              animate={{ y: -(vh + b.size + 60) }}
-              exit={{ scale: 1.7, opacity: 0, transition: { duration: 0.18 } }}
-              transition={{ duration: b.duration, ease: "linear" }}
-              onAnimationComplete={() => removeBubble(b.id)}
-            >
-              <button
-                onPointerDown={(e) => handlePop(b, e)}
-                aria-label="거품"
-                className="sway relative flex items-center justify-center rounded-full"
+      {/*
+        거품들. 떠오르는 움직임이 곧 놀이라서 '동작 줄이기' 설정에서도 올라간다
+        (그 설정을 따르면 올라가는 애니메이션이 바로 끝나서 거품이 뜨자마자 지워진다).
+        대신 그 설정에서는 터질 때 커지는 것과 좌우 흔들림(.sway, CSS)만 뺀다.
+      */}
+      <MotionConfig reducedMotion="never">
+        <div className="absolute inset-0 z-10 overflow-hidden">
+          <AnimatePresence>
+            {bubbles.map((b) => (
+              <motion.div
+                key={b.id}
+                className="absolute"
                 style={{
-                  width: b.size,
-                  height: b.size,
-                  background: `radial-gradient(circle at 32% 30%, rgba(255,255,255,0.95) 0%, hsla(${b.hue},90%,85%,0.85) 25%, hsla(${b.hue},85%,70%,0.55) 70%, hsla(${b.hue},80%,60%,0.75) 100%)`,
-                  boxShadow: `inset -8px -10px 20px hsla(${b.hue},80%,50%,0.35), 0 8px 20px rgba(0,0,0,0.12)`,
-                  border: "3px solid rgba(255,255,255,0.85)",
+                  // 작은 화면에서도 오른쪽으로 잘리지 않게 위치를 화면 안으로 고정
+                  left: `min(${b.x}%, calc(100% - ${b.size + 8}px))`,
+                  bottom: -b.size - 20,
                 }}
+                initial={{ y: 0 }}
+                animate={{ y: -(vh + b.size + 60) }}
+                exit={
+                  reduceMotion
+                    ? { opacity: 0, transition: { duration: 0.18 } }
+                    : { scale: 1.7, opacity: 0, transition: { duration: 0.18 } }
+                }
+                transition={{ duration: b.duration, ease: "linear" }}
+                onAnimationComplete={() => removeBubble(b.id)}
               >
-                <span className="absolute left-[18%] top-[14%] h-[18%] w-[26%] rotate-[-30deg] rounded-full bg-white/90" />
-                {b.emoji ? <Glyph emoji={b.emoji} style={{ fontSize: b.size * 0.42 }} /> : null}
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                <button
+                  onPointerDown={(e) => handlePop(b, e)}
+                  aria-label="거품"
+                  className="sway relative flex items-center justify-center rounded-full"
+                  style={{
+                    width: b.size,
+                    height: b.size,
+                    background: `radial-gradient(circle at 32% 30%, rgba(255,255,255,0.95) 0%, hsla(${b.hue},90%,85%,0.85) 25%, hsla(${b.hue},85%,70%,0.55) 70%, hsla(${b.hue},80%,60%,0.75) 100%)`,
+                    boxShadow: `inset -8px -10px 20px hsla(${b.hue},80%,50%,0.35), 0 8px 20px rgba(0,0,0,0.12)`,
+                    border: "3px solid rgba(255,255,255,0.85)",
+                  }}
+                >
+                  <span className="absolute left-[18%] top-[14%] h-[18%] w-[26%] rotate-[-30deg] rounded-full bg-white/90" />
+                  {b.emoji ? <Glyph emoji={b.emoji} style={{ fontSize: b.size * 0.42 }} /> : null}
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </MotionConfig>
 
       {/* 팡 효과 숫자 */}
       <div className="pointer-events-none fixed inset-0 z-40">
