@@ -470,7 +470,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   } else {
     bubble = (
       <span className="flex items-center gap-2">
-        <span className="emoji">👂</span>
+        <Glyph emoji="👂" />
         <span>잘 듣고 숫자를 찾아 봐!</span>
       </span>
     );

@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import { useEffect, useState, type ComponentType } from "react";
-import { Face, Shine } from "./Face";
+import { Face } from "./Face";
 import { Glyph } from "./Glyph";
 import { Svg } from "./Svg";
-import { INK, LINE, stroke } from "./palette";
+import { LINE, stroke } from "./palette";
 import type { ArtProps, Mood } from "./types";
 import { pokeCh } from "../fx/bus";
 import { playBubble, playChomp, playTwinkle } from "../lib/audio";
@@ -104,32 +104,8 @@ export function Shell({ mood }: ArtProps) {
   );
 }
 
-export function Crab({ mood, look }: ArtProps) {
-  const up = mood === "cheer" || mood === "happy";
-  return (
-    <Svg>
-      {[-1, 1].map((side) => (
-        <motion.g
-          key={side}
-          style={{ originX: side < 0 ? "100%" : "0%", originY: "100%" }}
-          animate={up ? { rotate: [0, -20 * side, 0, -20 * side, 0] } : { rotate: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <path d={side < 0 ? "M24 54 L12 34" : "M76 54 L88 34"} stroke={INK} strokeWidth={LINE} />
-          <path
-            d={side < 0 ? "M12 34 C 2 30 2 18 12 16 L 14 26 L 20 20 C 22 28 18 34 12 34 Z" : "M88 34 C 98 30 98 18 88 16 L 86 26 L 80 20 C 78 28 82 34 88 34 Z"}
-            fill="#ff6a4d"
-            {...thin}
-          />
-        </motion.g>
-      ))}
-      <path d="M24 74 L14 84 M30 78 L24 90 M76 74 L86 84 M70 78 L76 90" stroke={INK} strokeWidth={LINE} strokeLinecap="round" />
-      <ellipse cx="50" cy="64" rx="30" ry="20" fill="#ff6a4d" {...stroke} />
-      <Shine x={38} y={56} rx={4} ry={6} />
-      <Face x={50} y={62} s={0.55} mood={mood} look={look} />
-    </Svg>
-  );
-}
+// 게는 바다 친구 그림(sea.tsx)과 같이 쓴다
+export { Crab } from "./sea";
 
 /* ---------- 눌러도 반응하는 소품 ---------- */
 

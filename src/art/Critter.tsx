@@ -20,9 +20,12 @@ export type EarKind =
   | "side"
   | "tiny"
   | "fluffy"
+  | "tuft"
+  | "small"
+  | "flat"
   | "none";
 
-export type NoseKind = "dot" | "tri" | "big" | "snout" | "trunk" | "beak";
+export type NoseKind = "dot" | "tri" | "big" | "snout" | "trunk" | "beak" | "muzzle" | "none";
 
 export interface CritterSpec {
   fur: string;
@@ -37,8 +40,20 @@ export interface CritterSpec {
   muzzle?: boolean;
   /** 팔·발 색 (판다처럼 다르면) */
   limbs?: string;
+  /** 발 색 (펭귄처럼 팔과 다르면) */
+  feet?: string;
+  /** 입 위치를 더 내릴 때 (하마·악어처럼 주둥이가 크면) */
+  mouthDy?: number;
   /** 머리 뒤 (갈기·꼬리) */
   back?: ReactNode;
+  /** 머리 뒤, 머리와 같이 움직이는 것 (뿔·갈기·가시·눈 혹) */
+  crown?: ReactNode;
+  /** 눈 높이 (기본 44). 개구리·악어처럼 눈이 머리 위에 붙은 동물 */
+  faceY?: number;
+  /** 볼터치 (눈이 머리 위에 있으면 끄고 marks 로 따로 그린다) */
+  cheeks?: boolean;
+  /** 배 위에 얹는 무늬 (캥거루 주머니 등) */
+  belly?: ReactNode;
   /** 머리 위에 얹는 무늬 (얼굴보다 아래 층) */
   marks?: ReactNode;
   /** 얼굴보다 위 층 (수염 등) */
@@ -94,6 +109,29 @@ function Ear({ kind, fur, inner, color }: { kind: EarKind; fur: string; inner: s
           <path d="M31 21 L31 15 L37 19 Z" fill={inner} />
         </g>
       );
+    case "tuft":
+      // 부엉이 깃털 귀
+      return (
+        <g>
+          <path d="M27 32 L22 6 L44 20 Z" fill={c} {...stroke} />
+          <path d="M30 25 L28 13 L38 20 Z" fill={inner} />
+        </g>
+      );
+    case "small":
+      return (
+        <g>
+          <circle cx="30" cy="22" r="7" fill={c} {...stroke} />
+          <circle cx="30" cy="23" r="3.4" fill={inner} />
+        </g>
+      );
+    case "flat":
+      // 옆으로 뻗은 귀 (염소·사슴·기린)
+      return (
+        <g transform="rotate(-24 22 34)">
+          <ellipse cx="16" cy="34" rx="13" ry="6.5" fill={c} {...stroke} />
+          <ellipse cx="17" cy="34" rx="8" ry="3" fill={inner} />
+        </g>
+      );
     case "fluffy":
       return (
         <g>
@@ -122,6 +160,14 @@ function Nose({ kind, color }: { kind: NoseKind; color: string }) {
           <ellipse cx="50" cy="55" rx="10" ry="7" fill={color} {...stroke} strokeWidth={LINE * 0.8} />
           <ellipse cx="46.5" cy="55" rx="1.8" ry="2.6" fill={INK} opacity="0.7" />
           <ellipse cx="53.5" cy="55" rx="1.8" ry="2.6" fill={INK} opacity="0.7" />
+        </g>
+      );
+    case "muzzle":
+      // 말·기린처럼 길쭉한 주둥이 (콧구멍이 작다)
+      return (
+        <g>
+          <ellipse cx="50" cy="58" rx="16" ry="11.5" fill={color} />
+          <path d="M43 53.5 q1.6 -1.6 3.2 0 M53.8 53.5 q1.6 -1.6 3.2 0" fill="none" stroke={INK} strokeWidth={1.8} strokeLinecap="round" opacity="0.65" />
         </g>
       );
     default:
@@ -168,6 +214,7 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
   const s = spec;
   const inner = s.earInner ?? "#ffb3c1";
   const limbs = s.limbs ?? s.fur;
+  const feet = s.feet ?? limbs;
   const whole = WHOLE[mood] ?? STILL;
   const head = HEAD[mood] ?? STILL;
   const belly = 1 + Math.max(0, Math.min(1, fullness)) * 0.2;
@@ -185,10 +232,11 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
           animate={{ scale: belly }}
           transition={{ type: "spring", stiffness: 260, damping: 12 }}
         >
-          <ellipse cx="40" cy="94" rx="7" ry="4.5" fill={limbs} {...stroke} />
-          <ellipse cx="60" cy="94" rx="7" ry="4.5" fill={limbs} {...stroke} />
+          <ellipse cx="40" cy="94" rx="7" ry="4.5" fill={feet} {...stroke} />
+          <ellipse cx="60" cy="94" rx="7" ry="4.5" fill={feet} {...stroke} />
           <ellipse cx="50" cy="79" rx="23" ry="16" fill={s.fur} {...stroke} />
           <ellipse cx="50" cy="82" rx="14" ry="10" fill={s.light} />
+          {s.belly}
         </motion.g>
         {/* 팔: 기쁘면 번쩍 */}
         {[-1, 1].map((side) => (
@@ -215,6 +263,7 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
               </g>
             </>
           ) : null}
+          {s.crown}
           <circle cx="50" cy="44" r="28" fill={s.fur} {...stroke} />
           <Shine x={34} y={27} rx={5} ry={8} />
           {s.marks}
@@ -222,12 +271,13 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
           <Nose kind={s.nose} color={s.noseColor ?? INK} />
           <Face
             x={50}
-            y={44}
+            y={s.faceY ?? 44}
             s={0.95}
             mood={mood}
             look={look}
             mouth={s.nose === "beak" ? "beak" : s.nose === "trunk" ? "none" : "mouth"}
-            mouthDy={s.nose === "snout" ? 7 : s.nose === "big" ? 3 : 0}
+            mouthDy={s.mouthDy ?? (s.nose === "snout" ? 7 : s.nose === "muzzle" ? 8.5 : s.nose === "big" ? 3 : 0)}
+            cheeks={s.cheeks ?? true}
           />
           {s.nose === "trunk" ? <Trunk color={s.fur} mood={mood} /> : null}
           {s.front}

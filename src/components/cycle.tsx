@@ -102,7 +102,7 @@ export function CycleTransition({
             whileTap={{ scale: 0.9 }}
             className="rounded-full border-4 border-white bg-white px-10 py-1.5 text-3xl text-pink-500 shadow-[0_6px_0_0_rgba(0,0,0,0.18)] sm:text-4xl short:py-0.5 short:text-2xl"
           >
-            시작! ▶
+            시작! <Glyph emoji="▶" className="text-[0.8em]" />
           </motion.button>
         ) : (
           <motion.div

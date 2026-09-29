@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   CYCLE_ORDER,
   CYCLE_PACES,
@@ -177,11 +177,11 @@ export function StickerReveal({
                       className="inline-flex items-center gap-2"
                     >
                       <motion.span
-                        className="emoji inline-block"
+                        className="inline-block"
                         animate={{ y: [0, -8, 0] }}
                         transition={{ duration: 0.8, repeat: Infinity }}
                       >
-                        👆
+                        <Glyph emoji="👆" />
                       </motion.span>
                       눌러 봐요
                     </motion.span>
@@ -230,7 +230,7 @@ export function StickerReveal({
                       whileTap={{ scale: 0.9 }}
                       className="rounded-full border-4 border-white bg-emerald-400 px-10 py-2 text-3xl text-white shadow-[0_6px_0_0_#059669] short:py-1 short:text-2xl"
                     >
-                      확인 ✔
+                      확인 <Glyph emoji="✔" />
                     </motion.button>
                   ) : (
                     <span className="text-lg text-slate-300">잘 들어 봐!</span>
@@ -469,7 +469,9 @@ export function ParentSettings({
             className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 text-slate-700 shadow-2xl no-scrollbar"
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl">⚙️ 부모님 설정</h2>
+              <h2 className="text-2xl">
+                <Glyph emoji="⚙️" /> 부모님 설정
+              </h2>
               <button
                 onClick={onClose}
                 className="rounded-full bg-slate-100 px-4 py-2 text-lg"
@@ -538,10 +540,18 @@ export function ParentSettings({
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4">
-                <div className="mb-2 text-lg">🎠 빙글빙글 빠르기</div>
+                <div className="mb-2 text-lg">
+                  <Glyph emoji="🎠" /> 빙글빙글 빠르기
+                </div>
                 <div className="mb-2 text-sm text-slate-500">
                   빙글빙글에서는 놀이가{" "}
-                  {CYCLE_ORDER.map((g) => GAME_META[g].emoji).join(" → ")} 순서로 돌아요. 한 놀이에서
+                  {CYCLE_ORDER.map((g, i) => (
+                    <Fragment key={g}>
+                      {i > 0 ? " → " : null}
+                      <Glyph emoji={GAME_META[g].emoji} />
+                    </Fragment>
+                  ))}{" "}
+                  순서로 돌아요. 한 놀이에서
                   이만큼 성공하면(또는 이 시간이 지나면) 다음 놀이로 넘어가요. 세기만 하면 끝나는
                   톡톡 세기·거품 팡팡은 시간과 상관없이 더 적게 성공해도 바로 넘어가요.
                 </div>
@@ -559,8 +569,8 @@ export function ParentSettings({
                       {CYCLE_PACES[p].label}
                       <span className="block text-xs text-slate-400">{CYCLE_PACES[p].desc}</span>
                       <span className="block text-xs text-slate-400">
-                        {GAME_META.tap.emoji}
-                        {GAME_META.bubbles.emoji} {CYCLE_PACES[p].quickWins}번
+                        <Glyph emoji={GAME_META.tap.emoji} />
+                        <Glyph emoji={GAME_META.bubbles.emoji} /> {CYCLE_PACES[p].quickWins}번
                       </span>
                     </button>
                   ))}
@@ -572,7 +582,9 @@ export function ParentSettings({
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4">
-                <div className="mb-2 text-lg">⏰ 놀이 시간 알림</div>
+                <div className="mb-2 text-lg">
+                  <Glyph emoji="⏰" /> 놀이 시간 알림
+                </div>
                 <div className="mb-2 text-sm text-slate-500">
                   이만큼 놀면 다음 성공 직후에 병아리가 "오늘은 여기까지! 내일 또 만나" 하고 오늘 모은
                   별과 친구를 보여 줘요. 신나게 끝내야 다음에 또 찾아와요.
@@ -595,24 +607,34 @@ export function ParentSettings({
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                <div className="mb-1 text-lg text-slate-700">📊 기록</div>
+                <div className="mb-1 text-lg text-slate-700">
+                  <Glyph emoji="📊" /> 기록
+                </div>
                 <div>
                   모은 별 {stars}개 · 완료한 라운드 {totalRounds}회
                 </div>
               </div>
 
               <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">
-                <div className="mb-1 text-lg">💡 함께 놀기 팁</div>
+                <div className="mb-1 text-lg">
+                  <Glyph emoji="💡" /> 함께 놀기 팁
+                </div>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>아이가 누를 때 "하나, 둘, 셋" 함께 소리 내어 세어 주세요.</li>
-                  <li>안내 음성이 나오는 동안(👂 표시)에는 눌러도 세지 않아요. 듣고 나서 누르는 습관을 만들어요.</li>
+                  <li>
+                    안내 음성이 나오는 동안(<Glyph emoji="👂" /> 표시)에는 눌러도 세지 않아요. 듣고 나서 누르는
+                    습관을 만들어요.
+                  </li>
                   <li>막 눌러서 끝낸 라운드는 별을 주지 않고 거북이가 "천천히"라고 알려 줘요.</li>
                   <li>틀려도 괜찮아요. 이 앱은 벌점 없이 다시 세어 주는 방식이에요.</li>
                   <li>한 번에 5~10분 정도가 두세 살 아이에게 알맞아요.</li>
                   <li>먹이 주기 4단계부터는 딱 맞게 준 뒤 "다 줬어요"를 눌러야 해요.</li>
                   <li>수가 많아지면 5개씩 줄을 맞춰 보여 줘요. "다섯, 그리고 하나 더" 하고 묶어서 세는 연습이 돼요.</li>
                   <li>숫자 찾기는 "보고 찾기 → 듣고 찾기 → 개수를 세어서 찾기" 순서로 어려워져요. 숫자 이름은 "오"처럼 읽어 줘요.</li>
-                  <li>뭘 할지 고르기 어려울 땐 🎠 빙글빙글을 눌러 보세요. 다섯 놀이가 차례로 바뀌고, 다음에 열면 지난번 다음 놀이부터 이어져요.</li>
+                  <li>
+                    뭘 할지 고르기 어려울 땐 <Glyph emoji="🎠" /> 빙글빙글을 눌러 보세요. 다섯 놀이가 차례로
+                    바뀌고, 다음에 열면 지난번 다음 놀이부터 이어져요.
+                  </li>
                   <li>스티커북에서 스티커를 누르면 위쪽 장면에 붙고, 그 친구가 놀이 화면에 같이 나와요. 모은 동물 친구는 먹이 주기에 손님으로도 와요.</li>
                   <li>스티커 72개(동물·탈것·숲속 스티커북)를 다 모으면 별 3개마다 스티커가 하나씩 반짝이 스티커로 바뀌어요.</li>
                   <li>음성이 안 나오면 기기의 한국어 음성(TTS)을 설치해 주세요.</li>

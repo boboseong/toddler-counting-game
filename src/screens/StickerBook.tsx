@@ -101,7 +101,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
 
           {scene.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xl text-slate-500 sm:text-2xl">
-              아래 스티커를 누르면 여기로 폴짝! 🐾
+              아래 스티커를 누르면 여기로 폴짝! <Glyph emoji="🐾" />
             </div>
           ) : null}
 
@@ -152,7 +152,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
               onClick={countScene}
               className="pressable absolute bottom-2 right-2 flex items-center gap-1 rounded-full border-4 border-white bg-amber-400 px-4 py-1.5 text-xl text-white shadow-[0_5px_0_0_rgba(0,0,0,0.12)] short:py-0.5 short:text-base"
             >
-              <span className="emoji">🔢</span> 같이 세기
+              <Glyph emoji="🔢" /> 같이 세기
             </motion.button>
           ) : null}
         </div>
@@ -234,9 +234,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
                       className="text-[clamp(2.2rem,min(9vw,9vh),4.2rem)] short:text-3xl"
                     />
                   ) : (
-                    <span className="emoji text-[clamp(2.2rem,min(9vw,9vh),4.2rem)] opacity-30 grayscale short:text-3xl">
-                      ❔
-                    </span>
+                    <Glyph emoji="❔" className="text-[clamp(2.2rem,min(9vw,9vh),4.2rem)] opacity-30 short:text-3xl" />
                   )}
                   <span
                     className={`text-sm sm:text-base short:hidden ${has ? "text-slate-600" : "text-slate-400"}`}
@@ -244,9 +242,7 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
                     {has ? s.name : "?"}
                   </span>
                   {inScene ? (
-                    <span className="emoji absolute -right-1 -top-1 text-lg" aria-hidden>
-                      🏡
-                    </span>
+                    <Glyph emoji="🏡" className="absolute -right-1 -top-1 text-lg" />
                   ) : null}
                 </motion.button>
               );

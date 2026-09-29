@@ -104,7 +104,7 @@ export function Mushroom({ mood, look }: ArtProps) {
   );
 }
 
-function Wheel({ x, y, r = 9 }: { x: number; y: number; r?: number }) {
+export function Wheel({ x, y, r = 9 }: { x: number; y: number; r?: number }) {
   return (
     <g>
       <circle cx={x} cy={y} r={r} fill="#3d3a4a" {...stroke} />
@@ -352,6 +352,31 @@ export function Turtle({ mood, look }: ArtProps) {
       <path d="M12 74 C 12 44 30 30 50 30 C 70 30 80 44 80 74 Z" fill="#4caf50" {...stroke} />
       <path d="M34 42 L46 50 L44 64 M60 40 L56 52 L66 62 M46 50 L56 52" fill="none" stroke="#2f7d32" strokeWidth={2.6} />
       <Face x={87} y={56} s={0.38} mood={mood} look={look} cheeks={false} />
+    </Svg>
+  );
+}
+
+const RAINBOW = ["#ff5a5a", "#ffa53a", "#ffd23f", "#6cc04a", "#4fb3ff", "#a78bfa"];
+
+/** 뭉게구름 한 덩이 (x, y 는 가운데 아래쪽) */
+function cloudPath(x: number, y: number): string {
+  return `M${x - 15} ${y} C ${x - 22} ${y} ${x - 22} ${y - 10} ${x - 14} ${y - 10} C ${x - 14} ${y - 19} ${x} ${y - 21} ${x + 2} ${y - 13} C ${x + 8} ${y - 19} ${x + 19} ${y - 15} ${x + 16} ${y - 7} C ${x + 22} ${y - 7} ${x + 22} ${y} ${x + 15} ${y} Z`;
+}
+
+export function Rainbow({ mood, look }: ArtProps) {
+  const band = 6.2;
+  const outer = 44;
+  const inner = outer - band * (RAINBOW.length - 1);
+  const arc = (r: number) => `M${50 - r} 72 A ${r} ${r} 0 0 1 ${50 + r} 72`;
+  return (
+    <Svg>
+      <path d={arc((outer + inner) / 2)} fill="none" stroke={INK} strokeWidth={outer - inner + band + LINE * 2} />
+      {RAINBOW.map((c, i) => (
+        <path key={c} d={arc(outer - i * band)} fill="none" stroke={c} strokeWidth={band + 0.4} />
+      ))}
+      <path d={cloudPath(16, 80)} fill="#fff" {...stroke} />
+      <path d={cloudPath(84, 80)} fill="#fff" {...stroke} />
+      <Face x={84} y={73} s={0.34} mood={mood} look={look} cheeks={false} />
     </Svg>
   );
 }

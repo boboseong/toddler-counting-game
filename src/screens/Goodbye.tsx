@@ -87,7 +87,7 @@ export default function Goodbye({ todayStars, todayStickers, onDone }: Props) {
       </div>
 
       <div className="relative z-10 text-3xl text-violet-600 sm:text-4xl short:text-2xl">
-        내일 또 만나! 👋
+        내일 또 만나! <Glyph emoji="👋" />
       </div>
       <motion.div
         className="relative z-10 text-lg text-slate-400"

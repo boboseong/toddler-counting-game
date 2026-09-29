@@ -190,7 +190,7 @@ export function TopBar({
             aria-label="홈으로"
             className="pressable flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-3xl shadow-[0_5px_0_0_rgba(0,0,0,0.12)] sm:h-16 sm:w-16 sm:text-4xl"
           >
-            <span className="emoji">🏠</span>
+            <Glyph emoji="🏠" />
           </motion.button>
         ) : null}
         {title ? (
@@ -377,7 +377,7 @@ export function ListenChip({ text = "잘 들어 봐!" }: { text?: string }) {
       transition={{ scale: { duration: 0.9, repeat: Infinity } }}
       className="flex items-center gap-2 rounded-full border-4 border-white bg-violet-100 px-5 py-2 text-2xl text-violet-600 shadow"
     >
-      <span className="emoji text-3xl">👂</span>
+      <Glyph emoji="👂" className="text-3xl" />
       <span>{text}</span>
     </motion.div>
   );

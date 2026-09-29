@@ -340,7 +340,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
             </span>
             {round.guest ? (
               <span className="absolute -left-3 -top-3 whitespace-nowrap rounded-full border-2 border-white bg-violet-400 px-2 py-0.5 text-sm text-white shadow sm:text-base">
-                📒 내 친구
+                <Glyph emoji="📒" /> 내 친구
               </span>
             ) : null}
             <AnimatePresence>
@@ -425,7 +425,9 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
             {locked && phase === "play" ? (
               <ListenChip />
             ) : phase === "done" ? (
-              "배불러요! 🎉"
+              <span>
+                배불러요! <Glyph emoji="🎉" />
+              </span>
             ) : needConfirm && isFull ? (
               "다 줬으면 아래 버튼을 눌러요"
             ) : (
@@ -481,7 +483,7 @@ export default function FeedGame({ level, friends, stars, tapGap, onHome, onWin,
                 isFull ? "bg-green-500" : "bg-slate-300"
               }`}
             >
-              🍽️ 다 줬어요!
+              <Glyph emoji="🍽️" /> 다 줬어요!
             </motion.button>
           ) : null}
         </div>

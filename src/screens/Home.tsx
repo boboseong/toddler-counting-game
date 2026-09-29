@@ -160,7 +160,7 @@ export default function Home({
 
         {todayStars > 0 ? (
           <div className="-mt-1 rounded-full bg-white/80 px-4 py-0.5 text-lg text-amber-600 shadow short:hidden">
-            오늘 모은 별 <span className="emoji">⭐</span> {todayStars}
+            오늘 모은 별 <Glyph emoji="⭐" /> {todayStars}
           </div>
         ) : null}
 
@@ -210,15 +210,17 @@ export default function Home({
           className="pressable flex w-full max-w-4xl items-center justify-between rounded-[2rem] border-4 border-white bg-gradient-to-r from-violet-300 to-fuchsia-300 px-5 py-3 text-white shadow-[0_8px_0_0_rgba(109,40,217,0.35)] short:rounded-2xl short:py-1 short:pr-3"
         >
           <div className="flex items-center gap-3">
-            <span className="emoji text-4xl sm:text-6xl short:text-3xl">📒</span>
+            <Glyph emoji="📒" className="text-4xl sm:text-6xl short:text-3xl" />
             <div className="text-left">
               <div className="text-2xl sm:text-3xl short:text-lg" style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}>
                 내 스티커 {stickerCount > 0 ? `(${stickerCount})` : ""}
               </div>
               <div className="text-sm sm:text-base short:text-xs">
-                {allDone
-                  ? "스티커를 모두 모았어요! 🎉"
-                  : collected
+                {allDone ? (
+                  <>
+                    스티커를 모두 모았어요! <Glyph emoji="🎉" />
+                  </>
+                ) : collected
                     ? `별 ${toNext}개 더 모으면 반짝이 스티커!`
                     : `별 ${toNext}개 더 모으면 새 친구가 와요!`}
               </div>
@@ -248,7 +250,7 @@ export default function Home({
           className="relative flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-sm text-slate-500 shadow"
           aria-label="부모님 설정 (길게 누르기)"
         >
-          <span className="emoji text-lg">⚙️</span>
+          <Glyph emoji="⚙️" className="text-lg" />
           <span>부모님용 · 길게 누르기</span>
           {pressing ? (
             <motion.span

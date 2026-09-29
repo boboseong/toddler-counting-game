@@ -36,9 +36,7 @@ export function StickerFace({
     >
       <Glyph emoji={STICKERS[index].emoji} mood={mood} />
       {shiny ? (
-        <span className="twinkle emoji absolute -right-2 -top-2 text-[0.45em]" aria-hidden>
-          ✨
-        </span>
+        <Glyph emoji="✨" className="twinkle absolute -right-2 -top-2 text-[0.45em]" />
       ) : null}
     </span>
   );
@@ -85,9 +83,9 @@ export function GameBuddy() {
             animate={{ opacity: 1, scale: [1, 1.3, 1], y: -18 }}
             exit={{ opacity: 0 }}
             transition={{ scale: { duration: 0.35, repeat: 3 } }}
-            className="emoji absolute -right-7 top-0 text-3xl"
+            className="absolute -right-7 top-0 text-3xl"
           >
-            👏
+            <Glyph emoji="👏" />
           </motion.span>
         ) : null}
       </AnimatePresence>

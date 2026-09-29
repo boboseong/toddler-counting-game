@@ -177,7 +177,7 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
                 animate={{ opacity: 1 }}
                 className="rounded-full bg-white/80 px-5 py-2 text-2xl text-slate-600 shadow"
               >
-                거품을 톡톡! 🫧
+                거품을 톡톡! <Glyph emoji="🫧" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -269,7 +269,11 @@ export default function BubbleGame({ countMax, stars, tapGap, onHome, onWin, onR
               <div className="text-3xl text-slate-700 sm:text-4xl">
                 {COUNT_WORDS[target - 1]}까지 다 셌어요!
               </div>
-              <div className="emoji mt-1 text-4xl">🫧🎉🫧</div>
+              <div className="mt-1 text-4xl">
+                <Glyph emoji="🫧" />
+                <Glyph emoji="🎉" />
+                <Glyph emoji="🫧" />
+              </div>
             </div>
           </motion.div>
         ) : phase === "slow" ? (
