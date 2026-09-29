@@ -21,25 +21,49 @@ import {
   type CyclePace,
   type GameId,
 } from "../lib/data";
-import { playDing, playSoft, speak } from "../lib/audio";
+import { afterSpeech, playDing, playSoft, speak } from "../lib/audio";
 import { P } from "../lib/phrases";
 import type { Unlock } from "../hooks/useProgress";
 import { StickerFace } from "./buddy";
 import { Glyph } from "../art/Glyph";
 import { Chick } from "../art/Chick";
 
-/** 새 스티커 화면은 이 시간 동안은 눌러도 닫히지 않는다 (막 눌러서 지나쳐 버리지 않게) */
-const REVEAL_MIN_MS = 2000;
+/** 선물 상자는 적어도 이만큼 보여 준 뒤(그리고 "선물이 왔어요!" 가 끝난 뒤) 누를 수 있다 */
+const GIFT_MIN_MS = 800;
+/** 새 친구는 적어도 이만큼 보여 준 뒤(그리고 이름을 다 말한 뒤) 확인 버튼이 나온다 */
+const REVEAL_MIN_MS = 1500;
+/** 말이 끝나지 않아도 이만큼 지나면 버튼을 보여 준다 (소리가 멈춰 버린 기기에서 갇히지 않게) */
+const BUTTON_WAIT_MAX_MS = 8000;
 
-/* ---------- 새 스티커 획득 ---------- */
+/** step 이 바뀐 뒤 적어도 minMs 가 지나고 모든 말이 끝나면 true. 버튼은 이때부터 누를 수 있다 */
+function useReadyAfterSpeech(step: string | null, minMs: number): boolean {
+  const [readyFor, setReadyFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (step === null) return;
+    const timers: number[] = [];
+    afterSpeech(minMs, BUTTON_WAIT_MAX_MS, () => setReadyFor(step), (id) => timers.push(id));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [step, minMs]);
+  return step !== null && readyFor === step;
+}
+
+/* ---------- 새 스티커 획득 ----------
+ * 한 단계씩 끝나고 나서 다음으로:
+ *   ① 선물 상자 + "선물이 왔어요! 눌러 봐!" → 말이 끝나면 상자를 누를 수 있다
+ *   ② 상자를 누르면 새 친구 + "와! 새 친구가 왔어요! ○○!" → 말이 끝나면 [확인] 버튼
+ *   ③ [확인] 을 누르면 onClose (다음 라운드 / 다음 놀이)
+ * 저절로 닫히지 않고, 버튼이 아닌 곳을 눌러도 넘어가지 않는다.
+ */
 export function StickerReveal({
   unlock,
+  onOpen,
   onClose,
 }: {
   unlock: Unlock | null;
+  /** 선물 상자를 연 순간 (축하 연출) */
+  onOpen: () => void;
   onClose: () => void;
 }) {
-  const openedAt = useRef(0);
   const index = unlock?.index ?? null;
   const shiny = unlock?.shiny ?? false;
   // 새 스티커북의 첫 장이면 "새 스티커북" 이라고 알려 준다
@@ -47,9 +71,22 @@ export function StickerReveal({
   const album = index !== null ? ALBUMS[albumOf(index)] : null;
   const title = shiny ? "반짝반짝 스티커!" : newAlbum ? "새 스티커북이 열렸어요!" : "새 친구가 왔어요!";
 
+  // 선물 상자를 연 스티커. 새 스티커가 오면 다시 선물 상자부터
+  const [openedFor, setOpenedFor] = useState<Unlock | null>(null);
+  const opened = unlock !== null && openedFor === unlock;
+  const step = index === null ? null : opened ? `open-${index}` : `gift-${index}`;
+  const giftReady = useReadyAfterSpeech(index !== null && !opened ? step : null, GIFT_MIN_MS);
+  const closeReady = useReadyAfterSpeech(index !== null && opened ? step : null, REVEAL_MIN_MS);
+
+  // ① 선물 상자
   useEffect(() => {
-    if (index === null) return;
-    openedAt.current = performance.now();
+    if (index === null || opened) return;
+    speak(P.gift, { pitch: 1.3 });
+  }, [index, opened]);
+
+  // ② 새 친구
+  useEffect(() => {
+    if (index === null || !opened) return;
     const name = STICKERS[index].name;
     const say = shiny
       ? P.revealShiny(name)
@@ -57,12 +94,16 @@ export function StickerReveal({
         ? P.revealAlbum(album.title, name)
         : P.revealNew(name);
     speak(say, { pitch: 1.3 });
-    const t = window.setTimeout(onClose, 6500);
-    return () => window.clearTimeout(t);
-  }, [index, shiny, newAlbum, album, onClose]);
+  }, [index, opened, shiny, newAlbum, album]);
 
-  const tryClose = () => {
-    if (performance.now() - openedAt.current < REVEAL_MIN_MS) return;
+  const openGift = () => {
+    if (!giftReady || opened) return;
+    setOpenedFor(unlock);
+    onOpen();
+  };
+
+  const close = () => {
+    if (!closeReady) return;
     onClose();
   };
 
@@ -73,12 +114,11 @@ export function StickerReveal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onPointerDown={tryClose}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-violet-900/60 backdrop-blur-sm"
         >
           {/* 빛줄기 */}
           <motion.div
-            className="absolute h-[140vmax] w-[140vmax] opacity-40"
+            className="pointer-events-none absolute h-[140vmax] w-[140vmax] opacity-40"
             style={{
               background:
                 "repeating-conic-gradient(from 0deg, #fde68a 0deg 12deg, transparent 12deg 24deg)",
@@ -86,42 +126,114 @@ export function StickerReveal({
             animate={{ rotate: 360 }}
             transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
           />
-          <motion.div
-            initial={{ scale: 0.2, rotate: -20, y: 80 }}
-            animate={{ scale: 1, rotate: 0, y: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 14 }}
-            className={`relative flex flex-col items-center gap-3 rounded-[3rem] border-8 px-10 py-8 text-center shadow-2xl short:gap-1 short:py-4 ${
-              shiny ? "border-amber-400 bg-gradient-to-b from-yellow-50 to-amber-100" : "border-yellow-300 bg-white"
-            }`}
-          >
-            <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
-            {newAlbum && album ? (
-              <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
-                <Glyph emoji={album.emoji} /> {album.title}
-              </div>
-            ) : null}
-            <motion.div
-              className="drop-shadow-xl"
-              animate={{ y: [0, -18, 0], rotate: [0, -8, 8, 0] }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            >
-              <StickerFace
-                index={index}
-                shiny={shiny}
-                mood="cheer"
-                className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
-              />
-            </motion.div>
-            <div className="text-5xl text-slate-700 sm:text-6xl short:text-4xl">{STICKERS[index].name}</div>
-            <motion.div
-              className="mt-2 text-lg text-slate-400 short:mt-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: REVEAL_MIN_MS / 1000 }}
-            >
-              화면을 누르면 계속해요
-            </motion.div>
-          </motion.div>
+          <AnimatePresence mode="wait">
+            {!opened ? (
+              <motion.div
+                key="gift"
+                initial={{ scale: 0.2, y: 80, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 1.4, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 16 }}
+                className="relative flex flex-col items-center gap-4 text-center short:gap-2"
+              >
+                <div className="break-keep text-4xl text-white drop-shadow sm:text-5xl short:text-3xl">
+                  선물이 왔어요!
+                </div>
+                <motion.button
+                  onClick={openGift}
+                  disabled={!giftReady}
+                  aria-label="선물 열기"
+                  animate={
+                    giftReady
+                      ? { scale: [1, 1.1, 1], rotate: [0, -6, 6, 0] }
+                      : { scale: 1, rotate: [0, -3, 3, 0] }
+                  }
+                  transition={{ duration: giftReady ? 0.9 : 1.6, repeat: Infinity }}
+                  whileTap={giftReady ? { scale: 0.9 } : undefined}
+                  className={`relative flex h-[clamp(9rem,min(40vw,34vh),15rem)] w-[clamp(9rem,min(40vw,34vh),15rem)] items-center justify-center rounded-[3rem] border-8 bg-white/90 shadow-2xl transition-colors ${
+                    giftReady ? "border-yellow-300" : "border-white/60"
+                  }`}
+                >
+                  {giftReady ? (
+                    <motion.span
+                      className="pointer-events-none absolute inset-0 rounded-[2.6rem] border-8 border-yellow-200"
+                      initial={{ opacity: 0.9, scale: 1 }}
+                      animate={{ opacity: 0, scale: 1.35 }}
+                      transition={{ duration: 1.1, repeat: Infinity }}
+                    />
+                  ) : null}
+                  <Glyph emoji="🎁" mood="happy" className="text-[clamp(5rem,min(24vw,20vh),9rem)]" />
+                </motion.button>
+                <div className="h-10 text-2xl text-white/90 short:h-8 short:text-xl">
+                  {giftReady ? (
+                    <motion.span
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <motion.span
+                        className="emoji inline-block"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{ duration: 0.8, repeat: Infinity }}
+                      >
+                        👆
+                      </motion.span>
+                      눌러 봐요
+                    </motion.span>
+                  ) : (
+                    <span className="text-white/60">잘 들어 봐!</span>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="friend"
+                initial={{ scale: 0.2, rotate: -20, y: 80 }}
+                animate={{ scale: 1, rotate: 0, y: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 14 }}
+                className={`relative flex flex-col items-center gap-3 rounded-[3rem] border-8 px-10 py-8 text-center shadow-2xl short:gap-1 short:py-4 ${
+                  shiny ? "border-amber-400 bg-gradient-to-b from-yellow-50 to-amber-100" : "border-yellow-300 bg-white"
+                }`}
+              >
+                <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
+                {newAlbum && album ? (
+                  <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
+                    <Glyph emoji={album.emoji} /> {album.title}
+                  </div>
+                ) : null}
+                <motion.div
+                  className="drop-shadow-xl"
+                  animate={{ y: [0, -18, 0], rotate: [0, -8, 8, 0] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                >
+                  <StickerFace
+                    index={index}
+                    shiny={shiny}
+                    mood="cheer"
+                    className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
+                  />
+                </motion.div>
+                <div className="text-5xl text-slate-700 sm:text-6xl short:text-4xl">{STICKERS[index].name}</div>
+                {/* 이름을 다 말하고 나서 확인 버튼 (그전에는 자리만 잡아 둔다) */}
+                <div className="mt-2 flex h-16 items-center justify-center short:mt-0 short:h-12">
+                  {closeReady ? (
+                    <motion.button
+                      onClick={close}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: [1, 1.06, 1], opacity: 1 }}
+                      transition={{ scale: { duration: 1, repeat: Infinity }, opacity: { duration: 0.2 } }}
+                      whileTap={{ scale: 0.9 }}
+                      className="rounded-full border-4 border-white bg-emerald-400 px-10 py-2 text-3xl text-white shadow-[0_6px_0_0_#059669] short:py-1 short:text-2xl"
+                    >
+                      확인 ✔
+                    </motion.button>
+                  ) : (
+                    <span className="text-lg text-slate-300">잘 들어 봐!</span>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       ) : null}
     </AnimatePresence>
@@ -425,7 +537,8 @@ export function ParentSettings({
                 <div className="mb-2 text-sm text-slate-500">
                   빙글빙글에서는 놀이가{" "}
                   {CYCLE_ORDER.map((g) => GAME_META[g].emoji).join(" → ")} 순서로 돌아요. 한 놀이에서
-                  이만큼 성공하면(또는 이 시간이 지나면) 다음 놀이로 넘어가요.
+                  이만큼 성공하면(또는 이 시간이 지나면) 다음 놀이로 넘어가요. 세기만 하면 끝나는
+                  톡톡 세기·거품 팡팡은 시간과 상관없이 더 적게 성공해도 바로 넘어가요.
                 </div>
                 <div className="flex gap-2">
                   {CYCLE_PACE_IDS.map((p) => (
@@ -440,6 +553,10 @@ export function ParentSettings({
                     >
                       {CYCLE_PACES[p].label}
                       <span className="block text-xs text-slate-400">{CYCLE_PACES[p].desc}</span>
+                      <span className="block text-xs text-slate-400">
+                        {GAME_META.tap.emoji}
+                        {GAME_META.bubbles.emoji} {CYCLE_PACES[p].quickWins}번
+                      </span>
                     </button>
                   ))}
                 </div>

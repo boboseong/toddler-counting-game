@@ -120,6 +120,8 @@ export const P = {
   revealShiny: (name: string) => `우와! ${name} 스티커가 반짝반짝해졌어요!`,
   revealAlbum: (album: string, name: string) => `와! 새 스티커북이 열렸어요! ${album}! 첫 번째 친구는 ${name}!`,
   revealNew: (name: string) => `와! 새 친구가 왔어요! ${name}!`,
+  /** 새 스티커를 보여 주기 전에, 선물 상자를 눌러 열어 보게 한다 */
+  gift: "선물이 왔어요! 눌러 봐!",
 
   /* 레벨업 · 빙글빙글 */
   levelUp: "우와, 더 큰 숫자에 도전!",
@@ -215,6 +217,7 @@ export function allPhrases(): PhraseSpec[] {
     ...P.greetings,
   ].forEach((t) => add(t, "talk", true));
   add(P.right, "cheer", true);
+  add(P.gift, "cheer", true);
   add(P.tooFull, "talk", true, "animal");
   add(P.stillHungry, "ask", true, "animal");
   CYCLE_ORDER.forEach((g) =>

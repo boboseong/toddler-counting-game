@@ -388,12 +388,14 @@ export interface CyclePaceSpec {
   minMs: number;
   /** 이 시간이 지나면 성공 횟수가 모자라도 다음 성공 직후 넘어간다 */
   maxMs: number;
+  /** 세기만 하면 끝나는 놀이(톡톡 세기·거품 팡팡)는 최소 시간 없이 이만큼 성공하면 바로 다음 놀이로 */
+  quickWins: number;
 }
 
 export const CYCLE_PACES: Record<CyclePace, CyclePaceSpec> = {
-  fast: { label: "빠르게", desc: "2번 성공 · 1분 30초", wins: 2, minMs: 40_000, maxMs: 90_000 },
-  normal: { label: "보통", desc: "3번 성공 · 2분 30초", wins: 3, minMs: 60_000, maxMs: 150_000 },
-  slow: { label: "천천히", desc: "5번 성공 · 4분", wins: 5, minMs: 90_000, maxMs: 240_000 },
+  fast: { label: "빠르게", desc: "2번 성공 · 1분 30초", wins: 2, minMs: 40_000, maxMs: 90_000, quickWins: 1 },
+  normal: { label: "보통", desc: "3번 성공 · 2분 30초", wins: 3, minMs: 60_000, maxMs: 150_000, quickWins: 2 },
+  slow: { label: "천천히", desc: "5번 성공 · 4분", wins: 5, minMs: 90_000, maxMs: 240_000, quickWins: 3 },
 };
 
 export const CYCLE_PACE_IDS: CyclePace[] = ["fast", "normal", "slow"];
@@ -405,8 +407,8 @@ export const CYCLE_RULES = {
   idleMs: 35_000,
   /** 라운드가 끝나지 않아도(막 누르기 반복 등) 이 시간이 지나면 넘어간다 */
   hardCapMs: 300_000,
-  /** 전환 화면("이번엔 거품 팡팡!")을 보여 주는 시간 */
-  transitionMs: 2000,
+  /** 전환 화면("이번엔 거품 팡팡!")에서 시작 버튼이 나오기까지 적어도 이만큼 (말이 끝나야 나온다) */
+  transitionMs: 1500,
   /**
    * 성공(onWin) 뒤 스티커 공개·다음 놀이로 넘어가기까지 적어도 이만큼 축하를 보여 준다.
    * 그 뒤에도 칭찬·"더 큰 숫자 도전!" 을 말하는 중이면 끝날 때까지 기다린다 (그동안 놀이는 멈춰 둔다)
@@ -420,10 +422,18 @@ export interface CycleStats {
   elapsedMs: number;
 }
 
+/** 이 놀이에서 몇 번 성공하면 다음 놀이로 넘어가는지 (순서 띠에 보여 주는 칸 수) */
+export function cycleWinsFor(game: GameId, pace: CyclePace): number {
+  const p = CYCLE_PACES[pace];
+  return isFollowGame(game) ? p.quickWins : p.wins;
+}
+
 /** 이번 성공 뒤에 다음 놀이로 넘어갈지 */
-export function cycleShouldSwitch(s: CycleStats, pace: CyclePace): boolean {
+export function cycleShouldSwitch(s: CycleStats, pace: CyclePace, game: GameId): boolean {
   const p = CYCLE_PACES[pace];
   if (s.wins < 1) return false; // 적어도 한 번은 성공하고 넘어간다
+  // 톡톡 세기·거품 팡팡은 세기만 하면 무조건 성공이라 오래 붙잡지 않는다
+  if (isFollowGame(game)) return s.wins >= p.quickWins;
   if (s.misses >= CYCLE_RULES.missesToSwitch) return true; // 어려워했으면 성공한 김에 분위기 전환
   if (s.elapsedMs >= p.maxMs) return true; // 오래 했으면
   if (s.wins >= p.wins + 2) return true; // 아주 잘하고 있어도 한 놀이만 너무 오래 하지 않게

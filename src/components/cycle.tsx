@@ -5,8 +5,21 @@ import { SpeechBubble } from "./ui";
 import { Chick } from "../art/Chick";
 import { Glyph } from "../art/Glyph";
 
-/* ---------- 전환 화면: "이번엔 거품 팡팡!" ---------- */
-export function CycleTransition({ game, reason }: { game: GameId; reason: CycleReason }) {
+/* ---------- 전환 화면: "이번엔 거품 팡팡!" ----------
+ * 말이 다 끝나면 가운데 놀이 그림이 시작 버튼이 되고, 눌러야 다음 놀이가 시작된다
+ */
+export function CycleTransition({
+  game,
+  reason,
+  ready,
+  onStart,
+}: {
+  game: GameId;
+  reason: CycleReason;
+  /** 말을 다 해서 시작 버튼을 누를 수 있다 */
+  ready: boolean;
+  onStart: () => void;
+}) {
   const meta = GAME_META[game];
   const idx = CYCLE_ORDER.indexOf(game);
   const lead = reason === "start" ? "먼저" : reason === "idle" ? "다른 놀이 해 볼까? 이번엔" : "이번엔";
@@ -42,12 +55,30 @@ export function CycleTransition({ game, reason }: { game: GameId; reason: CycleR
         </SpeechBubble>
       </motion.div>
 
-      <motion.div
+      <motion.button
+        onClick={() => ready && onStart()}
+        disabled={!ready}
+        aria-label={`${meta.title} 시작`}
         initial={{ scale: 0, rotate: -25, y: 80 }}
-        animate={{ scale: 1, rotate: 0, y: 0 }}
-        transition={{ type: "spring", stiffness: 240, damping: 14, delay: 0.15 }}
-        className="relative mt-6 flex h-[clamp(7rem,26vh,11rem)] w-[clamp(7rem,26vh,11rem)] items-center justify-center rounded-[2.5rem] border-8 border-white bg-white/30 shadow-2xl short:mt-2"
+        animate={{ scale: ready ? [1, 1.08, 1] : 1, rotate: 0, y: 0 }}
+        transition={
+          ready
+            ? { scale: { duration: 0.9, repeat: Infinity } }
+            : { type: "spring", stiffness: 240, damping: 14, delay: 0.15 }
+        }
+        whileTap={ready ? { scale: 0.9 } : undefined}
+        className={`relative mt-6 flex h-[clamp(7rem,26vh,11rem)] w-[clamp(7rem,26vh,11rem)] items-center justify-center rounded-[2.5rem] border-8 shadow-2xl transition-colors short:mt-2 ${
+          ready ? "border-yellow-200 bg-white/50" : "border-white bg-white/30"
+        }`}
       >
+        {ready ? (
+          <motion.span
+            className="pointer-events-none absolute inset-0 rounded-[2rem] border-8 border-yellow-100"
+            initial={{ opacity: 0.9, scale: 1 }}
+            animate={{ opacity: 0, scale: 1.35 }}
+            transition={{ duration: 1.1, repeat: Infinity }}
+          />
+        ) : null}
         <motion.span
           className="inline-block text-[clamp(4rem,15vh,6.5rem)] leading-none"
           animate={{ y: [0, -14, 0], rotate: [0, -6, 6, 0] }}
@@ -55,17 +86,33 @@ export function CycleTransition({ game, reason }: { game: GameId; reason: CycleR
         >
           <Glyph emoji={meta.emoji} mood="happy" />
         </motion.span>
-      </motion.div>
+      </motion.button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="relative mt-3 text-4xl sm:text-5xl short:mt-1 short:text-3xl"
-        style={{ textShadow: "0 3px 0 rgba(0,0,0,0.2)" }}
-      >
-        {meta.title}
-      </motion.div>
+      {/* 말이 끝나면 시작 버튼 (그전에는 제목만) */}
+      <div className="relative mt-3 flex h-[clamp(3rem,9vh,4.5rem)] items-center short:mt-1">
+        {ready ? (
+          <motion.button
+            onClick={onStart}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: [1, 1.06, 1], opacity: 1 }}
+            transition={{ scale: { duration: 1, repeat: Infinity }, opacity: { duration: 0.2 } }}
+            whileTap={{ scale: 0.9 }}
+            className="rounded-full border-4 border-white bg-white px-10 py-1.5 text-3xl text-pink-500 shadow-[0_6px_0_0_rgba(0,0,0,0.18)] sm:text-4xl short:py-0.5 short:text-2xl"
+          >
+            시작! ▶
+          </motion.button>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="text-4xl sm:text-5xl short:text-3xl"
+            style={{ textShadow: "0 3px 0 rgba(0,0,0,0.2)" }}
+          >
+            {meta.title}
+          </motion.div>
+        )}
+      </div>
 
       {/* 순서 */}
       <motion.div

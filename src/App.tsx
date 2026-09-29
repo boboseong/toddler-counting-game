@@ -23,10 +23,10 @@ import {
 import {
   BONUS_CHANCE,
   CYCLE_ORDER,
-  CYCLE_PACES,
   CYCLE_RULES,
   cycleNextOf,
   cycleShouldSwitch,
+  cycleWinsFor,
   pick,
   problemMax,
   type CycleReason,
@@ -75,6 +75,8 @@ function isGame(s: Screen): s is GameId {
 interface CycleTransitionState {
   game: GameId;
   reason: CycleReason;
+  /** "이번엔 거품 팡팡!" 을 다 말해서 시작 버튼을 누를 수 있다 */
+  ready?: boolean;
 }
 
 /** 라운드 성공 축하 연출. 매번 같지 않게 돌아가며 쓴다 */
@@ -84,7 +86,7 @@ const PARTY_COLORS = ["#F87171", "#FBBF24", "#4ADE80", "#60A5FA", "#A78BFA", "#F
 
 /** 성공 뒤 칭찬·레벨업 말이 길어지면 이만큼까지 기다렸다가 스티커 공개·전환으로 넘어간다 */
 const CHEER_WAIT_MAX_MS = 4500;
-/** 전환 화면의 "이번엔 거품 팡팡!" 이 늦게 끝나면 이만큼까지 기다렸다가 놀이를 시작한다 */
+/** 전환 화면의 "이번엔 거품 팡팡!" 이 늦게 끝나면 이만큼까지 기다렸다가 시작 버튼을 보여 준다 */
 const TRANSITION_WAIT_MAX_MS = 2500;
 
 function fire(opts: confetti.Options) {
@@ -248,21 +250,26 @@ export default function App() {
       // 다음에 앱을 열면 이 다음 놀이부터 이어진다
       setCycleNext(CYCLE_ORDER.indexOf(game) + 1);
       later(150, () => speak(P.cycle(game, reason), { pitch: 1.2 }));
-      // "이번엔 거품 팡팡!" 이 다 끝난 뒤에 놀이가 나오고 첫 안내를 시작한다
+      // "이번엔 거품 팡팡!" 이 다 끝난 뒤에 시작 버튼이 나온다. 눌러야 놀이가 나오고 첫 안내를 시작한다
       afterSpeech(
         CYCLE_RULES.transitionMs,
         TRANSITION_WAIT_MAX_MS,
-        () => {
-          setTransition(null);
-          dropHeld();
-          stats.current.startedAt = performance.now();
-          lastTap.current = performance.now();
-        },
+        () => setTransition((t) => (t && t.game === game ? { ...t, ready: true } : t)),
         (id) => cycleTimers.current.push(id),
       );
     },
     [clearCycleTimers, later, setCycleNext],
   );
+
+  /** 전환 화면의 시작 버튼 */
+  const startCycleGame = useCallback(() => {
+    if (!transitionRef.current?.ready) return;
+    stopSpeaking();
+    setTransition(null);
+    dropHeld();
+    stats.current.startedAt = performance.now();
+    lastTap.current = performance.now();
+  }, []);
 
   /** 지금 놀이에서 다음 놀이로. 스티커 화면이 떠 있으면 닫힌 뒤에 */
   const requestSwitch = useCallback(
@@ -412,6 +419,7 @@ export default function App() {
 
     // 이번 성공 뒤에 이어질 일: 오늘은 여기까지 / 빙글빙글 다음 놀이
     let after: "bye" | "switch" | null = null;
+    const winGame = screenRef.current;
     if (byeDue.current) {
       after = "bye";
     } else if (cycleRef.current) {
@@ -423,7 +431,7 @@ export default function App() {
         misses: st.misses,
         elapsedMs: performance.now() - st.startedAt,
       };
-      if (cycleShouldSwitch(snapshot, paceRef.current)) after = "switch";
+      if (isGame(winGame) && cycleShouldSwitch(snapshot, paceRef.current, winGame)) after = "switch";
     }
     if (unlocked === null && after === null) return;
 
@@ -431,33 +439,23 @@ export default function App() {
     // 칭찬(과 "더 큰 숫자 도전!")이 다 끝난 뒤에 넘어간다
     setHeld(true);
     if (after !== null) clearCycleTimers();
-    const winScreen = screenRef.current;
     afterSpeech(
       CYCLE_RULES.afterWinMs,
       CHEER_WAIT_MAX_MS,
       () => {
         if (unlocked !== null) {
           // 스티커를 닫은 뒤에 "오늘은 여기까지" / 다음 놀이 (그새 다른 화면으로 갔으면 안 함)
-          const sameScreen = screenRef.current === winScreen && isGame(winScreen);
+          const sameScreen = screenRef.current === winGame && isGame(winGame);
           if (sameScreen && after === "bye") pendingBye.current = true;
-          else if (sameScreen && after === "switch" && cycleRef.current && isGame(winScreen)) {
-            pendingSwitch.current = { game: cycleNextOf(winScreen), reason: "next" };
+          else if (sameScreen && after === "switch" && cycleRef.current && isGame(winGame)) {
+            pendingSwitch.current = { game: cycleNextOf(winGame), reason: "next" };
           }
           // 스티커가 떠 있는 동안 뒤의 놀이는 멈춰 둔다 (닫으면 풀림)
           if (isGame(screenRef.current)) setHeld(true);
           setLevelUpShown(false);
+          playWhoosh();
           setReveal(unlocked);
           revealRef.current = unlocked;
-          fx.shake(1);
-          fire({
-            particleCount: 200,
-            spread: 160,
-            startVelocity: 55,
-            origin: { y: 0.5 },
-            zIndex: 65,
-            shapes: ["star", "circle"],
-            colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
-          });
         } else if (after === "bye") {
           showByeRef.current();
         } else {
@@ -490,6 +488,21 @@ export default function App() {
     },
     [reportResult],
   );
+
+  /** 선물 상자를 열었을 때 */
+  const openReveal = useCallback(() => {
+    playFanfare();
+    fx.shake(1);
+    fire({
+      particleCount: 200,
+      spread: 160,
+      startVelocity: 55,
+      origin: { y: 0.5 },
+      zIndex: 65,
+      shapes: ["star", "circle"],
+      colors: ["#FDE68A", "#FBBF24", "#F472B6", "#A78BFA", "#ffffff"],
+    });
+  }, []);
 
   const closeReveal = useCallback(() => {
     setReveal(null);
@@ -544,7 +557,14 @@ export default function App() {
   let contentKey: string = screen;
   if (transition) {
     contentKey = "cycle-transition";
-    content = <CycleTransition game={transition.game} reason={transition.reason} />;
+    content = (
+      <CycleTransition
+        game={transition.game}
+        reason={transition.reason}
+        ready={!!transition.ready}
+        onStart={startCycleGame}
+      />
+    );
   } else if (screen === "home") {
     content = (
       <Home
@@ -619,7 +639,7 @@ export default function App() {
           <CycleBar
             current={screen}
             wins={cycleWins}
-            needed={CYCLE_PACES[progress.cyclePace].wins}
+            needed={cycleWinsFor(screen, progress.cyclePace)}
             onSkip={() => cycleGo(cycleNextOf(screen), "next")}
           />
         ) : null}
@@ -631,7 +651,7 @@ export default function App() {
         <BonusBadge show={bonusShown} />
         <LevelUpBadge show={levelUpShown} />
         <FlyingStars items={flying} onDone={flyDone} />
-        <StickerReveal unlock={reveal} onClose={closeReveal} />
+        <StickerReveal unlock={reveal} onOpen={openReveal} onClose={closeReveal} />
         <FxLayer shakeTarget={rootRef} />
         <ParentGate
           open={gateOpen}
