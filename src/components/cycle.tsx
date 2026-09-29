@@ -4,9 +4,11 @@ import { CYCLE_ORDER, GAME_META, type CycleReason, type GameId } from "../lib/da
 import { SpeechBubble } from "./ui";
 import { Chick } from "../art/Chick";
 import { Glyph } from "../art/Glyph";
+import { useAutoAdvance } from "../hooks/useAutoAdvance";
 
 /* ---------- 전환 화면: "이번엔 거품 팡팡!" ----------
  * 말이 다 끝나면 가운데 놀이 그림이 시작 버튼이 되고, 눌러야 다음 놀이가 시작된다
+ * (한참 안 누르면 저절로 시작)
  */
 export function CycleTransition({
   game,
@@ -22,6 +24,7 @@ export function CycleTransition({
 }) {
   const meta = GAME_META[game];
   const idx = CYCLE_ORDER.indexOf(game);
+  useAutoAdvance(ready, onStart);
   const lead = reason === "start" ? "먼저" : reason === "idle" ? "다른 놀이 해 볼까? 이번엔" : "이번엔";
 
   return (

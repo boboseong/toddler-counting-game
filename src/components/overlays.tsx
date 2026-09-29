@@ -27,6 +27,7 @@ import type { Unlock } from "../hooks/useProgress";
 import { StickerFace } from "./buddy";
 import { Glyph } from "../art/Glyph";
 import { Chick } from "../art/Chick";
+import { useAutoAdvance } from "../hooks/useAutoAdvance";
 
 /** 선물 상자는 적어도 이만큼 보여 준 뒤(그리고 "선물이 왔어요!" 가 끝난 뒤) 누를 수 있다 */
 const GIFT_MIN_MS = 800;
@@ -52,7 +53,7 @@ function useReadyAfterSpeech(step: string | null, minMs: number): boolean {
  *   ① 선물 상자 + "선물이 왔어요! 눌러 봐!" → 말이 끝나면 상자를 누를 수 있다
  *   ② 상자를 누르면 새 친구 + "와! 새 친구가 왔어요! ○○!" → 말이 끝나면 [확인] 버튼
  *   ③ [확인] 을 누르면 onClose (다음 라운드 / 다음 놀이)
- * 저절로 닫히지 않고, 버튼이 아닌 곳을 눌러도 넘어가지 않는다.
+ * 버튼이 아닌 곳을 눌러도 넘어가지 않는다. 버튼이 나온 뒤 한참(AUTO_ADVANCE_MS) 안 누르면 저절로 넘어간다.
  */
 export function StickerReveal({
   unlock,
@@ -106,6 +107,10 @@ export function StickerReveal({
     if (!closeReady) return;
     onClose();
   };
+
+  // 한참 안 누르면 저절로 상자를 열고, 또 한참 지나면 저절로 확인
+  useAutoAdvance(giftReady && !opened, openGift);
+  useAutoAdvance(closeReady, close);
 
   return (
     <AnimatePresence>
