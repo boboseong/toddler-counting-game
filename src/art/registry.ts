@@ -148,6 +148,7 @@ export const ART: Record<string, ArtEntry> = {
   "🔢": { C: IC.Numbers },
   "🔍": { C: IC.Magnifier },
   "🎠": { C: IC.Carousel },
+  "🤲": { C: IC.ShareHands },
   "👂": { C: IC.EarIcon },
   "👆": { C: IC.PointUp },
   "👋": { C: IC.WaveHand },

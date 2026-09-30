@@ -43,6 +43,7 @@ import HowManyGame from "./games/HowManyGame";
 import FeedGame from "./games/FeedGame";
 import BubbleGame from "./games/BubbleGame";
 import FindGame from "./games/FindGame";
+import ShareGame from "./games/ShareGame";
 import {
   BalloonRise,
   BonusBadge,
@@ -66,6 +67,7 @@ const GAMES: Record<GameId, ComponentType<GameProps>> = {
   feed: FeedGame,
   bubbles: BubbleGame,
   find: FindGame,
+  share: ShareGame,
 };
 
 function isGame(s: Screen): s is GameId {

@@ -509,11 +509,11 @@ export function ParentSettings({
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4">
-                <div className="mb-2 text-lg">난이도 (숫자 범위, 최대 19)</div>
+                <div className="mb-2 text-lg">난이도 (숫자 범위, 최대 20)</div>
                 <div className="mb-3 text-sm text-slate-500">
                   3번 연속 잘하면 한 단계 올라가고, 2번 연속 어려워하면 내려가요. 놀이마다 따로
                   맞출 수 있어요. "몇 개일까?"는 다른 놀이보다 어려워서 단계를 잘게 나눴어요.
-                  톡톡 세기·거품 팡팡은 문제를 푸는 단계가 없어서, 나머지 세 놀이에서 지금 나오는
+                  톡톡 세기·거품 팡팡은 문제를 푸는 단계가 없어서, 나머지 네 놀이에서 지금 나오는
                   가장 큰 수까지 세요.
                 </div>
                 <div className="space-y-2">

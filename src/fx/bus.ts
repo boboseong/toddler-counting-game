@@ -28,6 +28,11 @@ export interface FlyEvent {
   duration?: number;
   /** 포물선 높이(px). 위로 볼록 */
   arc?: number;
+  /**
+   * 움직임이 곧 놀이의 뜻일 때 (나눠 주기에서 먹이가 친구에게 건너가는 것 등).
+   * '동작 줄이기' 설정에서도 날아가되, 돌거나 커지지 않고 곧게 미끄러진다
+   */
+  essential?: boolean;
   onArrive?: () => void;
 }
 
@@ -83,9 +88,9 @@ export const fx = {
     const c = centerOf(el);
     if (c) burstCh.emit({ ...c, kind, ...opts });
   },
-  /** 그림 하나를 포물선으로 날린다. 움직임 줄이기 설정이면 바로 도착 */
+  /** 그림 하나를 포물선으로 날린다. 움직임 줄이기 설정이면 바로 도착 (essential 이면 곧게 미끄러진다) */
   fly(e: FlyEvent) {
-    if (reducedMotion()) {
+    if (reducedMotion() && !e.essential) {
       e.onArrive?.();
       return;
     }

@@ -9,7 +9,7 @@ export interface GameProps {
   tapGap: number;
   /** 문제를 푸는 놀이들에서 지금 나오는 가장 큰 수. 톡톡 세기·거품 팡팡은 여기까지 센다 */
   countMax: number;
-  /** 모은 스티커 (먹이 주기에 손님으로 온다) */
+  /** 모은 스티커 (먹이 주기·나눠 주기에 손님으로 온다) */
   friends: number[];
   onHome: () => void;
   onWin: () => void;

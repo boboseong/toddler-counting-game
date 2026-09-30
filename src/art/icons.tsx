@@ -123,6 +123,36 @@ export function Carousel(_: ArtProps) {
   );
 }
 
+/** 오므린 두 손에 사과와 쿠키 (나눠 주기) */
+export function ShareHands(_: ArtProps) {
+  const palm = "M7 49 C 5 60 10 73 22 81 C 32 87 43 88 50 86 L 50 63 C 40 65 27 61 19 51 C 16 46 9 44 7 49 Z";
+  const hand = (flip: boolean) => (
+    <g transform={flip ? "translate(100 0) scale(-1 1)" : undefined}>
+      <path d={palm} fill={SKIN} {...stroke} />
+      <path d="M11 58 C 14 64 19 68 25 70 M13 67 C 17 72 22 75 28 77" fill="none" stroke={SKIN_LINE} strokeWidth={2.6} strokeLinecap="round" />
+    </g>
+  );
+  return (
+    <Svg>
+      <path d={sparkPath(84, 18, 9)} fill="#ffe27a" {...thin} />
+      <path d={sparkPath(16, 26, 6)} fill="#ffe27a" {...thin} />
+      {/* 사과 */}
+      <circle cx="37" cy="45" r="15" fill="#ff5a5a" {...stroke} />
+      <path d="M37 31 C 37 27 39 24 41 22" fill="none" stroke="#8a5a2b" strokeWidth={3.2} strokeLinecap="round" />
+      <path d="M41 26 C 46 21 53 23 54 26 C 49 29 44 29 41 26 Z" fill="#6cc04a" {...thin} strokeWidth={2} />
+      <ellipse cx="31" cy="39" rx="4" ry="2.4" fill="#fff" opacity="0.6" transform="rotate(-35 31 39)" />
+      {/* 쿠키 */}
+      <circle cx="64" cy="47" r="14" fill="#e0a45c" {...stroke} />
+      <circle cx="59" cy="42" r="2.4" fill="#7a4a26" />
+      <circle cx="68" cy="44" r="2.2" fill="#7a4a26" />
+      <circle cx="63" cy="51" r="2.2" fill="#7a4a26" />
+      <circle cx="71" cy="51" r="1.8" fill="#7a4a26" />
+      {hand(false)}
+      {hand(true)}
+    </Svg>
+  );
+}
+
 /* ---------- 손·몸 ---------- */
 
 /** 귀 (안내를 듣는 중) */

@@ -4,10 +4,11 @@ import { playChomp, playDing, playPop, playSoft, prefetchSpeech, speak, speakDur
 import { P } from "../lib/phrases";
 import {
   ANIMALS,
-  STICKERS,
+  GUEST_CHANCE,
   NUM_COLORS,
   counterPhrase,
   feedLevel,
+  guestsFrom,
   mashLimitFor,
   pick,
   randomIntExcept,
@@ -41,19 +42,6 @@ interface Round {
   needConfirm: boolean;
   /** 스티커로 모은 친구가 손님으로 왔다 */
   guest: boolean;
-}
-
-/** 모은 스티커 친구가 손님으로 올 확률 */
-const GUEST_CHANCE = 0.4;
-
-/** 먹이를 먹는 스티커 친구들 */
-function guestsFrom(friends: number[]): Animal[] {
-  const out: Animal[] = [];
-  for (const i of friends) {
-    const s = STICKERS[i];
-    if (s?.food) out.push({ emoji: s.emoji, name: s.name, food: s.food });
-  }
-  return out;
 }
 
 type Phase = "play" | "done" | "slow";

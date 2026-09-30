@@ -8,7 +8,7 @@ import { Barn, Basket, Crab, Prop, Shell, Sunflower, Tree } from "../art/scenery
 /* ---------- 배경 ---------- */
 
 /** 놀이마다 다른 장면 */
-export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "town";
+export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "meadow" | "town";
 
 interface SceneSpec {
   sky: string;
@@ -86,6 +86,17 @@ const SCENES: Record<Scene, SceneSpec> = {
       <>
         <Prop emoji="⭐" className={PROP_SIZE} />
         <Prop emoji="🌟" className={PROP_SIZE} />
+      </>
+    ),
+  },
+  meadow: {
+    sky: "from-teal-100 via-sky-50 to-rose-50",
+    hills: ["#bbf7d0", "#a7f3d0"],
+    light: "sunCloud",
+    right: (
+      <>
+        <Prop emoji="🍄" className={PROP_SIZE} />
+        <Prop emoji="🌷" className={PROP_SIZE} />
       </>
     ),
   },
@@ -263,7 +274,7 @@ export function BigNumeral({
     <span
       className={`inline-block font-bold leading-none ${outline ? "text-outline" : ""} ${className}`}
       style={{
-        color: NUM_COLORS[(n - 1) % NUM_COLORS.length],
+        color: n > 0 ? NUM_COLORS[(n - 1) % NUM_COLORS.length] : "#94a3b8",
         textShadow: "0 4px 0 rgba(0,0,0,0.12)",
       }}
     >

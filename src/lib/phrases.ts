@@ -70,6 +70,13 @@ export const P = {
   pressGreen: "다 줬으면 초록 버튼을 눌러 줘!",
   stillHungry: "아직 배고파요! 더 주세요!",
 
+  /* 나눠 주기 (달라는 말·고맙다는 말은 먹이 주기와 같은 문장을 쓴다) */
+  shareIntro: "친구가 달라는 만큼 쏙쏙 나눠 주자!",
+  /** "너무 많아요! 두 개 빼 주세요!" (동물 목소리) */
+  shareTooMany: (n: number, counter: string) => `너무 많아요! ${counterPhrase(n, counter)} 빼 주세요!`,
+  /** "너무 적어요! 한 개 더 주세요!" (동물 목소리) */
+  shareTooFew: (n: number, counter: string) => `너무 적어요! ${counterPhrase(n, counter)} 더 주세요!`,
+
   /* 거품 팡팡 */
   bubbleIntro: "거품을 톡톡 터뜨리면서 같이 세어 보자!",
   bubbleAgain: "천천히, 하나씩 터뜨려 봐!",
@@ -202,6 +209,7 @@ export function allPhrases(): PhraseSpec[] {
     P.sameColor,
     P.lookAndPress,
     P.pressGreen,
+    P.shareIntro,
     P.bubbleIntro,
     P.bubbleAgain,
     P.hereMaybe,
@@ -259,6 +267,14 @@ export function allPhrases(): PhraseSpec[] {
     });
   });
   guests.forEach((name) => add(P.guestHello(name), "cheer"));
+
+  // 나눠 주기: 몇 개 빼고 더 달라는 말 (먹이의 단위 × 차이)
+  uniqueBy(foods, (f) => f.counter).forEach(({ counter }) =>
+    nums.forEach((n) => {
+      add(P.shareTooMany(n, counter), "talk", false, "animal");
+      add(P.shareTooFew(n, counter), "ask", false, "animal");
+    }),
+  );
 
   // 스티커 친구 이름
   names.forEach((name) => {

@@ -37,6 +37,7 @@ export const COUNT_WORDS = [
   "열일곱",
   "열여덟",
   "열아홉",
+  "스물",
 ];
 
 /** 단위 앞에 붙는 관형형 수사 (한 개, 두 개, 세 개 ...) */
@@ -60,6 +61,7 @@ export const COUNTER_PREFIX = [
   "열일곱",
   "열여덟",
   "열아홉",
+  "스무",
 ];
 
 /** 이 앱에서 다루는 가장 큰 수 */
@@ -86,6 +88,7 @@ export const SINO_WORDS = [
   "십칠",
   "십팔",
   "십구",
+  "이십",
 ];
 
 /** 숫자 이름 읽기: 5 → "오" (TTS 가 숫자를 엉뚱하게 읽지 않도록 한글로 넘긴다) */
@@ -113,6 +116,7 @@ export const NUM_COLORS = [
   "#EF4444", // 17
   "#3B82F6", // 18
   "#D946EF", // 19
+  "#0D9488", // 20
 ];
 
 export const ITEMS: CountItem[] = [
@@ -276,6 +280,19 @@ export interface Album {
   end: number;
 }
 
+/** 모은 스티커 친구가 먹이 주기·나눠 주기에 손님으로 올 확률 */
+export const GUEST_CHANCE = 0.4;
+
+/** 먹이를 먹는 스티커 친구들 (손님) */
+export function guestsFrom(friends: number[]): Animal[] {
+  const out: Animal[] = [];
+  for (const i of friends) {
+    const s = STICKERS[i];
+    if (s?.food) out.push({ emoji: s.emoji, name: s.name, food: s.food });
+  }
+  return out;
+}
+
 export const ALBUMS: Album[] = [
   { title: "동물 친구", emoji: "🦁", start: 0, end: 24 },
   { title: "탈것 친구", emoji: "🚗", start: 24, end: 48 },
@@ -309,9 +326,9 @@ export const PRAISES = [
   "엄지 척!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find";
+export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "share";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "share"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
@@ -319,6 +336,7 @@ export const GAME_NAMES: Record<GameId, string> = {
   feed: "냠냠 먹이 주기",
   bubbles: "거품 팡팡",
   find: "숫자 찾기",
+  share: "쏙쏙 나눠 주기",
 };
 
 /** 홈 카드·전환 화면에서 쓰는 놀이 정보 */
@@ -366,6 +384,13 @@ export const GAME_META: Record<GameId, GameMeta> = {
     bg: "linear-gradient(160deg,#c4b5fd,#8b5cf6)",
     shadow: "#5b21b6",
   },
+  share: {
+    emoji: "🤲",
+    title: "쏙쏙 나눠 주기",
+    sub: "달라는 만큼 나눠 줘요",
+    bg: "linear-gradient(160deg,#5eead4,#14b8a6)",
+    shadow: "#0f766e",
+  },
 };
 
 /* ---------- 빙글빙글 (놀이 자동 순환) ---------- */
@@ -373,9 +398,10 @@ export const GAME_META: Record<GameId, GameMeta> = {
 /**
  * 순환 순서.
  * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 찾기) 사이에 몸으로 노는 놀이(거품 팡팡 · 먹이 주기 · 톡톡 세기)를
- * 끼워서 긴장과 이완이 번갈아 오게 한다. 한 바퀴의 끝(숫자 찾기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
+ * 끼워서 긴장과 이완이 번갈아 오게 한다. 나눠 주기는 비슷한 먹이 주기와 떨어뜨려 숫자 찾기 뒤에 두고,
+ * 한 바퀴의 끝(나눠 주기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
  */
-export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "feed", "find"];
+export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "feed", "find", "share"];
 
 export type CyclePace = "fast" | "normal" | "slow";
 
@@ -455,7 +481,7 @@ export interface CountLevel {
 
 /**
  * 문제를 푸는 단계가 없는 놀이(톡톡 세기 · 거품 팡팡)는 세기만 하면 끝나서 스스로 난이도를 잴 수 없다.
- * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 먹이 주기 · 숫자 찾기)에서
+ * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 먹이 주기 · 숫자 찾기 · 나눠 주기)에서
  * 지금 다루는 가장 큰 수까지 센다.
  */
 export const FOLLOW_GAMES: GameId[] = ["tap", "bubbles"];
@@ -470,6 +496,7 @@ export function problemMax(levels: Record<GameId, number>): number {
     howManyLevel(levels.howmany).max,
     feedLevel(levels.feed).max,
     findLevel(levels.find).max,
+    shareLevel(levels.share).max,
   );
 }
 
@@ -571,12 +598,19 @@ export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
   count: "세어서",
 };
 
+/**
+ * 쏙쏙 나눠 주기: 아이가 가진 개수(max)가 단계마다 늘고, 친구는 1개부터 가진 개수까지 아무 수나 달라고 한다.
+ * 끌거나 눌러서 준 뒤 "다 줬어요" 를 눌러야 끝난다.
+ */
+export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) => ({ min: 1, max: have }));
+
 export const MAX_LEVELS: Record<GameId, number> = {
   tap: 1,
   howmany: HOWMANY_LEVELS.length,
   feed: FEED_LEVELS.length,
   bubbles: 1,
   find: FIND_LEVELS.length,
+  share: SHARE_LEVELS.length,
 };
 
 export function clampLevel(game: GameId, level: number): number {
@@ -595,6 +629,10 @@ export function howManyLevel(level: number): HowManyLevel {
 
 export function findLevel(level: number): FindLevel {
   return FIND_LEVELS[clampLevel("find", level) - 1];
+}
+
+export function shareLevel(level: number): CountLevel {
+  return SHARE_LEVELS[clampLevel("share", level) - 1];
 }
 
 /** 설정 화면에 보여 줄 단계 설명 (톡톡 세기·거품 팡팡은 levels 전체를 보고 정한다) */
@@ -621,6 +659,10 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
       const s = findLevel(level);
       const kinds = s.prompts.map((p) => FIND_PROMPT_LABELS[p]).join("·");
       return `${s.min}~${s.max} · ${s.items}개 중 · ${kinds} 찾기${s.near ? " · 비슷한 수" : ""}`;
+    }
+    case "share": {
+      const s = shareLevel(level);
+      return `${s.max}개 가지고 ${s.min}~${s.max}개 주기`;
     }
   }
 }

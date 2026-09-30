@@ -1,4 +1,4 @@
-import { animate, motion } from "framer-motion";
+import { MotionConfig, animate, motion } from "framer-motion";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Glyph } from "../art/Glyph";
 import { burstCh, flyCh, reducedMotion, shakeCh, type BurstKind, type FlyEvent, type Point } from "./bus";
@@ -94,6 +94,8 @@ interface Burst extends Point {
 interface Flight extends FlyEvent {
   id: number;
   target: Point;
+  /** '동작 줄이기' 설정인데 꼭 보여 줘야 하는 움직임(essential): 돌거나 커지지 않고 곧게 미끄러진다 */
+  calm: boolean;
 }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -148,7 +150,7 @@ export function FxLayer({ shakeTarget }: { shakeTarget: RefObject<HTMLElement | 
         return;
       }
       const id = ++nextId.current;
-      setFlights((list) => [...list, { ...e, id, target }]);
+      setFlights((list) => [...list, { ...e, id, target, calm: reducedMotion() }]);
     });
     const offShake = shakeCh.on((s) => {
       const el = shakeTarget.current;
@@ -193,30 +195,41 @@ export function FxLayer({ shakeTarget }: { shakeTarget: RefObject<HTMLElement | 
           </motion.svg>
         )),
       )}
-      {flights.map((f) => {
-        const size = f.size ?? 56;
-        const dx = f.target.x - f.from.x;
-        const dy = f.target.y - f.from.y;
-        const arc = f.arc ?? 120;
-        return (
-          <motion.div
-            key={f.id}
-            className="absolute flex items-center justify-center"
-            style={{ left: f.from.x - size / 2, top: f.from.y - size / 2, width: size, height: size, fontSize: size * 0.85 }}
-            initial={{ x: 0, y: 0, scale: 1, rotate: 0 }}
-            animate={{
-              x: [0, dx * 0.5, dx],
-              y: [0, Math.min(0, dy) * 0.5 - arc, dy],
-              scale: [1, 1.25, 0.55],
-              rotate: [0, -15, 20],
-            }}
-            transition={{ duration: f.duration ?? 0.55, ease: "easeInOut", times: [0, 0.45, 1] }}
-            onAnimationComplete={() => landed(f)}
-          >
-            <Glyph emoji={f.emoji} />
-          </motion.div>
-        );
-      })}
+      {/* '동작 줄이기' 설정에서는 essential 인 것만 여기까지 오므로, 그것들은 설정과 상관없이 움직인다 */}
+      <MotionConfig reducedMotion="never">
+        {flights.map((f) => {
+          const size = f.size ?? 56;
+          const dx = f.target.x - f.from.x;
+          const dy = f.target.y - f.from.y;
+          const arc = f.arc ?? 120;
+          return (
+            <motion.div
+              key={f.id}
+              className="absolute flex items-center justify-center"
+              style={{ left: f.from.x - size / 2, top: f.from.y - size / 2, width: size, height: size, fontSize: size * 0.85 }}
+              initial={{ x: 0, y: 0, scale: 1, rotate: 0 }}
+              animate={
+                f.calm
+                  ? { x: dx, y: dy }
+                  : {
+                      x: [0, dx * 0.5, dx],
+                      y: [0, Math.min(0, dy) * 0.5 - arc, dy],
+                      scale: [1, 1.25, 0.55],
+                      rotate: [0, -15, 20],
+                    }
+              }
+              transition={
+                f.calm
+                  ? { duration: f.duration ?? 0.55, ease: "easeInOut" }
+                  : { duration: f.duration ?? 0.55, ease: "easeInOut", times: [0, 0.45, 1] }
+              }
+              onAnimationComplete={() => landed(f)}
+            >
+              <Glyph emoji={f.emoji} />
+            </motion.div>
+          );
+        })}
+      </MotionConfig>
     </div>
   );
 }
