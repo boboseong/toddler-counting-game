@@ -60,6 +60,8 @@ const VOICE_NOTES: Record<Role, string> = {
 
 const STYLE_NOTES: Record<Style, string> = {
   count: "One counting word, said slowly and clearly with a happy, encouraging tone, as if pointing at an object while counting together.",
+  countRun:
+    "Counting up quickly and rhythmically like an elevator passing floors, about three numbers per second, with no pauses between numbers. Say every number clearly and do not skip any number.",
   cheer: "Joyful and excited, praising and celebrating with the child.",
   ask: "A friendly, curious question or request to the child. A little slow.",
   talk: "Warm and gentle. A little slow.",

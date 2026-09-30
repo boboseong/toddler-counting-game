@@ -290,6 +290,16 @@ export function speakDuration(text: string | string[]): number {
   return Math.min(9000, Math.max(900, total));
 }
 
+/**
+ * 음성 파일 한 개의 길이(ms). 파일이 없으면(브라우저 TTS 로 말하면) null, 음성을 껐으면 0.
+ * 말에 맞춰 화면을 한 칸씩 움직일 때 쓴다 (엘리베이터가 층을 셀 때)
+ */
+export function clipMs(text: string): number | null {
+  if (!voiceOn) return 0;
+  const clip = manifest[cleanForSpeech(text)];
+  return clip ? clip[1] : null;
+}
+
 /* ----- 차례로 말하기 ----- */
 
 interface QueueItem {

@@ -88,7 +88,7 @@ export const SINO_WORDS = [
   "십칠",
   "십팔",
   "십구",
-  "이십",
+  "이십", // 딩동 엘리베이터의 꼭대기 층 · 나눠 주기의 가장 많은 개수
 ];
 
 /** 숫자 이름 읽기: 5 → "오" (TTS 가 숫자를 엉뚱하게 읽지 않도록 한글로 넘긴다) */
@@ -323,12 +323,11 @@ export const PRAISES = [
   "너무 멋지다!",
   "척척 잘하네!",
   "반짝반짝 빛나!",
-  "엄지 척!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "share";
+export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "share";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "share"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "share"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
@@ -336,6 +335,7 @@ export const GAME_NAMES: Record<GameId, string> = {
   feed: "냠냠 먹이 주기",
   bubbles: "거품 팡팡",
   find: "숫자 찾기",
+  elevator: "딩동 엘리베이터",
   share: "쏙쏙 나눠 주기",
 };
 
@@ -384,12 +384,19 @@ export const GAME_META: Record<GameId, GameMeta> = {
     bg: "linear-gradient(160deg,#c4b5fd,#8b5cf6)",
     shadow: "#5b21b6",
   },
+  elevator: {
+    emoji: "🛗",
+    title: "딩동 엘리베이터",
+    sub: "몇 층일까요?",
+    bg: "linear-gradient(160deg,#5eead4,#14b8a6)",
+    shadow: "#0f766e",
+  },
   share: {
     emoji: "🤲",
     title: "쏙쏙 나눠 주기",
     sub: "달라는 만큼 나눠 줘요",
-    bg: "linear-gradient(160deg,#5eead4,#14b8a6)",
-    shadow: "#0f766e",
+    bg: "linear-gradient(160deg,#fdba74,#fb923c)",
+    shadow: "#c2410c",
   },
 };
 
@@ -397,11 +404,11 @@ export const GAME_META: Record<GameId, GameMeta> = {
 
 /**
  * 순환 순서.
- * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 찾기) 사이에 몸으로 노는 놀이(거품 팡팡 · 먹이 주기 · 톡톡 세기)를
+ * 집중이 많이 필요한 놀이(몇 개일까 · 딩동 엘리베이터 · 숫자 찾기) 사이에 몸으로 노는 놀이(거품 팡팡 · 먹이 주기 · 톡톡 세기)를
  * 끼워서 긴장과 이완이 번갈아 오게 한다. 나눠 주기는 비슷한 먹이 주기와 떨어뜨려 숫자 찾기 뒤에 두고,
  * 한 바퀴의 끝(나눠 주기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
  */
-export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "feed", "find", "share"];
+export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "elevator", "feed", "find", "share"];
 
 export type CyclePace = "fast" | "normal" | "slow";
 
@@ -599,6 +606,60 @@ export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
 };
 
 /**
+ * 딩동 엘리베이터: 손님이 "오 층 눌러 주세요!" 하면 그 층 버튼을 누른다.
+ * 엘리베이터는 늘 1층에서 손님을 태우므로 목적지는 2층부터다.
+ * - floors: 층 버튼 수 (1~floors 층)
+ * - glow: 정답 버튼에 노란 빛을 비춘다 (처음 단계에서만)
+ */
+export interface ElevatorLevel {
+  floors: number;
+  glow: boolean;
+}
+
+export const ELEVATOR_LEVELS: ElevatorLevel[] = [
+  { floors: 5, glow: true },
+  { floors: 5, glow: false },
+  { floors: 10, glow: false },
+  { floors: 15, glow: false },
+  { floors: 20, glow: false },
+];
+
+/** 엘리베이터 아파트의 꼭대기 층 */
+export const ELEVATOR_TOP = 20;
+
+/**
+ * 이 층 이상으로 올라갈 때는 층을 한 낱말씩 끊지 않고 이어서 빠르게 센다
+ * ("일 이 … 십" 과 "십일 십이 … 십오" 를 한 번에).
+ */
+export const ELEVATOR_RUN_FROM = 10;
+
+/**
+ * 외우기: 여러 번 데려다 준 친구는 가끔 층을 말하지 않고 "우리 집에 데려다 줘!" 한다.
+ * 노란 빛이 없는 단계에서만 (빛이 있으면 답이 보이니까)
+ */
+export const ELEVATOR_MEMORY = {
+  /** 이만큼 데려다 준 친구부터 */
+  known: 5,
+  /** 이 확률로 */
+  chance: 0.1,
+};
+
+export interface Resident {
+  emoji: string;
+  name: string;
+}
+
+/**
+ * 층마다 사는 친구. 늘 같은 층에 살아서 누가 몇 층에 사는지 외울 수 있다.
+ * 1층은 병아리네 집(로비)이고, 2층부터 동물 친구 스티커북 순서대로 한 층에 한 친구씩 산다
+ * (사자 2층, 토끼 3층, 판다 4층 … 돼지 20층).
+ */
+export function residentOf(floor: number): Resident {
+  const s = floor >= 2 ? STICKERS[floor - 2] : undefined;
+  return s ? { emoji: s.emoji, name: s.name } : { emoji: "🐤", name: "병아리" };
+}
+
+/**
  * 쏙쏙 나눠 주기: 아이가 가진 개수(max)가 단계마다 늘고, 친구는 1개부터 가진 개수까지 아무 수나 달라고 한다.
  * 끌거나 눌러서 준 뒤 "다 줬어요" 를 눌러야 끝난다.
  */
@@ -610,6 +671,7 @@ export const MAX_LEVELS: Record<GameId, number> = {
   feed: FEED_LEVELS.length,
   bubbles: 1,
   find: FIND_LEVELS.length,
+  elevator: ELEVATOR_LEVELS.length,
   share: SHARE_LEVELS.length,
 };
 
@@ -629,6 +691,10 @@ export function howManyLevel(level: number): HowManyLevel {
 
 export function findLevel(level: number): FindLevel {
   return FIND_LEVELS[clampLevel("find", level) - 1];
+}
+
+export function elevatorLevel(level: number): ElevatorLevel {
+  return ELEVATOR_LEVELS[clampLevel("elevator", level) - 1];
 }
 
 export function shareLevel(level: number): CountLevel {
@@ -659,6 +725,10 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
       const s = findLevel(level);
       const kinds = s.prompts.map((p) => FIND_PROMPT_LABELS[p]).join("·");
       return `${s.min}~${s.max} · ${s.items}개 중 · ${kinds} 찾기${s.near ? " · 비슷한 수" : ""}`;
+    }
+    case "elevator": {
+      const s = elevatorLevel(level);
+      return `1~${s.floors}층 · ${s.glow ? "노란 빛 도움" : "듣고 누르기 · 가끔 외우기"}`;
     }
     case "share": {
       const s = shareLevel(level);

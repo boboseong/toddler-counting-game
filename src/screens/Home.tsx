@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { playDing, speak, speakDuration } from "../lib/audio";
 import { Chick } from "../art/Chick";
 import { Glyph } from "../art/Glyph";
@@ -43,21 +43,26 @@ const CARDS: { id: GameId | "cycle"; emoji: string; title: string; sub: string; 
 ];
 
 /**
- * 카드는 폰 세로 화면에서 두 칸, 태블릿에서 세 칸, 큰 화면·가로로 눕힌 폰에서 네 칸씩 놓인다.
- * 마지막 줄이 비면 마지막 카드(빙글빙글)가 남은 자리를 다 차지한다 (Tailwind 가 읽도록 클래스는 통째로 적는다)
+ * 세로 화면에서 놀이 카드가 마지막 줄에 혼자 남으면 그 줄을 다 차지한다 (폰 두 칸 · 태블릿 세 칸).
+ * Tailwind 가 읽도록 클래스는 통째로 적는다
  */
-const SPAN_CLASSES: Record<"base" | "sm" | "lg" | "short", { cols: number; span: string[] }> = {
-  base: { cols: 2, span: ["", "col-span-1", "col-span-2"] },
-  sm: { cols: 3, span: ["", "sm:col-span-1", "sm:col-span-2", "sm:col-span-3"] },
-  lg: { cols: 4, span: ["", "lg:col-span-1", "lg:col-span-2", "lg:col-span-3", "lg:col-span-4"] },
-  short: { cols: 4, span: ["", "short:col-span-1", "short:col-span-2", "short:col-span-3", "short:col-span-4"] },
-};
-const lastSpan = (cols: number) => (CARDS.length % cols === 0 ? 1 : cols - (CARDS.length % cols) + 1);
-const LAST_CARD_SPAN = Object.values(SPAN_CLASSES)
-  .map(({ cols, span }) => span[lastSpan(cols)])
-  .join(" ");
-/** 마지막 카드가 어느 화면에서든 두 칸 이상이면 키가 작은 가로 띠로 그려서 한 화면에 더 잘 들어오게 한다 */
-const LAST_CARD_WIDE = Object.values(SPAN_CLASSES).every(({ cols }) => lastSpan(cols) >= 2);
+const LAST_GAME_SPAN = [
+  GAME_IDS.length % 2 === 1 ? "col-span-2" : "",
+  GAME_IDS.length % 3 === 1 ? "sm:col-span-3" : "sm:col-span-1",
+].join(" ");
+
+/** 가로 화면인지 (화면을 돌리면 다시 본다) */
+function useLandscape(): boolean {
+  const query = "(orientation: landscape)";
+  const [landscape, setLandscape] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setLandscape(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return landscape;
+}
 
 /** 다시 찾아온 아이를 기억하는 인사, 오늘 모은 별 이야기를 앞에 붙인다 */
 function greetingsFor(visit: Visit, buddyName: string | null, todayStars: number): string[] {
@@ -91,6 +96,7 @@ export default function Home({
   const [greet, setGreet] = useState(0);
   const [mood, flashMood] = useMood("idle", 20000);
   const [buddyHop, setBuddyHop] = useState(0);
+  const landscape = useLandscape();
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
 
@@ -140,7 +146,7 @@ export default function Home({
         <StarJar stars={stars} />
       </div>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-4 py-3 no-scrollbar short:gap-2 short:py-1 sm:gap-5 short:sm:gap-2">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center justify-center-safe gap-3 overflow-y-auto px-4 py-3 no-scrollbar short:gap-2 short:py-1 sm:gap-5 short:sm:gap-2">
         {/* 마스코트 */}
         <div className="flex items-center gap-3">
           <motion.button
@@ -181,48 +187,46 @@ export default function Home({
           </div>
         ) : null}
 
-        {/* 게임 카드 */}
-        <div className="grid w-full max-w-4xl grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:max-w-5xl lg:grid-cols-4 short:grid-cols-4 short:gap-2">
+        {/* 게임 카드. 가로 화면은 네 칸씩 두 줄, 세로 화면은 빙글빙글을 놀이 카드 아래에 가로로 길게 */}
+        <div
+          className={`grid w-full max-w-4xl ${
+            landscape ? "grid-cols-4 gap-3 sm:gap-4 short:gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
+          }`}
+        >
           {CARDS.map((g, i) => {
-            const wide = i === CARDS.length - 1 && LAST_CARD_WIDE;
+            const wide = g.id === "cycle" && !landscape;
             return (
               <motion.button
                 key={g.id}
                 initial={{ opacity: 0, y: 30, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.08 * i, type: "spring", stiffness: 260, damping: 18 }}
-                whileTap={{ scale: 0.93 }}
+                whileTap={{ scale: wide ? 0.97 : 0.93 }}
                 onClick={() => (g.id === "cycle" ? onCycle() : onSelect(g.id))}
-                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white text-white short:rounded-2xl ${
+                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white p-3 text-white short:rounded-2xl short:p-1.5 ${
                   wide
-                    ? "flex-row gap-3 px-4 py-1.5 sm:gap-4 sm:py-3 short:gap-2 short:py-1"
-                    : "min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col gap-1 px-3 py-2 sm:p-3 short:min-h-0 short:gap-0 short:p-1.5"
-                } ${i === CARDS.length - 1 ? LAST_CARD_SPAN : ""}`}
+                    ? "col-span-full flex-row gap-3 py-2 sm:gap-4 short:gap-2 short:py-1"
+                    : "min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col gap-1 short:min-h-0 short:gap-0"
+                } ${!landscape && !wide && i === GAME_IDS.length - 1 ? LAST_GAME_SPAN : ""}`}
                 style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
               >
                 <Glyph
                   emoji={g.emoji}
                   className={`drop-shadow ${
                     wide
-                      ? "text-[clamp(2.2rem,min(9vw,7vh),4.5rem)] short:text-[1.8rem]"
-                      : "text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] short:text-[2rem]"
-                  } ${g.id === "cycle" ? "spin-slow" : "wiggle"}`}
+                      ? "spin-slow text-[clamp(2.2rem,min(9vw,7vh),4rem)] short:text-[1.8rem]"
+                      : "wiggle text-[clamp(2.5rem,min(11vw,9vh),5.5rem)] short:text-[2rem]"
+                  }`}
                   style={{ animationDelay: `${i * 0.3}s` }}
                 />
-                <span
-                  className={`flex ${
-                    wide
-                      ? "flex-row flex-wrap items-baseline gap-x-2 sm:flex-col sm:items-start"
-                      : "flex-col items-center gap-1 short:gap-0"
-                  }`}
-                >
+                <span className={wide ? "flex flex-col items-start" : "contents"}>
                   <span
-                    className="text-2xl sm:text-3xl short:text-lg"
+                    className={`break-keep text-center text-2xl short:text-lg ${landscape ? "" : "sm:text-3xl"}`}
                     style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}
                   >
                     {g.title}
                   </span>
-                  <span className="text-sm opacity-90 sm:text-base short:hidden">{g.sub}</span>
+                  <span className={`text-sm opacity-90 short:hidden ${landscape ? "" : "sm:text-base"}`}>{g.sub}</span>
                 </span>
               </motion.button>
             );
@@ -236,7 +240,7 @@ export default function Home({
           transition={{ delay: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => onSelect("stickers")}
-          className="pressable flex w-full max-w-4xl items-center justify-between rounded-[2rem] lg:max-w-5xl border-4 border-white bg-gradient-to-r from-violet-300 to-fuchsia-300 px-5 py-3 text-white shadow-[0_8px_0_0_rgba(109,40,217,0.35)] short:rounded-2xl short:py-1 short:pr-3"
+          className="pressable flex w-full max-w-4xl items-center justify-between rounded-[2rem] border-4 border-white bg-gradient-to-r from-violet-300 to-fuchsia-300 px-5 py-3 text-white shadow-[0_8px_0_0_rgba(109,40,217,0.35)] short:rounded-2xl short:py-1 short:pr-3"
         >
           <div className="flex items-center gap-3">
             <Glyph emoji="📒" className="text-4xl sm:text-6xl short:text-3xl" />

@@ -43,6 +43,7 @@ import HowManyGame from "./games/HowManyGame";
 import FeedGame from "./games/FeedGame";
 import BubbleGame from "./games/BubbleGame";
 import FindGame from "./games/FindGame";
+import ElevatorGame from "./games/ElevatorGame";
 import ShareGame from "./games/ShareGame";
 import {
   BalloonRise,
@@ -67,6 +68,7 @@ const GAMES: Record<GameId, ComponentType<GameProps>> = {
   feed: FeedGame,
   bubbles: BubbleGame,
   find: FindGame,
+  elevator: ElevatorGame,
   share: ShareGame,
 };
 
@@ -179,6 +181,7 @@ export default function App() {
     visit,
     addStar,
     reportResult,
+    noteRide,
     setBuddy,
     placeInScene,
     setSessionMin,
@@ -609,6 +612,8 @@ export default function App() {
         tapGap={progress.tapGap}
         countMax={countMax}
         friends={progress.stickers}
+        rides={progress.elevatorRides}
+        onRide={noteRide}
         onHome={goHome}
         onWin={handleWin}
         onResult={(ok) => handleResult(screen, ok)}
