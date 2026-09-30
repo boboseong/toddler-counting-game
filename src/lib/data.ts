@@ -307,7 +307,6 @@ export const PRAISES = [
   "너무 멋지다!",
   "척척 잘하네!",
   "반짝반짝 빛나!",
-  "엄지 척!",
 ];
 
 export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator";
