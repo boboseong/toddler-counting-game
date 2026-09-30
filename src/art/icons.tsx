@@ -210,6 +210,33 @@ export function Paws(_: ArtProps) {
   return <Svg>{[paw(32, 68, 1.25, -20), paw(70, 30, 1.05, 15)]}</Svg>;
 }
 
+/** 엘리베이터 (딩동 엘리베이터): 층 표시 위에 ▲, 문에 얼굴 */
+export function Elevator({ mood, look }: ArtProps) {
+  const door = "#d6dde8";
+  return (
+    <Svg>
+      <rect x="10" y="4" width="80" height="92" rx="10" fill="#2dd4bf" {...stroke} />
+      <rect x="30" y="10" width="40" height="15" rx="5" fill="#334155" {...thin} />
+      <path d="M37 21 L42 14 L47 21 Z" fill="#fbbf24" />
+      <text
+        x="58"
+        y="22"
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="700"
+        fontFamily="Jua, 'Arial Rounded MT Bold', Arial, sans-serif"
+        fill="#fbbf24"
+      >
+        5
+      </text>
+      <rect x="20" y="31" width="60" height="59" rx="3" fill={door} {...stroke} />
+      <path d="M50 31 V90" stroke={INK} strokeWidth={LINE * 0.8} />
+      <path d="M26 36 V84 M56 36 V84" stroke="#fff" strokeWidth={3} strokeLinecap="round" opacity="0.7" />
+      <Face x={50} y={60} s={0.62} mood={mood} look={look} />
+    </Svg>
+  );
+}
+
 /* ---------- 버튼 · 표시 ---------- */
 
 /** 집 (홈 버튼) */

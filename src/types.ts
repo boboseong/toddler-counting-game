@@ -11,6 +11,9 @@ export interface GameProps {
   countMax: number;
   /** 모은 스티커 (먹이 주기에 손님으로 온다) */
   friends: number[];
+  /** 딩동 엘리베이터: 층마다 손님을 집에 데려다 준 횟수 (자주 데려다 준 친구는 가끔 층을 말하지 않는다) */
+  rides: number[];
+  onRide: (floor: number) => void;
   onHome: () => void;
   onWin: () => void;
   onResult: (ok: boolean) => void;

@@ -10,6 +10,7 @@ import {
   ANIMALS,
   COUNT_WORDS,
   CYCLE_ORDER,
+  ELEVATOR_TOP,
   GAME_META,
   ITEMS,
   MAX_NUMBER,
@@ -22,6 +23,7 @@ import {
   numeralName,
   obj,
   randomInt,
+  residentOf,
   starPhrase,
   subj,
   topic,
@@ -88,6 +90,31 @@ export const P = {
   hereMaybe: "여기 있을까?",
   lookSlowly: "천천히 봐!",
 
+  /* 딩동 엘리베이터 (손님이 말하는 문장은 동물 목소리) */
+  /** "사자가 탔어요!" */
+  elevatorBoard: (name: string) => `${subj(name)} 탔어요!`,
+  /** 손님: "오 층 눌러 주세요!" */
+  elevatorAsk: (floor: number) => `${numeralName(floor)} 층 눌러 주세요!`,
+  /** 손님 (외우기): 층을 말하지 않는다 */
+  elevatorAskHome: "우리 집에 데려다 줘!",
+  /** 손님: "우리 집은 오 층이에요!" */
+  elevatorHomeIs: (floor: number) => `우리 집은 ${numeralName(floor)} 층이에요!`,
+  /** 층을 지나며 세는 말: 일, 이, 삼 … */
+  elevatorCount: (floor: number) => numeralName(floor),
+  /**
+   * 여러 층을 한 번에 이어 세는 말: "일 이 삼 … 십", "십일 십이 … 십오".
+   * 쉼표를 넣으면 층마다 길게 쉬어서 오히려 느려진다
+   */
+  elevatorCountRun: (from: number, to: number) => range(from, to).map(numeralName).join(" "),
+  /** "오 층입니다!" */
+  elevatorArrive: (floor: number) => `${numeralName(floor)} 층입니다!`,
+  /** 다른 층에서 문이 열렸을 때: "여기는 삼 층, 토끼네 집이야!" */
+  elevatorVisit: (floor: number, name: string) => `여기는 ${numeralName(floor)} 층, ${name}네 집이야!`,
+  /** 손님 */
+  elevatorNotHere: "여기가 아니에요!",
+  /** 손님 */
+  elevatorThanks: "우리 집이다! 고마워!",
+
   /* 홈 */
   greetings: ["안녕! 같이 숫자 세어 볼까?", "삐약! 오늘도 재미있게 놀자!", "하나, 둘, 셋! 준비됐어?"],
   missedYou: "다시 왔구나! 보고 싶었어!",
@@ -143,7 +170,7 @@ export const P = {
 export type Role = "narrator" | "animal";
 
 /** 어떻게 말하는지 (생성할 때 목소리 연기 지시로 쓴다) */
-export type Style = "count" | "cheer" | "talk" | "ask";
+export type Style = "count" | "countRun" | "cheer" | "talk" | "ask";
 
 export interface PhraseSpec {
   text: string;
@@ -248,6 +275,23 @@ export function allPhrases(): PhraseSpec[] {
     add(`${starPhrase(n)}나 모았어!`, "cheer");
   });
   add(P.todayStars(MAX_NUMBER + 1), "talk");
+
+  // 딩동 엘리베이터: 층 × 그 층에 사는 친구
+  add(P.elevatorAskHome, "ask", true, "animal");
+  add(P.elevatorNotHere, "talk", true, "animal");
+  add(P.elevatorThanks, "cheer", true, "animal");
+  range(1, ELEVATOR_TOP).forEach((f) => {
+    add(P.elevatorCount(f), "count", true);
+    add(P.elevatorVisit(f, residentOf(f).name), "talk");
+  });
+  add(P.elevatorCountRun(1, 10), "countRun");
+  range(12, ELEVATOR_TOP).forEach((f) => add(P.elevatorCountRun(11, f), "countRun"));
+  range(2, ELEVATOR_TOP).forEach((f) => {
+    add(P.elevatorBoard(residentOf(f).name), "talk");
+    add(P.elevatorAsk(f), "ask", false, "animal");
+    add(P.elevatorHomeIs(f), "talk", false, "animal");
+    add(P.elevatorArrive(f), "cheer");
+  });
   range(1, SCENE_MAX).forEach((n) => add(P.friendsTotal(n), "cheer"));
 
   // 먹이 × 수

@@ -3,6 +3,7 @@ import {
   CYCLE_ORDER,
   CYCLE_PACES,
   DEFAULT_TAP_GAP,
+  ELEVATOR_TOP,
   GAME_IDS,
   MAX_LEVELS,
   SCENE_MAX,
@@ -65,6 +66,8 @@ export interface Progress {
   cycleNext: number;
   /** 빙글빙글: 놀이를 바꾸는 빠르기 */
   cyclePace: CyclePace;
+  /** 딩동 엘리베이터: 층마다 손님을 집에 데려다 준 횟수 (인덱스 = 층) */
+  elevatorRides: number[];
 }
 
 const KEY = "sutja-nori-progress-v1";
@@ -90,7 +93,7 @@ const DEFAULT: Progress = {
   lastDay: "",
   today: { day: "", stars: 0, stickers: [] },
   sessionMin: 0,
-  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1 },
+  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1, elevator: 1 },
   soundOn: true,
   voiceOn: true,
   hapticsOn: true,
@@ -98,6 +101,7 @@ const DEFAULT: Progress = {
   tapGap: DEFAULT_TAP_GAP,
   cycleNext: 0,
   cyclePace: "normal",
+  elevatorRides: [],
 };
 
 function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
@@ -107,6 +111,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
     feed: { ok: 0, miss: 0 },
     bubbles: { ok: 0, miss: 0 },
     find: { ok: 0, miss: 0 },
+    elevator: { ok: 0, miss: 0 },
   };
 }
 
@@ -158,6 +163,11 @@ function load(): Progress {
     const sessionMin = SESSION_LIMITS.includes(parsed.sessionMin as number)
       ? (parsed.sessionMin as number)
       : 0;
+    const elevatorRides = Array.isArray(parsed.elevatorRides)
+      ? parsed.elevatorRides
+          .slice(0, ELEVATOR_TOP + 1)
+          .map((v) => (typeof v === "number" && v > 0 ? Math.floor(v) : 0))
+      : [];
     return {
       ...DEFAULT,
       ...parsed,
@@ -171,6 +181,7 @@ function load(): Progress {
       levels,
       cyclePace,
       cycleNext,
+      elevatorRides,
     };
   } catch {
     return DEFAULT;
@@ -318,6 +329,17 @@ export function useProgress() {
     return level > cur.levels[game];
   }, []);
 
+  /** 딩동 엘리베이터: 손님을 floor 층 집에 데려다 줬다 */
+  const noteRide = useCallback((floor: number) => {
+    const cur = ref.current;
+    const rides = [...cur.elevatorRides];
+    while (rides.length <= floor) rides.push(0);
+    rides[floor] += 1;
+    const next = { ...cur, elevatorRides: rides };
+    ref.current = next;
+    setProgress(next);
+  }, []);
+
   /** 같이 놀 친구 고르기 */
   const setBuddy = useCallback((i: number) => {
     const cur = ref.current;
@@ -398,6 +420,7 @@ export function useProgress() {
     visit,
     addStar,
     reportResult,
+    noteRide,
     setBuddy,
     placeInScene,
     setSessionMin,
