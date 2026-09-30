@@ -93,7 +93,7 @@ const DEFAULT: Progress = {
   lastDay: "",
   today: { day: "", stars: 0, stickers: [] },
   sessionMin: 0,
-  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1, elevator: 1, share: 1 },
+  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1, elevator: 1, dial: 1, share: 1 },
   soundOn: true,
   voiceOn: true,
   hapticsOn: true,
@@ -112,6 +112,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
     bubbles: { ok: 0, miss: 0 },
     find: { ok: 0, miss: 0 },
     elevator: { ok: 0, miss: 0 },
+    dial: { ok: 0, miss: 0 },
     share: { ok: 0, miss: 0 },
   };
 }

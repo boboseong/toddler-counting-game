@@ -137,6 +137,34 @@ export function playTwinkle() {
   tone(f, 0, 0.16, "sine", 0.07, f * 1.05);
 }
 
+/** 전화기 버튼 소리 (진짜 전화기처럼 두 음을 겹친 DTMF) */
+const DTMF: Record<string, [number, number]> = {
+  "1": [697, 1209], "2": [697, 1336], "3": [697, 1477],
+  "4": [770, 1209], "5": [770, 1336], "6": [770, 1477],
+  "7": [852, 1209], "8": [852, 1336], "9": [852, 1477],
+  "*": [941, 1209], "0": [941, 1336], "#": [941, 1477],
+};
+export function playDial(key: string) {
+  const f = DTMF[key];
+  if (!f) return;
+  tone(f[0], 0, 0.16, "sine", 0.11);
+  tone(f[1], 0, 0.16, "sine", 0.09);
+}
+
+/** 지우기 — 뿅 */
+export function playErase() {
+  tone(620, 0, 0.13, "sine", 0.16, 330);
+}
+
+/** 따르릉 따르릉 (1.5초쯤) */
+export function playRing() {
+  for (let burst = 0; burst < 2; burst++) {
+    for (let i = 0; i < 12; i++) {
+      tone(i % 2 ? 1400 : 1150, burst * 0.85 + i * 0.05, 0.055, "triangle", 0.09);
+    }
+  }
+}
+
 /** 더 큰 숫자 도전! — 올라가는 소리 */
 export function playLevelUp() {
   [523, 659, 784, 1047, 1319].forEach((n, i) => tone(n, i * 0.08, 0.22, "triangle", 0.16));

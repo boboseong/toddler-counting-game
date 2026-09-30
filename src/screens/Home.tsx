@@ -43,13 +43,16 @@ const CARDS: { id: GameId | "cycle"; emoji: string; title: string; sub: string; 
 ];
 
 /**
- * 세로 화면에서 놀이 카드가 마지막 줄에 혼자 남으면 그 줄을 다 차지한다 (폰 두 칸 · 태블릿 세 칸).
- * Tailwind 가 읽도록 클래스는 통째로 적는다
+ * 가로 화면의 칸 수와 빙글빙글 폭. 네 칸이나 다섯 칸 중에서 빙글빙글(한 칸 또는 두 칸)까지 넣었을 때
+ * 줄이 꽉 차는 쪽을 고른다 (놀이 7개 → 네 칸 × 두 줄, 8개 → 다섯 칸 × 두 줄에 빙글빙글 두 칸)
  */
-const LAST_GAME_SPAN = [
-  GAME_IDS.length % 2 === 1 ? "col-span-2" : "",
-  GAME_IDS.length % 3 === 1 ? "sm:col-span-3" : "sm:col-span-1",
-].join(" ");
+function landscapeGrid(n: number): { cols: 4 | 5; cycleSpan: 1 | 2 } {
+  for (const cycleSpan of [1, 2] as const) {
+    for (const cols of [4, 5] as const) if ((n + cycleSpan) % cols === 0) return { cols, cycleSpan };
+  }
+  return { cols: 4, cycleSpan: 1 };
+}
+const LANDSCAPE = landscapeGrid(GAME_IDS.length);
 
 /** 가로 화면인지 (화면을 돌리면 다시 본다) */
 function useLandscape(): boolean {
@@ -97,6 +100,11 @@ export default function Home({
   const [mood, flashMood] = useMood("idle", 20000);
   const [buddyHop, setBuddyHop] = useState(0);
   const landscape = useLandscape();
+  // 세로 화면: 놀이 카드가 두 칸 줄을 꽉 채우면 빙글빙글은 아래에 가로로 긴 띠, 아니면 마지막 빈칸을 채운다
+  const cycleBanner = !landscape && GAME_IDS.length % 2 === 0;
+  // 빙글빙글을 옆으로 눕혀 그리는지 (세로 화면의 띠 · 가로 화면의 두 칸짜리)
+  const cycleRow = cycleBanner || (landscape && LANDSCAPE.cycleSpan === 2);
+  const gridMax = landscape && LANDSCAPE.cols === 5 ? "max-w-5xl" : "max-w-4xl";
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
 
@@ -187,14 +195,20 @@ export default function Home({
           </div>
         ) : null}
 
-        {/* 게임 카드. 가로 화면은 네 칸씩 두 줄, 세로 화면은 빙글빙글을 놀이 카드 아래에 가로로 길게 */}
+        {/*
+          게임 카드. 폰 세로는 두 칸, 태블릿 세로는 네 칸(또는 세 칸), 가로 화면은 네 칸이나 다섯 칸씩 두 줄.
+          세로 화면에서 놀이 카드가 줄을 꽉 채우면 빙글빙글을 아래에 가로로 길게, 아니면 마지막 빈칸을 채운다
+        */}
         <div
-          className={`grid w-full max-w-4xl ${
-            landscape ? "grid-cols-4 gap-3 sm:gap-4 short:gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
+          className={`grid w-full ${gridMax} ${
+            landscape
+              ? `${LANDSCAPE.cols === 5 ? "grid-cols-5" : "grid-cols-4"} gap-3 sm:gap-4 short:gap-2`
+              : // 태블릿 세로: 놀이 카드가 네 칸으로 딱 나눠지면 네 칸, 빙글빙글까지 짝을 맞춰야 하면 네 칸, 아니면 세 칸
+                `grid-cols-2 gap-3 sm:gap-4 ${GAME_IDS.length % 4 === 0 || !cycleBanner ? "sm:grid-cols-4" : "sm:grid-cols-3"}`
           }`}
         >
           {CARDS.map((g, i) => {
-            const wide = g.id === "cycle" && !landscape;
+            const wide = g.id === "cycle" && cycleRow;
             return (
               <motion.button
                 key={g.id}
@@ -203,11 +217,12 @@ export default function Home({
                 transition={{ delay: 0.08 * i, type: "spring", stiffness: 260, damping: 18 }}
                 whileTap={{ scale: wide ? 0.97 : 0.93 }}
                 onClick={() => (g.id === "cycle" ? onCycle() : onSelect(g.id))}
-                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white p-3 text-white short:rounded-2xl short:p-1.5 ${
+                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white text-white short:rounded-2xl short:p-1.5 ${
                   wide
-                    ? "col-span-full flex-row gap-3 py-2 sm:gap-4 short:gap-2 short:py-1"
-                    : "min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col gap-1 short:min-h-0 short:gap-0"
-                } ${!landscape && !wide && i === GAME_IDS.length - 1 ? LAST_GAME_SPAN : ""}`}
+                    ? `${cycleBanner ? "col-span-full" : "col-span-2"} flex-row gap-3 p-3 py-2 sm:gap-4 short:gap-2 short:py-1`
+                    : // 폰 세로 화면은 카드가 네 줄이라 조금 촘촘하게
+                      "min-h-[clamp(96px,min(28vw,24vh),220px)] flex-col gap-1 px-2 py-2 sm:p-3 short:min-h-0 short:gap-0"
+                }`}
                 style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
               >
                 <Glyph
@@ -221,12 +236,18 @@ export default function Home({
                 />
                 <span className={wide ? "flex flex-col items-start" : "contents"}>
                   <span
-                    className={`break-keep text-center text-2xl short:text-lg ${landscape ? "" : "sm:text-3xl"}`}
+                    className={`break-keep text-center text-lg min-[400px]:text-2xl short:text-lg ${landscape ? "sm:text-2xl" : "sm:text-3xl"}`}
                     style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}
                   >
                     {g.title}
                   </span>
-                  <span className={`text-sm opacity-90 short:hidden ${landscape ? "" : "sm:text-base"}`}>{g.sub}</span>
+                  <span
+                    className={`text-sm opacity-90 short:hidden ${landscape ? "" : "sm:text-base"} ${
+                      wide ? "" : "hidden sm:block" // 좁은 폰에서는 설명을 빼서 한 화면에 들어가게
+                    }`}
+                  >
+                    {g.sub}
+                  </span>
                 </span>
               </motion.button>
             );
@@ -240,7 +261,7 @@ export default function Home({
           transition={{ delay: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => onSelect("stickers")}
-          className="pressable flex w-full max-w-4xl items-center justify-between rounded-[2rem] border-4 border-white bg-gradient-to-r from-violet-300 to-fuchsia-300 px-5 py-3 text-white shadow-[0_8px_0_0_rgba(109,40,217,0.35)] short:rounded-2xl short:py-1 short:pr-3"
+          className={`pressable flex w-full ${gridMax} items-center justify-between rounded-[2rem] border-4 border-white bg-gradient-to-r from-violet-300 to-fuchsia-300 px-5 py-3 text-white shadow-[0_8px_0_0_rgba(109,40,217,0.35)] short:rounded-2xl short:py-1 short:pr-3`}
         >
           <div className="flex items-center gap-3">
             <Glyph emoji="📒" className="text-4xl sm:text-6xl short:text-3xl" />

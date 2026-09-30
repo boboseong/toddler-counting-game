@@ -8,7 +8,7 @@ import { Barn, Basket, Crab, Prop, Shell, Sunflower, Tree } from "../art/scenery
 /* ---------- 배경 ---------- */
 
 /** 놀이마다 다른 장면 */
-export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "meadow" | "town";
+export type Scene = "sky" | "orchard" | "picnic" | "farm" | "sea" | "dusk" | "meadow" | "town" | "call";
 
 interface SceneSpec {
   sky: string;
@@ -104,6 +104,13 @@ const SCENES: Record<Scene, SceneSpec> = {
     sky: "from-sky-200 via-sky-50 to-rose-50",
     hills: ["#d9f99d", "#bef264"],
     light: "sun",
+    right: null,
+  },
+  // 숫자 따라 누르기: 오른쪽 아래는 키패드 자리라 소품을 두지 않는다
+  call: {
+    sky: "from-teal-100 via-sky-50 to-amber-50",
+    hills: ["#ccfbf1", "#99f6e4"],
+    light: "sunCloud",
     right: null,
   },
 };

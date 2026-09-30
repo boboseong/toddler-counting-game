@@ -325,9 +325,9 @@ export const PRAISES = [
   "반짝반짝 빛나!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "share";
+export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "dial" | "share";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "share"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "dial", "share"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
@@ -336,6 +336,7 @@ export const GAME_NAMES: Record<GameId, string> = {
   bubbles: "거품 팡팡",
   find: "숫자 찾기",
   elevator: "딩동 엘리베이터",
+  dial: "숫자 따라 누르기",
   share: "쏙쏙 나눠 주기",
 };
 
@@ -391,12 +392,20 @@ export const GAME_META: Record<GameId, GameMeta> = {
     bg: "linear-gradient(160deg,#5eead4,#14b8a6)",
     shadow: "#0f766e",
   },
+  dial: {
+    emoji: "📱",
+    title: "숫자 따라 누르기",
+    sub: "전화기 숫자를 눌러요",
+    bg: "linear-gradient(160deg,#fdba74,#f97316)",
+    shadow: "#c2410c",
+  },
   share: {
     emoji: "🤲",
     title: "쏙쏙 나눠 주기",
     sub: "달라는 만큼 나눠 줘요",
-    bg: "linear-gradient(160deg,#fdba74,#fb923c)",
-    shadow: "#c2410c",
+    // 주황은 숫자 따라 누르기, 청록은 엘리베이터가 쓰고 있어서 연두 (꽃밭 장면과도 어울린다)
+    bg: "linear-gradient(160deg,#bef264,#65a30d)",
+    shadow: "#3f6212",
   },
 };
 
@@ -404,11 +413,13 @@ export const GAME_META: Record<GameId, GameMeta> = {
 
 /**
  * 순환 순서.
- * 집중이 많이 필요한 놀이(몇 개일까 · 딩동 엘리베이터 · 숫자 찾기) 사이에 몸으로 노는 놀이(거품 팡팡 · 먹이 주기 · 톡톡 세기)를
- * 끼워서 긴장과 이완이 번갈아 오게 한다. 나눠 주기는 비슷한 먹이 주기와 떨어뜨려 숫자 찾기 뒤에 두고,
+ * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 따라 누르기 · 딩동 엘리베이터 · 숫자 찾기) 사이에 몸으로 노는 놀이
+ * (거품 팡팡 · 먹이 주기 · 톡톡 세기)를 끼워서 긴장과 이완이 번갈아 오게 한다. 집중 놀이가 하나 더 많아
+ * 한 곳(숫자 따라 누르기 → 몇 개일까)은 이어지는데, 버튼을 누르는 두 놀이(숫자 따라 누르기 · 딩동 엘리베이터)는
+ * 멀리 떨어뜨렸다. 나눠 주기는 비슷한 먹이 주기와 떨어뜨려 숫자 찾기 뒤에 두고,
  * 한 바퀴의 끝(나눠 주기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
  */
-export const CYCLE_ORDER: GameId[] = ["tap", "howmany", "bubbles", "elevator", "feed", "find", "share"];
+export const CYCLE_ORDER: GameId[] = ["tap", "dial", "howmany", "bubbles", "elevator", "feed", "find", "share"];
 
 export type CyclePace = "fast" | "normal" | "slow";
 
@@ -665,6 +676,101 @@ export function residentOf(floor: number): Resident {
  */
 export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) => ({ min: 1, max: have }));
 
+/* ---------- 숫자 따라 누르기 (전화기 키패드) ---------- */
+
+/** 전화기 키패드의 버튼 (지우기·전화 버튼 빼고) */
+export type DialKey = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "*" | "0" | "#";
+
+/** 키패드 배치 (전화기처럼 1 2 3 / 4 5 6 / 7 8 9 / 별 0 샵) */
+export const DIAL_ROWS: DialKey[][] = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  ["*", "0", "#"],
+];
+
+export const DIAL_KEYS: DialKey[] = DIAL_ROWS.flat();
+const DIAL_DIGITS: DialKey[] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+/** 버튼 이름 (한 자리씩 읽는다: 12 → "일", "이") */
+export const DIAL_KEY_NAMES: Record<DialKey, string> = {
+  "1": "일",
+  "2": "이",
+  "3": "삼",
+  "4": "사",
+  "5": "오",
+  "6": "육",
+  "7": "칠",
+  "8": "팔",
+  "9": "구",
+  "0": "영",
+  "*": "별",
+  "#": "샵",
+};
+
+/** 버튼 글자 색. 1~9 는 다른 놀이의 숫자 색과 같고, 별은 금색 */
+export const DIAL_KEY_COLORS: Record<DialKey, string> = {
+  "1": NUM_COLORS[0],
+  "2": NUM_COLORS[1],
+  "3": NUM_COLORS[2],
+  "4": NUM_COLORS[3],
+  "5": NUM_COLORS[4],
+  "6": NUM_COLORS[5],
+  "7": NUM_COLORS[6],
+  "8": NUM_COLORS[7],
+  "9": NUM_COLORS[8],
+  "0": "#64748B",
+  "*": "#F59E0B",
+  "#": "#0891B2",
+};
+
+/**
+ * 숫자 따라 누르기 단계.
+ * - digits: 눌러야 할 자리 수
+ * - guide: 다음에 누를 버튼을 노랗게 알려 준다
+ * - special: 별·샵이 섞이는지 (always = 꼭 하나, some = 절반쯤 하나, none = 숫자만)
+ */
+export interface DialLevel {
+  digits: number;
+  guide: boolean;
+  special: "none" | "always" | "some";
+}
+
+export const DIAL_LEVELS: DialLevel[] = [
+  { digits: 2, guide: true, special: "none" },
+  { digits: 2, guide: false, special: "none" },
+  { digits: 3, guide: false, special: "none" },
+  { digits: 3, guide: false, special: "always" },
+  { digits: 4, guide: false, special: "some" },
+  { digits: 5, guide: false, special: "some" },
+  { digits: 6, guide: false, special: "some" },
+  { digits: 7, guide: false, special: "some" },
+  { digits: 8, guide: false, special: "some" },
+];
+
+/**
+ * 이번에 누를 번호. 같은 버튼이 바로 이어서 나오지 않게 한다
+ * (같은 버튼을 두 번 누르면 눌렸는지 헷갈린다). 별·샵은 한 번만.
+ */
+export function dialNumber(lv: DialLevel): DialKey[] {
+  const specialAt =
+    lv.special === "always" || (lv.special === "some" && Math.random() < 0.5)
+      ? randomInt(0, lv.digits - 1)
+      : -1;
+  const out: DialKey[] = [];
+  for (let i = 0; i < lv.digits; i++) {
+    const pool = i === specialAt ? (["*", "#"] as DialKey[]) : DIAL_DIGITS;
+    out.push(pick(pool.filter((k) => k !== out[i - 1])));
+  }
+  return out;
+}
+
+/** 번호를 보기 좋게 끊어서 보여 줄 자리 (전화번호처럼 3-4, 4-4). 끊는 자리 앞의 인덱스들 */
+export function dialGroupBreaks(len: number): number[] {
+  if (len <= 4) return [];
+  return [len <= 6 ? Math.floor(len / 2) : len - 4];
+}
+
 export const MAX_LEVELS: Record<GameId, number> = {
   tap: 1,
   howmany: HOWMANY_LEVELS.length,
@@ -672,6 +778,7 @@ export const MAX_LEVELS: Record<GameId, number> = {
   bubbles: 1,
   find: FIND_LEVELS.length,
   elevator: ELEVATOR_LEVELS.length,
+  dial: DIAL_LEVELS.length,
   share: SHARE_LEVELS.length,
 };
 
@@ -695,6 +802,10 @@ export function findLevel(level: number): FindLevel {
 
 export function elevatorLevel(level: number): ElevatorLevel {
   return ELEVATOR_LEVELS[clampLevel("elevator", level) - 1];
+}
+
+export function dialLevel(level: number): DialLevel {
+  return DIAL_LEVELS[clampLevel("dial", level) - 1];
 }
 
 export function shareLevel(level: number): CountLevel {
@@ -729,6 +840,11 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     case "elevator": {
       const s = elevatorLevel(level);
       return `1~${s.floors}층 · ${s.glow ? "노란 빛 도움" : "듣고 누르기 · 가끔 외우기"}`;
+    }
+    case "dial": {
+      const s = dialLevel(level);
+      const special = s.special === "always" ? " · 별·샵" : s.special === "some" ? " · 별·샵 가끔" : "";
+      return `${s.digits}자리${s.guide ? " · 누를 버튼 노랗게" : ""}${special}`;
     }
     case "share": {
       const s = shareLevel(level);
@@ -858,6 +974,11 @@ export function hasBatchim(word: string): boolean {
 /** 주격 조사 이/가 */
 export function subj(word: string): string {
   return word + (hasBatchim(word) ? "이" : "가");
+}
+
+/** 접속 조사 과/와 ("일과", "이와") */
+export function conj(word: string): string {
+  return word + (hasBatchim(word) ? "과" : "와");
 }
 
 /** 목적격 조사 을/를 */
