@@ -11,6 +11,8 @@ import {
   COUNT_WORDS,
   CYCLE_ORDER,
   ELEVATOR_TOP,
+  DIAL_KEYS,
+  DIAL_KEY_NAMES,
   GAME_META,
   ITEMS,
   MAX_NUMBER,
@@ -18,6 +20,7 @@ import {
   SCENE_MAX,
   SLOW_PHRASES,
   STICKERS,
+  conj,
   copula,
   counterPhrase,
   numeralName,
@@ -29,6 +32,7 @@ import {
   topic,
   type CountItem,
   type CycleReason,
+  type DialKey,
   type GameId,
 } from "./data";
 
@@ -114,6 +118,33 @@ export const P = {
   elevatorNotHere: "여기가 아니에요!",
   /** 손님 */
   elevatorThanks: "우리 집이다! 고마워!",
+
+  /* 숫자 따라 누르기 (버튼은 한 자리씩 읽는다: 12 → 일, 이) */
+  /** 버튼 이름: "일", "영", "별", "샵" */
+  dialKey: (k: DialKey) => DIAL_KEY_NAMES[k],
+  /** "삼을 눌러줘!" */
+  dialPress: (k: DialKey) => `${obj(DIAL_KEY_NAMES[k])} 눌러줘!`,
+  /** 두 자리는 한 문장으로: "일과 이를 눌러줘!" */
+  dialPressTwo: (a: DialKey, b: DialKey) => `${conj(DIAL_KEY_NAMES[a])} ${obj(DIAL_KEY_NAMES[b])} 눌러줘!`,
+  /** 누를 번호 전체. 세 자리부터는 버튼 이름을 이어서 말하고 마지막에 "삼을 눌러줘!" */
+  dialAsk: (keys: DialKey[]): Line =>
+    keys.length === 2
+      ? [P.dialPressTwo(keys[0], keys[1])]
+      : [...keys.slice(0, -1).map(P.dialKey), P.dialPress(keys[keys.length - 1])],
+  /** 말풍선에 보여 줄 글: "일, 이, 삼을 눌러줘!" */
+  dialAskText: (keys: DialKey[]) =>
+    keys.length === 2
+      ? P.dialPressTwo(keys[0], keys[1])
+      : `${keys.slice(0, -1).map(P.dialKey).join(", ")}, ${P.dialPress(keys[keys.length - 1])}`,
+  dialHowTo: "전화기 숫자를 똑같이 눌러 봐!",
+  dialWrong: "어? 다른 버튼이네! 지우기를 눌러 볼까?",
+  dialEraseFirst: "먼저 지우기를 눌러 봐!",
+  dialErased: "잘 지웠어!",
+  dialNotYet: "아직 다 안 눌렀어!",
+  /** 다 누른 뒤 한참 가만히 있거나 숫자를 더 누를 때 (다 누른 순간에는 말하지 않는다) */
+  dialPressCall: "초록 전화 버튼을 눌러 봐!",
+  /** 전화를 받은 동물 친구 (동물 목소리) */
+  dialHello: (name: string) => `여보세요? 나 ${copula(name)}! 전화해 줘서 고마워!`,
 
   /* 홈 */
   greetings: ["안녕! 같이 숫자 세어 볼까?", "삐약! 오늘도 재미있게 놀자!", "하나, 둘, 셋! 준비됐어?"],
@@ -246,6 +277,17 @@ export function allPhrases(): PhraseSpec[] {
   add(P.right, "cheer", true);
   add(P.gift, "cheer", true);
   add(P.tooFull, "talk", true, "animal");
+  // 숫자 따라 누르기: 버튼 이름 · "삼을 눌러줘!" · 안내
+  DIAL_KEYS.forEach((k) => {
+    add(P.dialKey(k), "count", true);
+    add(P.dialPress(k), "ask", true);
+  });
+  add(P.dialHowTo, "ask", true);
+  add(P.dialWrong, "talk", true);
+  add(P.dialEraseFirst, "talk", true);
+  add(P.dialErased, "cheer", true);
+  add(P.dialNotYet, "talk", true);
+  add(P.dialPressCall, "cheer", true);
   add(P.stillHungry, "ask", true, "animal");
   CYCLE_ORDER.forEach((g) =>
     (["start", "next", "idle"] as CycleReason[]).forEach((r) =>
@@ -303,6 +345,17 @@ export function allPhrases(): PhraseSpec[] {
     });
   });
   guests.forEach((name) => add(P.guestHello(name), "cheer"));
+
+  // 숫자 따라 누르기: 두 자리 문장 (숫자만, 같은 숫자가 이어지지 않음) · 전화 받는 동물 친구
+  const digits = DIAL_KEYS.filter((k) => /\d/.test(k));
+  digits.forEach((a) =>
+    digits.forEach((b) => {
+      if (a !== b) add(P.dialPressTwo(a, b), "ask");
+    }),
+  );
+  uniqueBy([...ANIMALS.map((a) => a.name), ...guests], (n) => n).forEach((name) =>
+    add(P.dialHello(name), "cheer", false, "animal"),
+  );
 
   // 스티커 친구 이름
   names.forEach((name) => {

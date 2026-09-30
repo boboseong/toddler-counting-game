@@ -91,6 +91,30 @@ export function Magnifier({ mood, look }: ArtProps) {
   );
 }
 
+/** 휴대전화 (숫자 따라 누르기) */
+export function MobilePhone({ mood, look }: ArtProps) {
+  const keys = ["#ff6b6b", "#ffc93c", "#4fb3ff", "#6fd98a", "#b18cff", "#ff8fc8", "#ffa94d", "#4fd1c5", "#8b9cff"];
+  return (
+    <Svg>
+      <rect x="20" y="4" width="60" height="92" rx="14" fill="#ff7fa8" {...stroke} />
+      <rect x="27" y="12" width="46" height="36" rx="7" fill="#eaf7ff" {...thin} />
+      <Face x={50} y={29} s={0.5} mood={mood} look={look} />
+      {keys.map((c, i) => (
+        <circle
+          key={i}
+          cx={36 + (i % 3) * 14}
+          cy={59 + Math.floor(i / 3) * 11.5}
+          r="4.4"
+          fill={c}
+          {...thin}
+          strokeWidth={2}
+        />
+      ))}
+      <Shine x={26} y={16} rx={2.4} ry={6} rot={0} />
+    </Svg>
+  );
+}
+
 /** 회전목마 */
 export function Carousel(_: ArtProps) {
   const pink = "#ff7fa8";
@@ -434,6 +458,33 @@ export function Play(_: ArtProps) {
   return (
     <Svg>
       <path d="M26 16 C 26 10 32 7 37 10 L84 44 C 89 47 89 53 84 56 L37 90 C 32 93 26 90 26 84 Z" fill="currentColor" />
+    </Svg>
+  );
+}
+
+/** 전화 수화기 (글자 색을 따른다) */
+export function Handset(_: ArtProps) {
+  return (
+    <Svg>
+      <path d="M31 30 C 26 52 46 74 70 70" fill="none" stroke="currentColor" strokeWidth={15} strokeLinecap="round" />
+      <rect x="15" y="16" width="30" height="19" rx="9" fill="currentColor" transform="rotate(-62 30 25.5)" />
+      <rect x="61" y="63" width="30" height="19" rx="9" fill="currentColor" transform="rotate(-28 76 72.5)" />
+    </Svg>
+  );
+}
+
+/** 지우기 ⌫ (글자 색을 따른다) */
+export function Backspace(_: ArtProps) {
+  return (
+    <Svg>
+      <path
+        d="M38 20 H82 C 88 20 92 24 92 30 V70 C 92 76 88 80 82 80 H38 L8 50 Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={8}
+        strokeLinejoin="round"
+      />
+      <path d="M48 36 L72 64 M72 36 L48 64" stroke="currentColor" strokeWidth={8} strokeLinecap="round" />
     </Svg>
   );
 }

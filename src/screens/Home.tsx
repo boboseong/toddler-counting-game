@@ -88,6 +88,7 @@ export default function Home({
   const [mood, flashMood] = useMood("idle", 20000);
   const [buddyHop, setBuddyHop] = useState(0);
   const landscape = useLandscape();
+  const cycleWide = !landscape && GAME_IDS.length % 2 === 0;
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
 
@@ -178,14 +179,19 @@ export default function Home({
           </div>
         ) : null}
 
-        {/* 게임 카드. 가로 화면은 네 칸씩 두 줄, 세로 화면은 빙글빙글을 놀이 카드 아래에 가로로 길게 */}
+        {/*
+          게임 카드. 가로 화면은 네 칸씩 두 줄. 세로 화면은 놀이 카드가 짝수면 빙글빙글을 아래에 가로로 길게,
+          홀수면 빙글빙글이 마지막 줄의 빈칸을 채운다 (폰 두 칸 · 태블릿 네 칸)
+        */}
         <div
           className={`grid w-full max-w-4xl ${
-            landscape ? "grid-cols-4 gap-3 sm:gap-4 short:gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
+            landscape
+              ? "grid-cols-4 gap-3 sm:gap-4 short:gap-2"
+              : `grid-cols-2 gap-3 sm:gap-4 ${cycleWide ? "sm:grid-cols-3" : "sm:grid-cols-4"}`
           }`}
         >
           {CARDS.map((g, i) => {
-            const wide = g.id === "cycle" && !landscape;
+            const wide = g.id === "cycle" && cycleWide;
             return (
               <motion.button
                 key={g.id}
@@ -194,15 +200,11 @@ export default function Home({
                 transition={{ delay: 0.08 * i, type: "spring", stiffness: 260, damping: 18 }}
                 whileTap={{ scale: wide ? 0.97 : 0.93 }}
                 onClick={() => (g.id === "cycle" ? onCycle() : onSelect(g.id))}
-                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white p-3 text-white short:rounded-2xl short:p-1.5 ${
+                className={`pressable flex items-center justify-center rounded-[2rem] border-4 border-white text-white short:rounded-2xl short:p-1.5 ${
                   wide
-                    ? "col-span-full flex-row gap-3 py-2 sm:gap-4 short:gap-2 short:py-1"
-                    : "min-h-[clamp(104px,min(28vw,24vh),220px)] flex-col gap-1 short:min-h-0 short:gap-0"
-                } ${
-                  // 놀이 카드가 홀수 개일 때 마지막 놀이 카드는 폰 세로 화면에서 두 칸을 차지한다
-                  !landscape && !wide && i === GAME_IDS.length - 1 && GAME_IDS.length % 2 === 1
-                    ? "col-span-2 sm:col-span-1"
-                    : ""
+                    ? "col-span-full flex-row gap-3 p-3 py-2 sm:gap-4 short:gap-2 short:py-1"
+                    : // 폰 세로 화면은 카드가 네 줄이라 조금 촘촘하게
+                      "min-h-[clamp(96px,min(28vw,24vh),220px)] flex-col gap-1 px-2 py-2 sm:p-3 short:min-h-0 short:gap-0"
                 }`}
                 style={{ background: g.bg, boxShadow: `0 8px 0 0 ${g.shadow}55` }}
               >
@@ -217,12 +219,18 @@ export default function Home({
                 />
                 <span className={wide ? "flex flex-col items-start" : "contents"}>
                   <span
-                    className={`break-keep text-center text-2xl short:text-lg ${landscape ? "" : "sm:text-3xl"}`}
+                    className={`break-keep text-center text-lg min-[400px]:text-2xl short:text-lg ${landscape ? "sm:text-2xl" : "sm:text-3xl"}`}
                     style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}
                   >
                     {g.title}
                   </span>
-                  <span className={`text-sm opacity-90 short:hidden ${landscape ? "" : "sm:text-base"}`}>{g.sub}</span>
+                  <span
+                    className={`text-sm opacity-90 short:hidden ${landscape ? "" : "sm:text-base"} ${
+                      wide ? "" : "hidden sm:block" // 좁은 폰에서는 설명을 빼서 한 화면에 들어가게
+                    }`}
+                  >
+                    {g.sub}
+                  </span>
                 </span>
               </motion.button>
             );
