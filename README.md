@@ -99,6 +99,7 @@
 ## 부모님 설정
 
 - 홈 화면 오른쪽 아래 **"부모님용 · 길게 누르기"** 를 1.5초 누른 뒤 덧셈 문제 두 개를 이어서 풀면 설정이 열립니다.
+- 설정 맨 아래 **버전 기록**에서 지금 버전과 바뀐 점을 볼 수 있습니다(지난 기록 보기로 펼침).
 
 ## 개발
 
@@ -109,6 +110,8 @@ npm run typecheck
 npm run build      # dist/
 npm run deploy     # gh-pages 브랜치로 배포 (GitHub Pages)
 ```
+
+배포할 때마다 `src/lib/versions.ts` 맨 위에 새 버전과 바뀐 점을 더하고, `package.json` 의 version 도 같은 번호로 맞춥니다(새 놀이·큰 기능은 1.8.0 → 1.9.0, 고침·작은 조정은 1.8.1 → 1.8.2).
 
 React 19 · Vite 7 · Tailwind CSS 4 · Framer Motion · vite-plugin-pwa
 

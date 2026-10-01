@@ -25,6 +25,7 @@ import {
 } from "../lib/data";
 import { afterSpeech, playDing, playSoft, speak } from "../lib/audio";
 import { P } from "../lib/phrases";
+import { APP_VERSION, VERSIONS } from "../lib/versions";
 import type { Unlock } from "../hooks/useProgress";
 import { StickerFace } from "./buddy";
 import { Glyph } from "../art/Glyph";
@@ -454,6 +455,7 @@ export function ParentSettings({
   onReset: () => void;
   onClose: () => void;
 }) {
+  const [allVersions, setAllVersions] = useState(false);
   return (
     <AnimatePresence>
       {open ? (
@@ -657,6 +659,37 @@ export function ParentSettings({
                   onClose();
                 }}
               />
+
+              <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <span className="text-lg text-slate-700">
+                    <Glyph emoji="✨" /> 버전 기록
+                  </span>
+                  <span>지금 버전 {APP_VERSION}</span>
+                </div>
+                <ol className="space-y-3">
+                  {(allVersions ? VERSIONS : VERSIONS.slice(0, 1)).map((v) => (
+                    <li key={v.version}>
+                      <div className="text-base text-slate-700">
+                        {v.version} <span className="text-sm text-slate-400">· {v.date}</span>
+                      </div>
+                      <ul className="list-disc space-y-0.5 pl-5">
+                        {v.notes.map((n) => (
+                          <li key={n}>{n}</li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ol>
+                {VERSIONS.length > 1 ? (
+                  <button
+                    onClick={() => setAllVersions((a) => !a)}
+                    className="mt-3 w-full rounded-xl border-2 border-slate-200 bg-white py-2 text-base text-slate-600"
+                  >
+                    {allVersions ? "접기" : `지난 기록 보기 (${VERSIONS.length - 1}개)`}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </motion.div>
         </motion.div>
