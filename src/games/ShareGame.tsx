@@ -141,8 +141,16 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
     phaseRef.current = p;
     setPhaseState(p);
   };
-  /** 이번 라운드에서 한 번이라도 안 맞게 줬는지 (처음 한 번만 실패로 알린다) */
+  /**
+   * 이번 라운드에서 한 번이라도 안 맞게 줬거나 다시 알려 주는 힌트를 받았는지 (처음 한 번만 실패로 알린다).
+   * 그 뒤에 맞게 주면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다.
+   */
   const missed = useRef(false);
+  const miss = () => {
+    if (missed.current) return;
+    missed.current = true;
+    onResult(false);
+  };
   const lastConfirm = useRef(0);
   const hints = useRef(0);
   const idleTimer = useRef<number | null>(null);
@@ -199,6 +207,7 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
       return;
     }
     hints.current += 1;
+    miss();
     const r = roundRef.current;
     // 아직 하나도 안 줬으면 달라는 말을 다시, 뭔가 줬으면 "다 줬으면 초록 버튼을 눌러 줘"
     const line = givenRef.current.length === 0 ? P.feedAsk(r.animal.food, r.want) : P.pressGreen;
@@ -510,10 +519,7 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
     flashAnimal(more ? "full" : "hungry", 1800);
     guard.lock(speakDuration(line));
     speak(line, { pitch: 1.3 });
-    if (!missed.current) {
-      missed.current = true;
-      onResult(false);
-    }
+    miss();
     scheduleIdle();
   };
 

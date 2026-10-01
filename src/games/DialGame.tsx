@@ -190,9 +190,20 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
   const phaseRef = useRef<Phase>("play");
   const typedRef = useRef<DialKey[]>([]);
   const wrongs = useRef(0);
+  /**
+   * 이번 라운드에서 틀렸거나 힌트를 받았는지 (막 눌러서 처음부터 다시 해도 그대로).
+   * 그 뒤에 전화를 걸면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다.
+   */
+  const missed = useRef(false);
   const setPhase = (p: Phase) => {
     phaseRef.current = p;
     setPhaseState(p);
+  };
+  /** 어려워했다: 라운드마다 처음 한 번만 실패로 알린다 */
+  const miss = () => {
+    if (missed.current) return;
+    missed.current = true;
+    onResult(false);
   };
   const setTyped = (t: DialKey[]) => {
     typedRef.current = t;
@@ -225,6 +236,7 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
   /** 지금 할 일을 다시 알려 준다: 지우기 / 전화 버튼 / 다음 숫자(노랗게) */
   const giveHint = () => {
     if (phaseRef.current !== "play") return;
+    miss();
     const t = typedRef.current;
     flashChick("surprised", 900);
     if (isWrong(t)) {
@@ -266,6 +278,7 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
   const nextRound = () => {
     clearAll();
     clearIdle();
+    missed.current = false;
     resetRoundState();
     setRound((r) => newRound(r.id + 1));
   };
@@ -329,7 +342,7 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
 
     // 틀림: 숫자는 칸에 들어가고, 지우기로 고친다
     wrongs.current += 1;
-    if (wrongs.current === 1) onResult(false);
+    miss();
     flashChick("hmm", 1400);
     fx.haptic(30);
     shake(`slot-${t.length}`);
@@ -388,6 +401,7 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
     if (!isComplete(t)) {
       playSoft();
       shake("call");
+      miss();
       setHint(true);
       speak([P.dialNotYet, P.dialPress(keys[t.length])]);
       scheduleIdleHint();
@@ -402,7 +416,7 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
     setPhase("calling");
     playRing();
     fx.haptic([10, 40, 10, 40, 10]);
-    if (wrongs.current === 0) onResult(true);
+    if (!missed.current) onResult(true);
     const p = randomPraise();
     setPraise(p);
     after(RING_MS, () => {

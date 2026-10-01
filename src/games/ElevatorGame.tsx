@@ -384,11 +384,19 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
   const revealedRef = useRef(false);
   const wrongs = useRef(0);
   const idleStage = useRef(0);
+  /** 이번 라운드를 실패로 알렸는지 (처음 한 번만 알린다) */
+  const missed = useRef(false);
   const doorRef = useRef<HTMLDivElement>(null);
 
   const setPhase = (p: Phase) => {
     phaseRef.current = p;
     setPhaseState(p);
+  };
+  /** 어려워했다: 라운드마다 처음 한 번만 실패로 알린다 */
+  const miss = () => {
+    if (missed.current) return;
+    missed.current = true;
+    onResult(false);
   };
   const setAt = (f: number) => {
     atRef.current = f;
@@ -427,6 +435,9 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     idleStage.current += 1;
     if (r.memory) setRevealed(true);
     if (idleStage.current >= 2) setHint(true);
+    // 다시 부탁하거나 노란 빛으로 알려 주면 어려워한 것.
+    // 외우기 문제에서 층만 알려 주는 건 틀렸을 때처럼 실패로 치지 않는다 (노란 빛은 실패)
+    if (!r.memory || idleStage.current >= 2) miss();
     const line = r.memory ? P.elevatorHomeIs(r.floor) : P.elevatorAsk(r.floor);
     const ms = speakDuration(line);
     guard.lock(ms);
@@ -469,6 +480,7 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
   const resetRoundState = () => {
     wrongs.current = 0;
     idleStage.current = 0;
+    missed.current = false;
     guard.resetRound();
     setHint(false);
     setRevealed(false);
@@ -521,7 +533,8 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
       speak(p, { interrupt: false, pitch: 1.25 });
       flashChick("cheer", 3600);
       setBanner(true);
-      if (wrongs.current === 0) onResult(true);
+      // 틀리거나 힌트를 받은 뒤 데려다 줬으면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다
+      if (wrongs.current === 0 && idleStage.current === 0) onResult(true);
       onRide(r.floor);
       onWin();
     });
@@ -534,9 +547,12 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     setPhase("visit");
     setGreeter(floor);
     wrongs.current += 1;
-    // 외우기 문제는 기억이 안 나서 틀린 것이니 어려워한 것으로 치지 않는다
-    if (wrongs.current === 1 && !r.memory) onResult(false);
-    if (wrongs.current >= 2) setHint(true);
+    // 외우기 문제는 기억이 안 나서 틀린 것이니 어려워한 것으로 치지 않는다 (노란 빛으로 알려 주면 실패)
+    if (!r.memory) miss();
+    if (wrongs.current >= 2) {
+      setHint(true);
+      miss();
+    }
     if (r.memory) setRevealed(true);
     playSoft();
     const hello = P.elevatorVisit(floor, residentOf(floor).name);

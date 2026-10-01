@@ -297,9 +297,21 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   roundIdRef.current = round.id;
   const phaseRef = useRef<Phase>("play");
   const wrongs = useRef(0);
+  /**
+   * 이번 라운드에서 틀렸거나 힌트를 받았는지 (막 눌러서 다시 해도 그대로).
+   * 그 뒤에 찾으면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다.
+   */
+  const missed = useRef(false);
   const setPhase = (p: Phase) => {
     phaseRef.current = p;
     setPhaseState(p);
+  };
+
+  /** 어려워했다: 라운드마다 처음 한 번만 실패로 알린다 */
+  const miss = () => {
+    if (missed.current) return;
+    missed.current = true;
+    onResult(false);
   };
 
   const texts = textsFor(round);
@@ -312,6 +324,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   /** 한참 못 찾으면 정답이 살짝 커졌다 작아지며 알려 준다 */
   const giveHint = () => {
     if (phaseRef.current !== "play") return;
+    miss();
     setHint(true);
     setRevealed(true);
     flashChick("surprised", 900);
@@ -347,6 +360,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
   const nextRound = () => {
     clearAll();
     clearIdle();
+    missed.current = false;
     resetRoundState();
     setRound((r) => newRound(r.id + 1));
   };
@@ -390,7 +404,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
       const p = randomPraise();
       setPraise(p);
       playDing();
-      if (wrongs.current === 0) onResult(true);
+      if (!missed.current) onResult(true);
       after(600, () => {
         speak([texts.win, p], { interrupt: false, pitch: 1.25 });
         setBanner(true);
@@ -408,7 +422,7 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
     setWobble(n);
     setWrongN(n);
     setRevealed(true);
-    if (wrongs.current === 1) onResult(false);
+    miss();
     if (wrongs.current >= 2) setHint(true);
     const say = [P.findWrong(n), texts.ask];
     guard.lock(speakDuration(say));

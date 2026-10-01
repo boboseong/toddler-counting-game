@@ -95,6 +95,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     phaseRef.current = p;
     setPhaseState(p);
   };
+  /**
+   * 이번 라운드에서 틀렸거나 같이 세는 힌트를 받았는지.
+   * 그 뒤에 맞히면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다.
+   */
+  const missed = useRef(false);
 
   const clearIdle = () => {
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
@@ -105,6 +110,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     clearIdle();
     idleTimer.current = window.setTimeout(() => {
       if (phaseRef.current !== "play") return;
+      // 한참 못 골라서 같이 세어 주면(답을 알려 주면) 어려워한 것
+      if (!missed.current) {
+        missed.current = true;
+        onResult(false);
+      }
       speak(P.countTogether);
       setPhase("busy");
       after(1100, () => animateCount(() => reopen([P.howManyAgain(round.item.counter)])));
@@ -144,6 +154,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
     clearAll();
     clearIdle();
     guard.resetRound();
+    missed.current = false;
     setHintIndex(-1);
     setCountedUpTo(0);
     setWobble(null);
@@ -196,7 +207,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       flashChick("cheer", 3200);
       fx.burstAt(el, "stars", { count: 14 });
       fx.haptic([10, 40, 10]);
-      onResult(true);
+      if (!missed.current) onResult(true);
       speak(P.right, { rate: 0.95, pitch: 1.25 });
       after(700, () => {
         speak([P.itemCount(round.item, round.count), p], { interrupt: false });
@@ -209,6 +220,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       flashChick("hmm", 1300);
       fx.haptic(30);
       setWobble(n);
+      missed.current = true;
       onResult(false);
       speak(P.wrongCountTogether);
       after(600, () => setWobble(null));
