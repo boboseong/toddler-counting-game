@@ -134,29 +134,44 @@ function useBox<T extends HTMLElement>() {
   return [ref, box] as const;
 }
 
+/** 버튼판은 10층씩 한 묶음 (1~10층, 11~20층) */
+const BANK = 10;
+/** 10층을 세로 한 줄로 놓았을 때 버튼이 이보다 작아지면 다섯 층씩 두 줄로 나눈다 */
+const MIN_TALL_BUTTON = 44;
+
 /**
- * 버튼판 모양: 진짜 엘리베이터처럼 1층이 맨 아래이고 위로 갈수록 큰 수 (1·2 가 맨 아랫줄).
- * 5층까지는 한 줄, 그 위는 두 줄로 놓고, 세로가 짧은 화면에서 버튼이 너무 작아지면 줄을 늘린다.
+ * 버튼판 모양: 단계가 올라가도 버튼 자리가 바뀌지 않게 늘 10층씩 묶어서 놓는다.
+ * 진짜 엘리베이터처럼 1층이 맨 아래이고, 1~10층이 왼쪽에 세로 한 줄로 선다.
+ * 10층이 넘는 단계에서는 그 오른쪽에 11~20층 줄이 붙는다 (11층이 1층 옆, 20층이 10층 옆).
+ * 아직 못 가는 층(5층 단계의 6~10층, 15층 단계의 16~20층)도 음영으로 보여 둔다.
+ * 세로가 짧은 화면에서는 한 묶음을 다섯 층씩 두 줄로 나눈다 (1~5 | 6~10).
+ * 나눌지는 화면 높이로만 정하므로 같은 화면에서는 단계가 바뀌어도 1~10층 자리가 그대로다.
  */
-function panelLayout(n: number, w: number, h: number) {
+function panelLayout(floors: number, w: number, h: number) {
   const pad = Math.round(Math.max(8, Math.min(16, h * 0.03)));
-  const gapK = 0.2;
-  const fit = (cols: number) => {
-    const rows = Math.ceil(n / cols);
-    const byH = (h - pad * 2) / (rows + (rows - 1) * gapK);
-    const byW = (w * 0.45 - pad * 2) / (cols + (cols - 1) * gapK);
-    return { cols, rows, b: Math.floor(Math.min(byH, byW, 96)) };
-  };
-  let best = fit(n <= 5 ? 1 : 2);
-  if (best.b < 50) {
-    for (let c = best.cols + 1; c <= 5; c++) {
-      const f = fit(c);
-      if (f.b > best.b) best = f;
-    }
-  }
-  const b = Math.max(30, best.b);
+  const gapK = 0.16;
+  const byH = (rows: number) => (h - pad * 2) / (rows + (rows - 1) * gapK);
+  const split = byH(BANK) < MIN_TALL_BUTTON ? 2 : 1;
+  const rows = BANK / split;
+  const banks = Math.ceil(floors / BANK);
+  const cols = banks * split;
+  // 묶음 사이는 조금 더 띄운다
+  const bankK = gapK * 2;
+  const byW = (w * 0.45 - pad * 2) / (cols + (banks * (split - 1)) * gapK + (banks - 1) * bankK);
+  const b = Math.max(30, Math.floor(Math.min(byH(rows), byW, 96)));
   const gap = Math.round(b * gapK);
-  return { cols: best.cols, rows: best.rows, b, gap, pad, width: best.cols * b + (best.cols - 1) * gap + pad * 2 };
+  const bankGap = Math.round(b * bankK);
+  const width = cols * b + banks * (split - 1) * gap + (banks - 1) * bankGap + pad * 2;
+  return { banks, split, rows, b, gap, bankGap, pad, width };
+}
+
+/** 한 묶음의 버튼들을 위 줄부터 (맨 아랫줄 왼쪽이 그 묶음의 첫 층) */
+function bankCells(bank: number, split: number, rows: number): number[] {
+  const out: number[] = [];
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = 0; c < split; c++) out.push(bank * BANK + c * rows + r + 1);
+  }
+  return out;
 }
 
 /* ---------- 그림 ---------- */
@@ -234,13 +249,17 @@ function Indicator({ floor, dir, size }: { floor: number; dir: "up" | "down" | n
   );
 }
 
-/** 층 버튼 하나. 누르면 파랗게 불이 들어오고, 도움이 필요하면 노란 빛이 비친다 */
+/**
+ * 층 버튼 하나. 누르면 파랗게 불이 들어오고, 도움이 필요하면 노란 빛이 비친다.
+ * off: 이 단계에서는 아직 못 가는 층. 판에 움푹 들어간 음영 버튼으로 보이고 눌리지 않는다
+ */
 function FloorButton({
   floor,
   size,
   lit,
   glow,
   dim,
+  off,
   onPress,
 }: {
   floor: number;
@@ -248,8 +267,31 @@ function FloorButton({
   lit: boolean;
   glow: boolean;
   dim: boolean;
+  off: boolean;
   onPress: () => void;
 }) {
+  const fontSize = size * (floor >= 10 ? 0.42 : 0.52);
+  if (off) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label={`${floor}층 (아직 못 가요)`}
+        className="flex items-center justify-center rounded-full border-[3px] font-bold leading-none"
+        style={{
+          width: size,
+          height: size,
+          fontSize,
+          background: "rgba(71, 85, 105, 0.22)",
+          borderColor: "rgba(100, 116, 139, 0.3)",
+          color: "rgba(51, 65, 85, 0.32)",
+          boxShadow: "inset 0 2px 5px rgba(0,0,0,0.18)",
+        }}
+      >
+        {floor}
+      </button>
+    );
+  }
   const face: CSSProperties = lit
     ? {
         background: "radial-gradient(circle at 35% 30%, #f0f9ff, #7dd3fc)",
@@ -288,7 +330,7 @@ function FloorButton({
       ) : null}
       <span
         className="relative flex h-full w-full items-center justify-center rounded-full border-[3px] font-bold leading-none"
-        style={{ ...face, fontSize: size * (floor >= 10 ? 0.42 : 0.52) }}
+        style={{ ...face, fontSize }}
       >
         {floor}
       </span>
@@ -629,15 +671,6 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
   const riderPx = Math.min(carW * 0.3, carH * 0.2);
   const hallFigPx = Math.min(doorW * 0.34, doorH * 0.24);
 
-  // 버튼판: 위 줄부터 (맨 아랫줄이 1층)
-  const cells: (number | null)[] = [];
-  for (let r = panel.rows - 1; r >= 0; r--) {
-    for (let c = 0; c < panel.cols; c++) {
-      const f = r * panel.cols + c + 1;
-      cells.push(f <= floors ? f : null);
-    }
-  }
-
   // 복도에 서 있는 친구: 탈 손님(1층) · 집에 온 손님 · 잘못 온 층의 친구
   const riderInHall = !riderIn && (at === target || (at === 1 && phase === "board"));
   const visitor = greeter === at && at !== target ? residentOf(at) : null;
@@ -773,25 +806,27 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
                   background: "linear-gradient(160deg, #eef2f7, #cbd5e1 55%, #a3b1c6)",
                 }}
               >
-                <div
-                  className="grid"
-                  style={{ gridTemplateColumns: `repeat(${panel.cols}, ${panel.b}px)`, gap: panel.gap }}
-                >
-                  {cells.map((f, i) =>
-                    f === null ? (
-                      <span key={`empty-${i}`} />
-                    ) : (
-                      <FloorButton
-                        key={f}
-                        floor={f}
-                        size={panel.b}
-                        lit={lit === f}
-                        glow={glowOn && f === target}
-                        dim={locked || phase !== "ask"}
-                        onPress={() => press(round.id, f)}
-                      />
-                    ),
-                  )}
+                <div className="flex" style={{ gap: panel.bankGap }}>
+                  {Array.from({ length: panel.banks }, (_, bank) => (
+                    <div
+                      key={bank}
+                      className="grid"
+                      style={{ gridTemplateColumns: `repeat(${panel.split}, ${panel.b}px)`, gap: panel.gap }}
+                    >
+                      {bankCells(bank, panel.split, panel.rows).map((f) => (
+                        <FloorButton
+                          key={f}
+                          floor={f}
+                          size={panel.b}
+                          lit={lit === f}
+                          glow={glowOn && f === target}
+                          dim={locked || phase !== "ask"}
+                          off={f > floors}
+                          onPress={() => press(round.id, f)}
+                        />
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </div>
             </>

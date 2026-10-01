@@ -619,7 +619,8 @@ export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
 /**
  * 딩동 엘리베이터: 손님이 "오 층 눌러 주세요!" 하면 그 층 버튼을 누른다.
  * 엘리베이터는 늘 1층에서 손님을 태우므로 목적지는 2층부터다.
- * - floors: 층 버튼 수 (1~floors 층)
+ * - floors: 누를 수 있는 층 (1~floors 층). 버튼판은 단계가 바뀌어도 자리가 그대로이게
+ *   10층씩 묶어서 보여 주고, 묶음 안의 나머지 층(5층 단계의 6~10층 등)은 음영으로 눌리지 않게 둔다
  * - glow: 정답 버튼에 노란 빛을 비춘다 (처음 단계에서만)
  */
 export interface ElevatorLevel {
