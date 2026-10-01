@@ -14,7 +14,7 @@ export interface VersionNote {
 export const VERSIONS: VersionNote[] = [
   {
     version: "1.9.0",
-    date: "2026-10-01",
+    date: "2026-10-02",
     notes: [
       "힌트를 받고 맞힌 판은 칭찬과 별은 그대로 주고, 단계 조절에는 어려워한 것으로 쳐요 (몇 개일까·숫자 찾기·딩동 엘리베이터·숫자 따라 누르기·나눠 주기)",
       "부모님 설정에 버전 기록 추가",
