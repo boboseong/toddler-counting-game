@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { NUM_COLORS, STARS_PER_STICKER } from "../lib/data";
+import { NUM_COLORS } from "../lib/data";
+import type { StarMeter } from "../hooks/useProgress";
 import { GameBuddy } from "./buddy";
 import { Glyph } from "../art/Glyph";
 import { Barn, Basket, Crab, Prop, Shell, Sunflower, Tree } from "../art/scenery";
@@ -193,7 +194,7 @@ export function TopBar({
   right,
 }: {
   onHome?: () => void;
-  stars: number;
+  stars: StarMeter;
   title?: string;
   emoji?: string;
   right?: ReactNode;
@@ -220,7 +221,7 @@ export function TopBar({
       </div>
       <div className="flex items-center gap-2">
         {right}
-        <StarJar stars={stars} />
+        <StarJar meter={stars} />
       </div>
     </div>
   );
@@ -229,40 +230,99 @@ export function TopBar({
 /* ---------- 별 항아리 ---------- */
 
 /**
- * 다음 스티커까지 채워지는 별 3칸 (아이는 숫자보다 칸이 차는 걸 보고 안다).
- * 모은 별 전체 수는 옆에 작게. 한 칸만 남으면 빈 칸이 두근거린다.
+ * 다음 선물까지 채우는 별 칸 (아이는 숫자보다 칸이 차는 걸 보고 안다).
+ * 칸 수는 친구가 늘수록 5·10·15·20 으로 늘고, 열 칸 틀처럼 한 줄에 열 칸(5칸 + 5칸)씩 놓는다
+ * (15칸이면 열 칸 + 다섯 칸 두 줄). 별이 들어오면 막 찬 칸이 톡 튀고,
+ * 한 칸만 남으면 빈 칸과 끝의 선물 상자가 두근거린다.
  */
-export function StarJar({ stars }: { stars: number }) {
-  const filled = stars % STARS_PER_STICKER;
-  const almost = filled === STARS_PER_STICKER - 1;
+export function StarGauge({
+  meter,
+  big = false,
+  onDark = false,
+  className = "",
+}: {
+  meter: StarMeter;
+  big?: boolean;
+  /** 진한 바탕 위 (빈 칸을 반투명 흰색으로) */
+  onDark?: boolean;
+  className?: string;
+}) {
+  const { fill, goal, done } = meter;
+  const almost = !done && fill === goal - 1;
+  const rows: number[][] = [];
+  for (let start = 0; start < goal; start += 10) rows.push([start, start + 5].filter((g) => g < goal));
+  const twoRows = rows.length > 1;
+  const height = big
+    ? twoRows
+      ? "h-10 sm:h-12 short:h-8"
+      : "h-6 sm:h-7 short:h-5"
+    : twoRows
+      ? "h-7 sm:h-9"
+      : "h-4 sm:h-5";
+  const empty = onDark ? "bg-white/45" : "bg-slate-200";
+  return (
+    <div className={`flex items-center ${big ? "gap-2" : "gap-1"} ${className}`}>
+      <div className={`flex min-w-0 flex-1 flex-col gap-[3px] ${height}`}>
+        {rows.map((groups, r) => (
+          <div key={r} className="flex min-h-0 flex-1 gap-[5px]">
+            {groups.map((start) => {
+              const n = Math.min(5, goal - start);
+              return (
+                <div key={start} className="flex gap-px" style={{ flex: n }}>
+                  {Array.from({ length: n }, (_, j) => {
+                    const i = start + j;
+                    const on = done || i < fill;
+                    const just = !done && i === fill - 1;
+                    const next = almost && i === fill;
+                    return (
+                      <motion.span
+                        key={i}
+                        className={`flex-1 rounded-[3px] ${on ? "bg-gradient-to-b from-yellow-300 to-amber-400 shadow-[inset_0_-2px_0_rgba(180,83,9,0.25)]" : next ? "bg-amber-200" : empty}`}
+                        animate={just ? { scale: [1, 1.5, 1] } : next ? { opacity: [1, 0.35, 1] } : {}}
+                        transition={
+                          just ? { duration: 0.45, delay: 0.1 } : next ? { duration: 0.9, repeat: Infinity } : undefined
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {/* 아랫줄이 다섯 칸뿐이면 윗줄과 칸 크기를 맞춘다 */}
+            {twoRows && groups.length < 2 ? <div style={{ flex: 5 }} /> : null}
+          </div>
+        ))}
+      </div>
+      <motion.span
+        className={`inline-block leading-none ${big ? "text-3xl sm:text-4xl short:text-2xl" : "text-xl sm:text-3xl"}`}
+        animate={almost ? { scale: [1, 1.3, 1], rotate: [0, -10, 10, 0] } : {}}
+        transition={almost ? { duration: 0.9, repeat: Infinity } : undefined}
+      >
+        <Glyph emoji={done ? "🎉" : "🎁"} />
+      </motion.span>
+    </div>
+  );
+}
+
+/** 위쪽의 별 항아리: 별이 날아와 들어가는 곳. 모은 별 전체 수는 옆에 작게 */
+export function StarJar({ meter }: { meter: StarMeter }) {
   return (
     <motion.div
-      key={stars}
+      key={meter.total}
       initial={{ scale: 1 }}
-      animate={{ scale: [1, 1.25, 1], rotate: [0, -8, 8, 0] }}
+      animate={{ scale: [1, 1.15, 1], rotate: [0, -5, 5, 0] }}
       transition={{ duration: 0.5 }}
       id="star-jar"
-      aria-label={`별 ${stars}개`}
-      className="flex h-14 items-center gap-0.5 rounded-2xl bg-white px-2 shadow-[0_5px_0_0_rgba(0,0,0,0.12)] sm:h-16 sm:gap-1.5 sm:px-4"
+      aria-label={`별 ${meter.total}개`}
+      className="flex h-14 items-center gap-1.5 rounded-2xl bg-white px-2 shadow-[0_5px_0_0_rgba(0,0,0,0.12)] sm:h-16 sm:gap-2 sm:px-3"
     >
-      {Array.from({ length: STARS_PER_STICKER }).map((_, i) => {
-        const on = i < filled;
-        const next = almost && i === filled;
-        return (
-          <motion.span
-            key={i}
-            className="inline-block text-xl leading-none sm:text-3xl"
-            style={on ? undefined : { filter: "grayscale(1)", opacity: next ? 0.55 : 0.25 }}
-            animate={next ? { scale: [1, 1.25, 1] } : {}}
-            transition={next ? { duration: 0.9, repeat: Infinity } : undefined}
-          >
-            <Glyph emoji="⭐" />
-          </motion.span>
-        );
-      })}
-      <span className="ml-0.5 hidden min-w-[1.5ch] text-center text-xl text-amber-500 min-[400px]:inline sm:text-2xl">
-        {stars}
+      <span className="flex items-center gap-0.5">
+        <Glyph emoji="⭐" className="text-xl leading-none sm:text-3xl" />
+        <span className="hidden min-w-[1.5ch] text-center text-lg text-amber-500 min-[400px]:inline sm:text-2xl">
+          {meter.total}
+        </span>
       </span>
+      <StarGauge meter={meter} className="w-[clamp(8rem,36vw,13rem)]" />
     </motion.div>
   );
 }

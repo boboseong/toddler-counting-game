@@ -4,19 +4,18 @@ import { playDing, playPop, speak } from "../lib/audio";
 import {
   ALBUMS,
   NUM_COLORS,
-  STARS_PER_STICKER,
   STICKERS,
   albumOf,
 } from "../lib/data";
-import type { SceneSpot } from "../hooks/useProgress";
+import type { SceneSpot, StarMeter } from "../hooks/useProgress";
 import { P } from "../lib/phrases";
 import { useTimers } from "../hooks/useTimers";
-import { GameFrame, TopBar } from "../components/ui";
+import { GameFrame, StarGauge, TopBar } from "../components/ui";
 import { StickerFace } from "../components/buddy";
 import { Glyph } from "../art/Glyph";
 
 interface Props {
-  stars: number;
+  stars: StarMeter;
   unlocked: number[];
   shiny: number;
   scene: SceneSpot[];
@@ -30,8 +29,6 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
   const [bounce, setBounce] = useState<number | null>(null);
   const [counting, setCounting] = useState(-1);
   const countingRef = useRef(false);
-  const allDone = unlocked.length >= STICKERS.length && shiny >= STICKERS.length;
-  const filled = allDone ? STARS_PER_STICKER : stars % STARS_PER_STICKER;
   // 지금 모으는 중인 스티커북까지만 보여 준다
   const lastAlbum = albumOf(Math.min(unlocked.length, STICKERS.length - 1));
   const [album, setAlbum] = useState(unlocked.length > 0 ? albumOf(unlocked[unlocked.length - 1]) : 0);
@@ -161,21 +158,9 @@ export default function StickerBook({ stars, unlocked, shiny, scene, onPlace, on
         <div className="flex w-full max-w-3xl flex-wrap items-center justify-center gap-2">
           <div className="flex items-center gap-2 rounded-full border-4 border-white bg-white/90 px-4 py-1 shadow short:py-0">
             <span className="text-lg text-slate-600 sm:text-xl">
-              {allDone ? "모두 모았어요!" : unlocked.length >= STICKERS.length ? "반짝이까지" : "다음 친구까지"}
+              {stars.done ? "모두 모았어요!" : stars.shiny ? "반짝이까지" : "다음 친구까지"}
             </span>
-            <div className="flex gap-0.5">
-              {Array.from({ length: STARS_PER_STICKER }).map((_, i) => (
-                <motion.span
-                  key={i}
-                  className="inline-block text-2xl leading-none sm:text-3xl"
-                  animate={i < filled ? { scale: [1, 1.2, 1] } : {}}
-                  transition={{ delay: i * 0.15 }}
-                  style={{ opacity: i < filled ? 1 : 0.25 }}
-                >
-                  <Glyph emoji="⭐" />
-                </motion.span>
-              ))}
-            </div>
+            <StarGauge meter={stars} big className="w-[clamp(9rem,40vw,16rem)]" />
           </div>
           {/* 스티커북 고르기 (두 번째 스티커북부터) */}
           {lastAlbum > 0 ? (

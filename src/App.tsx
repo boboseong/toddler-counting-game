@@ -32,7 +32,7 @@ import {
   type CycleReason,
   type GameId,
 } from "./lib/data";
-import { useProgress, type Unlock } from "./hooks/useProgress";
+import { starMeter, useProgress, type Unlock } from "./hooks/useProgress";
 import { P } from "./lib/phrases";
 import { dropHeld, setHeld } from "./lib/hold";
 import Home from "./screens/Home";
@@ -197,8 +197,8 @@ export default function App() {
     reset,
   } = useProgress();
 
-  // 별은 즉시 저장하되, 날아가는 별이 항아리에 닿을 때까지 화면 숫자는 올리지 않는다
-  const shownStars = progress.stars - flying.length;
+  // 별은 즉시 저장하되, 날아가는 별이 항아리에 닿을 때까지 화면의 별 칸은 채우지 않는다
+  const meter = starMeter(progress, flying.length);
 
   /* ---------- 빙글빙글 (놀이 자동 순환) ---------- */
   const [cycleOn, setCycleOn] = useState(false);
@@ -575,9 +575,8 @@ export default function App() {
   } else if (screen === "home") {
     content = (
       <Home
-        stars={shownStars}
+        stars={meter}
         stickerCount={progress.stickers.length}
-        shiny={progress.shiny}
         todayStars={progress.today.stars}
         visit={visit}
         onSelect={go}
@@ -588,7 +587,7 @@ export default function App() {
   } else if (screen === "stickers") {
     content = (
       <StickerBook
-        stars={shownStars}
+        stars={meter}
         unlocked={progress.stickers}
         shiny={progress.shiny}
         scene={progress.scene}
@@ -610,7 +609,7 @@ export default function App() {
     content = (
       <Game
         level={progress.levels[screen]}
-        stars={shownStars}
+        stars={meter}
         tapGap={progress.tapGap}
         countMax={countMax}
         friends={progress.stickers}

@@ -8,10 +8,11 @@ import {
   MAX_LEVELS,
   SCENE_MAX,
   SESSION_LIMITS,
-  STARS_PER_STICKER,
   STICKERS,
+  UNLOCK_TOTAL,
   clampLevel,
   isFollowGame,
+  starsForUnlock,
   type CyclePace,
   type GameId,
 } from "../lib/data";
@@ -42,6 +43,8 @@ export interface Unlock {
 
 export interface Progress {
   stars: number;
+  /** 다음 선물(새 스티커·반짝이 스티커)까지 채운 별 */
+  jar: number;
   stickers: number[]; // unlocked sticker indices
   /** 스티커를 모두 모은 뒤: 앞에서부터 이만큼이 반짝이 스티커 */
   shiny: number;
@@ -86,6 +89,7 @@ function yesterdayKey(): string {
 
 const DEFAULT: Progress = {
   stars: 0,
+  jar: 0,
   stickers: [],
   shiny: 0,
   buddy: null,
@@ -117,11 +121,42 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
   };
 }
 
+/** 기록을 지워도 남기는 부모 설정 */
+const SETTINGS = ["soundOn", "voiceOn", "hapticsOn", "tapGap", "cyclePace", "sessionMin"] as const;
+
+function settingsOf(p: Partial<Progress>): Partial<Progress> {
+  const out: Partial<Progress> = {};
+  for (const k of SETTINGS) if (p[k] !== undefined) Object.assign(out, { [k]: p[k] });
+  return out;
+}
+
+/**
+ * 별 3개마다 친구가 오던 때의 기록(jar 없음): 모은 별은 그대로 두고,
+ * 친구는 그 별로 지금 규칙(STICKER_PACE)에서 올 만큼만 남긴다. 남은 별은 다음 칸에 채운다.
+ */
+function fromOldPace(p: Partial<Progress>): Partial<Progress> {
+  const stars = typeof p.stars === "number" && p.stars > 0 ? Math.floor(p.stars) : 0;
+  let n = 0;
+  let jar = stars;
+  while (n < UNLOCK_TOTAL && jar >= starsForUnlock(n)) {
+    jar -= starsForUnlock(n);
+    n += 1;
+  }
+  return {
+    ...p,
+    stars,
+    jar: n < UNLOCK_TOTAL ? jar : 0,
+    stickers: Array.from({ length: Math.min(n, STICKERS.length) }, (_, i) => i),
+    shiny: Math.max(0, n - STICKERS.length),
+  };
+}
+
 function load(): Progress {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT;
-    const parsed = JSON.parse(raw) as Partial<Progress>;
+    const saved = JSON.parse(raw) as Partial<Progress>;
+    const parsed = typeof saved.jar === "number" ? saved : fromOldPace(saved);
     const levels = { ...DEFAULT.levels };
     for (const g of GAME_IDS) {
       const v = parsed.levels?.[g];
@@ -139,6 +174,10 @@ function load(): Progress {
     const stickers = Array.isArray(parsed.stickers) ? parsed.stickers.filter(isIdx) : [];
     const shiny =
       typeof parsed.shiny === "number" ? Math.max(0, Math.min(stickers.length, parsed.shiny)) : 0;
+    const jar = Math.min(
+      typeof parsed.jar === "number" && parsed.jar >= 0 ? Math.floor(parsed.jar) : 0,
+      starsForUnlock(stickers.length + shiny) - 1,
+    );
     const buddy =
       isIdx(parsed.buddy) && stickers.includes(parsed.buddy)
         ? parsed.buddy
@@ -160,7 +199,7 @@ function load(): Progress {
     const t = parsed.today;
     const today: DayLog =
       t && typeof t.day === "string" && typeof t.stars === "number" && Array.isArray(t.stickers)
-        ? { day: t.day, stars: t.stars, stickers: t.stickers.filter(isIdx) }
+        ? { day: t.day, stars: t.stars, stickers: t.stickers.filter((i) => isIdx(i) && stickers.includes(i)) }
         : DEFAULT.today;
     const sessionMin = SESSION_LIMITS.includes(parsed.sessionMin as number)
       ? (parsed.sessionMin as number)
@@ -173,6 +212,7 @@ function load(): Progress {
     return {
       ...DEFAULT,
       ...parsed,
+      jar,
       stickers,
       shiny,
       buddy,
@@ -232,6 +272,38 @@ function freeSpot(taken: SceneSpot[]): { x: number; y: number } {
   return best;
 }
 
+/** 별 칸에 보여 줄 것: 다음 선물까지 몇 칸 중 몇 칸 찼는지 */
+export interface StarMeter {
+  /** 모은 별 전체 */
+  total: number;
+  fill: number;
+  goal: number;
+  /** 지금 채우는 칸이 반짝이 스티커 칸 */
+  shiny: boolean;
+  /** 반짝이 스티커까지 모두 모았다 */
+  done: boolean;
+}
+
+/**
+ * 별 칸 계산. 날아가는 별(flying)은 아직 항아리에 안 들어온 걸로 친다.
+ * 방금 선물이 열렸는데 그 별이 아직 날아가는 중이면 지난 칸을 보여 준다.
+ */
+export function starMeter(p: Progress, flying = 0): StarMeter {
+  const total = p.stars - flying;
+  const owned = p.stickers.length + p.shiny;
+  if (owned >= UNLOCK_TOTAL) {
+    const goal = starsForUnlock(UNLOCK_TOTAL - 1);
+    return { total, fill: goal, goal, shiny: true, done: true };
+  }
+  let n = owned;
+  let fill = p.jar - flying;
+  if (fill < 0 && n > 0) {
+    n -= 1;
+    fill += starsForUnlock(n);
+  }
+  return { total, fill: Math.max(0, fill), goal: starsForUnlock(n), shiny: n >= STICKERS.length, done: false };
+}
+
 export function useProgress() {
   const [progress, setProgress] = useState<Progress>(() => {
     const p = load();
@@ -261,24 +333,29 @@ export function useProgress() {
 
   /**
    * 라운드 성공: 별 count 개 추가 (보너스면 2개).
-   * 별 3개마다 새 스티커가 열리고, 다 모았으면 앞에서부터 반짝이 스티커로 바뀐다.
+   * 별이 STICKER_PACE 만큼 차면 새 스티커가 열리고, 다 모았으면 앞에서부터 반짝이 스티커로 바뀐다.
+   * 한 번에 선물은 하나만 열고, 넘친 별은 다음 칸에 채운다.
    */
   const addStar = useCallback((count = 1): Unlock | null => {
     const cur = ref.current;
-    let { stars, stickers, shiny, buddy } = cur;
+    let { stars, jar, stickers, shiny, buddy } = cur;
     const today = todayOf(cur);
     let todayStickers = today.stickers;
     let unlocked: Unlock | null = null;
     for (let k = 0; k < count; k++) {
       stars += 1;
-      if (stars % STARS_PER_STICKER !== 0 || unlocked) continue;
+      const owned = stickers.length + shiny;
+      if (owned >= UNLOCK_TOTAL) continue;
+      jar += 1;
+      if (unlocked || jar < starsForUnlock(owned)) continue;
+      jar = 0;
       if (stickers.length < STICKERS.length) {
         const index = stickers.length;
         stickers = [...stickers, index];
         buddy = index; // 새로 온 친구가 같이 놀아 준다
         todayStickers = [...todayStickers, index];
         unlocked = { index, shiny: false };
-      } else if (shiny < STICKERS.length) {
+      } else {
         unlocked = { index: shiny, shiny: true };
         shiny += 1;
       }
@@ -286,6 +363,7 @@ export function useProgress() {
     const next: Progress = {
       ...cur,
       stars,
+      jar,
       stickers,
       shiny,
       buddy,
@@ -401,14 +479,9 @@ export function useProgress() {
   }, []);
 
   const reset = useCallback(() => {
-    const next = {
+    const next: Progress = {
       ...DEFAULT,
-      soundOn: ref.current.soundOn,
-      voiceOn: ref.current.voiceOn,
-      hapticsOn: ref.current.hapticsOn,
-      tapGap: ref.current.tapGap,
-      cyclePace: ref.current.cyclePace,
-      sessionMin: ref.current.sessionMin,
+      ...settingsOf(ref.current),
       lastDay: dayKey(),
       today: { day: dayKey(), stars: 0, stickers: [] },
     };

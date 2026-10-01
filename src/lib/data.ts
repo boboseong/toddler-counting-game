@@ -307,7 +307,26 @@ export function albumOf(sticker: number): number {
 /** 스티커 꾸미기 장면에 한 번에 놓을 수 있는 친구 수 (같이 세기 좋은 만큼) */
 export const SCENE_MAX = 10;
 
-export const STARS_PER_STICKER = 3;
+/**
+ * 친구 한 명이 오는 데 드는 별. 처음엔 빨리 오고, 갈수록 천천히 온다.
+ * from 번째(0부터) 친구부터 stars 개. 스티커를 다 모은 뒤의 반짝이 스티커는 마지막 칸을 따른다.
+ */
+export const STICKER_PACE: { from: number; stars: number }[] = [
+  { from: 0, stars: 5 }, // 1~3번째 친구
+  { from: 3, stars: 10 }, // 4~6번째
+  { from: 6, stars: 15 }, // 7~9번째
+  { from: 9, stars: 20 }, // 10번째부터 끝까지, 반짝이 스티커도
+];
+
+/** n 번째(0부터) 선물을 여는 데 드는 별. n 은 새 스티커 다음 반짝이 스티커로 이어서 센다 */
+export function starsForUnlock(n: number): number {
+  let stars = STICKER_PACE[0].stars;
+  for (const step of STICKER_PACE) if (n >= step.from) stars = step.stars;
+  return stars;
+}
+
+/** 새 스티커 + 반짝이 스티커: 별로 열 수 있는 선물 전체 수 */
+export const UNLOCK_TOTAL = STICKERS.length * 2;
 
 export const PRAISES = [
   "잘했어요!",

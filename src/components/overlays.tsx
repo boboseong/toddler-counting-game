@@ -12,12 +12,14 @@ import {
   MAX_LEVELS,
   SESSION_LIMITS,
   STICKERS,
+  STICKER_PACE,
   albumOf,
   isFollowGame,
   TAP_GAP_OPTIONS,
   levelLabel,
   randomInt,
   shuffle,
+  starsForUnlock,
   type CyclePace,
   type GameId,
 } from "../lib/data";
@@ -637,7 +639,12 @@ export function ParentSettings({
                     바뀌고, 다음에 열면 지난번 다음 놀이부터 이어져요.
                   </li>
                   <li>스티커북에서 스티커를 누르면 위쪽 장면에 붙고, 그 친구가 놀이 화면에 같이 나와요. 모은 동물 친구는 먹이 주기에 손님으로도 와요.</li>
-                  <li>스티커 72개(동물·탈것·숲속 스티커북)를 다 모으면 별 3개마다 스티커가 하나씩 반짝이 스티커로 바뀌어요.</li>
+                  <li>
+                    새 친구는 처음엔 별 {STICKER_PACE[0].stars}개마다 오고, 갈수록{" "}
+                    {STICKER_PACE.slice(1).map((s) => s.stars).join("·")}개마다 천천히 와요. 스티커{" "}
+                    {STICKERS.length}개(동물·탈것·숲속 스티커북)를 다 모으면 별 {starsForUnlock(STICKERS.length)}개마다
+                    스티커가 하나씩 반짝이 스티커로 바뀌어요.
+                  </li>
                   <li>음성이 안 나오면 기기의 한국어 음성(TTS)을 설치해 주세요.</li>
                 </ul>
               </div>

@@ -7,20 +7,18 @@ import { useMood } from "../fx/useMood";
 import {
   GAME_IDS,
   GAME_META,
-  STARS_PER_STICKER,
   STICKERS,
   type GameId,
 } from "../lib/data";
-import type { Visit } from "../hooks/useProgress";
+import type { StarMeter, Visit } from "../hooks/useProgress";
 import { P } from "../lib/phrases";
-import { Background, SpeechBubble, StarJar } from "../components/ui";
+import { Background, SpeechBubble, StarGauge, StarJar } from "../components/ui";
 import { StickerFace, useBuddy } from "../components/buddy";
 import type { Screen } from "../types";
 
 interface Props {
-  stars: number;
+  stars: StarMeter;
   stickerCount: number;
-  shiny: number;
   todayStars: number;
   visit: Visit;
   onSelect: (s: Screen) => void;
@@ -82,7 +80,6 @@ function greetingsFor(visit: Visit, buddyName: string | null, todayStars: number
 export default function Home({
   stars,
   stickerCount,
-  shiny,
   todayStars,
   visit,
   onSelect,
@@ -139,9 +136,7 @@ export default function Home({
     speak(P.buddyPlay(buddyName), { pitch: 1.3 });
   };
 
-  const toNext = STARS_PER_STICKER - (stars % STARS_PER_STICKER);
-  const collected = stickerCount >= STICKERS.length;
-  const allDone = collected && shiny >= STICKERS.length;
+  const toNext = stars.goal - stars.fill;
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
@@ -151,7 +146,7 @@ export default function Home({
         <div className="text-2xl text-slate-500 sm:text-3xl short:text-xl">
           <Glyph emoji="🎈" /> 숫자 놀이터
         </div>
-        <StarJar stars={stars} />
+        <StarJar meter={stars} />
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center justify-center-safe gap-3 overflow-y-auto px-4 py-3 no-scrollbar short:gap-2 short:py-1 sm:gap-5 short:sm:gap-2">
@@ -270,26 +265,17 @@ export default function Home({
                 내 스티커 {stickerCount > 0 ? `(${stickerCount})` : ""}
               </div>
               <div className="text-sm sm:text-base short:text-xs">
-                {allDone ? (
+                {stars.done ? (
                   <>
                     스티커를 모두 모았어요! <Glyph emoji="🎉" />
                   </>
-                ) : collected
+                ) : stars.shiny
                     ? `별 ${toNext}개 더 모으면 반짝이 스티커!`
                     : `별 ${toNext}개 더 모으면 새 친구가 와요!`}
               </div>
             </div>
           </div>
-          <div className="flex gap-1">
-            {Array.from({ length: STARS_PER_STICKER }).map((_, i) => (
-              <Glyph
-                key={i}
-                emoji="⭐"
-                className="text-3xl sm:text-4xl short:text-2xl"
-                style={{ opacity: i < stars % STARS_PER_STICKER || allDone ? 1 : 0.3 }}
-              />
-            ))}
-          </div>
+          <StarGauge meter={stars} big onDark className="hidden w-[clamp(9rem,30vw,16rem)] shrink-0 min-[400px]:flex" />
         </motion.button>
       </div>
 
