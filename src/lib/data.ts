@@ -791,6 +791,12 @@ export function dialGroupBreaks(len: number): number[] {
   return [len <= 6 ? Math.floor(len / 2) : len - 4];
 }
 
+/** 적응형 난이도: 놀이마다 이만큼 연속으로 성공하면 한 단계 올리고, 연속으로 어려워하면 내린다 */
+export const LEVEL_RULES = {
+  upStreak: 5,
+  downStreak: 2,
+};
+
 export const MAX_LEVELS: Record<GameId, number> = {
   tap: 1,
   howmany: HOWMANY_LEVELS.length,

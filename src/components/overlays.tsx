@@ -9,6 +9,7 @@ import {
   GAME_META,
   ALBUMS,
   GAME_NAMES,
+  LEVEL_RULES,
   MAX_LEVELS,
   SESSION_LIMITS,
   STICKERS,
@@ -515,7 +516,8 @@ export function ParentSettings({
               <div className="rounded-2xl bg-slate-50 p-4">
                 <div className="mb-2 text-lg">난이도 (숫자 범위, 최대 20)</div>
                 <div className="mb-3 text-sm text-slate-500">
-                  3번 연속 잘하면 한 단계 올라가고, 2번 연속 어려워하면 내려가요. 틀리거나 힌트를 받은
+                  {LEVEL_RULES.upStreak}번 연속 잘하면 한 단계 올라가고, {LEVEL_RULES.downStreak}번 연속
+                  어려워하면 내려가요. 틀리거나 힌트를 받은
                   뒤에 맞히면 화면에서는 똑같이 칭찬하지만, 단계에는 어려워한 것으로 쳐요. 놀이마다 따로
                   맞출 수 있어요. "몇 개일까?"는 다른 놀이보다 어려워서 단계를 잘게 나눴어요.
                   톡톡 세기·거품 팡팡은 문제를 푸는 단계가 없어서, 몇 개일까·먹이 주기·숫자 찾기·나눠

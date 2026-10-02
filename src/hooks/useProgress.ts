@@ -5,6 +5,7 @@ import {
   DEFAULT_TAP_GAP,
   ELEVATOR_TOP,
   GAME_IDS,
+  LEVEL_RULES,
   MAX_LEVELS,
   SCENE_MAX,
   SESSION_LIMITS,
@@ -377,7 +378,7 @@ export function useProgress() {
   }, []);
 
   /**
-   * 적응형 난이도: 3연속 성공 → 레벨업, 2연속 실패 → 레벨다운.
+   * 적응형 난이도: 5연속 성공 → 레벨업, 2연속 실패 → 레벨다운 (LEVEL_RULES).
    * 톡톡 세기·거품 팡팡은 다른 놀이의 최고 수를 따라가므로 여기서 바꾸지 않는다.
    * 레벨이 올라갔으면 true.
    */
@@ -389,14 +390,14 @@ export function useProgress() {
     if (ok) {
       s.ok += 1;
       s.miss = 0;
-      if (s.ok >= 3 && level < MAX_LEVELS[game]) {
+      if (s.ok >= LEVEL_RULES.upStreak && level < MAX_LEVELS[game]) {
         level += 1;
         s.ok = 0;
       }
     } else {
       s.miss += 1;
       s.ok = 0;
-      if (s.miss >= 2 && level > 1) {
+      if (s.miss >= LEVEL_RULES.downStreak && level > 1) {
         level -= 1;
         s.miss = 0;
       }
