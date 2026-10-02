@@ -344,9 +344,9 @@ export const PRAISES = [
   "반짝반짝 빛나!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "dial" | "share";
+export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "dial" | "share" | "bus";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "dial", "share"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "dial", "share", "bus"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
@@ -357,6 +357,7 @@ export const GAME_NAMES: Record<GameId, string> = {
   elevator: "딩동 엘리베이터",
   dial: "숫자 따라 누르기",
   share: "쏙쏙 나눠 주기",
+  bus: "딱 맞게 태워요",
 };
 
 /** 홈 카드·전환 화면에서 쓰는 놀이 정보 */
@@ -426,19 +427,27 @@ export const GAME_META: Record<GameId, GameMeta> = {
     bg: "linear-gradient(160deg,#bef264,#65a30d)",
     shadow: "#3f6212",
   },
+  bus: {
+    emoji: "🚌",
+    title: "딱 맞게 태워요",
+    sub: "빈자리만큼 태워요",
+    // 남은 색 중에서 노란 버스가 잘 보이는 남색
+    bg: "linear-gradient(160deg,#a5b4fc,#6366f1)",
+    shadow: "#3730a3",
+  },
 };
 
 /* ---------- 빙글빙글 (놀이 자동 순환) ---------- */
 
 /**
  * 순환 순서.
- * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 따라 누르기 · 딩동 엘리베이터 · 숫자 찾기) 사이에 몸으로 노는 놀이
- * (거품 팡팡 · 먹이 주기 · 톡톡 세기)를 끼워서 긴장과 이완이 번갈아 오게 한다. 집중 놀이가 하나 더 많아
- * 한 곳(숫자 따라 누르기 → 몇 개일까)은 이어지는데, 버튼을 누르는 두 놀이(숫자 따라 누르기 · 딩동 엘리베이터)는
- * 멀리 떨어뜨렸다. 나눠 주기는 비슷한 먹이 주기와 떨어뜨려 숫자 찾기 뒤에 두고,
+ * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 따라 누르기 · 딩동 엘리베이터 · 숫자 찾기) 사이에 친구를 눌러 가며
+ * 노는 놀이(톡톡 세기 · 딱 맞게 태워요 · 거품 팡팡 · 먹이 주기 · 나눠 주기)를 끼워서 긴장과 이완이 번갈아 오게 한다.
+ * 버튼을 누르는 두 놀이(숫자 따라 누르기 · 딩동 엘리베이터)와 탈것이 나오는 두 놀이(딱 맞게 태워요 · 딩동 엘리베이터)는
+ * 떨어뜨렸고, 딱 맞게 주는 세 놀이(딱 맞게 태워요 · 먹이 주기 · 나눠 주기)도 서로 붙지 않게 했다.
  * 한 바퀴의 끝(나눠 주기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
  */
-export const CYCLE_ORDER: GameId[] = ["tap", "dial", "howmany", "bubbles", "elevator", "feed", "find", "share"];
+export const CYCLE_ORDER: GameId[] = ["tap", "dial", "bus", "howmany", "bubbles", "elevator", "feed", "find", "share"];
 
 export type CyclePace = "fast" | "normal" | "slow";
 
@@ -696,6 +705,32 @@ export function residentOf(floor: number): Resident {
  */
 export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) => ({ min: 1, max: have }));
 
+/**
+ * 딱 맞게 태워요: 버스·기차의 빈자리 수(min~max)만큼 정류장의 친구를 골라 태운다.
+ * 정류장에는 늘 빈자리보다 1~3명 더 기다려서, 다 고르면 되는 일이 없게 한다.
+ * 숫자는 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
+ */
+export const BUS_LEVELS: CountLevel[] = [
+  { min: 1, max: 3 },
+  { min: 2, max: 4 },
+  { min: 2, max: 5 },
+  { min: 3, max: 6 },
+  { min: 4, max: 8 },
+  { min: 5, max: 10 },
+];
+
+/** 딱 맞게 태워요에서 나오는 가장 많은 빈자리 */
+export const BUS_MAX = Math.max(...BUS_LEVELS.map((l) => l.max));
+
+/** 딱 맞게 태워요에서 빈자리보다 더 기다리는 친구 수 (빈자리가 많을수록 조금 더) */
+export function busExtraFriends(seats: number): number {
+  return randomInt(1, seats <= 3 ? 2 : 3);
+}
+
+/** 딱 맞게 태워요에 오는 탈것 */
+export type BusKind = "bus" | "train";
+export const BUS_KINDS: BusKind[] = ["bus", "train"];
+
 /* ---------- 숫자 따라 누르기 (전화기 키패드) ---------- */
 
 /** 전화기 키패드의 버튼 (지우기·전화 버튼 빼고) */
@@ -806,6 +841,7 @@ export const MAX_LEVELS: Record<GameId, number> = {
   elevator: ELEVATOR_LEVELS.length,
   dial: DIAL_LEVELS.length,
   share: SHARE_LEVELS.length,
+  bus: BUS_LEVELS.length,
 };
 
 export function clampLevel(game: GameId, level: number): number {
@@ -836,6 +872,10 @@ export function dialLevel(level: number): DialLevel {
 
 export function shareLevel(level: number): CountLevel {
   return SHARE_LEVELS[clampLevel("share", level) - 1];
+}
+
+export function busLevel(level: number): CountLevel {
+  return BUS_LEVELS[clampLevel("bus", level) - 1];
 }
 
 /** 설정 화면에 보여 줄 단계 설명 (톡톡 세기·거품 팡팡은 levels 전체를 보고 정한다) */
@@ -875,6 +915,10 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     case "share": {
       const s = shareLevel(level);
       return `${s.max}개 가지고 ${s.min}~${s.max}개 주기`;
+    }
+    case "bus": {
+      const s = busLevel(level);
+      return `빈자리 ${s.min}~${s.max}개`;
     }
   }
 }

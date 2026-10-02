@@ -165,6 +165,20 @@ export function playRing() {
   }
 }
 
+/** 빵빵! (버스 경적: 두 음을 겹쳐서 두 번) */
+export function playHorn() {
+  [0, 0.22].forEach((t) => {
+    tone(392, t, 0.15, "square", 0.05);
+    tone(494, t, 0.15, "square", 0.04);
+  });
+}
+
+/** 뿌우~ (기차 기적) */
+export function playWhistle() {
+  tone(587, 0, 0.55, "triangle", 0.13, 560);
+  tone(740, 0, 0.55, "triangle", 0.1, 700);
+}
+
 /** 더 큰 숫자 도전! — 올라가는 소리 */
 export function playLevelUp() {
   [523, 659, 784, 1047, 1319].forEach((n, i) => tone(n, i * 0.08, 0.22, "triangle", 0.16));

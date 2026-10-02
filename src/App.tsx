@@ -46,6 +46,7 @@ import FindGame from "./games/FindGame";
 import ElevatorGame from "./games/ElevatorGame";
 import DialGame from "./games/DialGame";
 import ShareGame from "./games/ShareGame";
+import BusGame from "./games/BusGame";
 import {
   BalloonRise,
   BonusBadge,
@@ -72,6 +73,7 @@ const GAMES: Record<GameId, ComponentType<GameProps>> = {
   elevator: ElevatorGame,
   dial: DialGame,
   share: ShareGame,
+  bus: BusGame,
 };
 
 function isGame(s: Screen): s is GameId {

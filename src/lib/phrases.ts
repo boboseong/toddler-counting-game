@@ -8,6 +8,8 @@
 import {
   ALBUMS,
   ANIMALS,
+  BUS_KINDS,
+  BUS_MAX,
   COUNT_WORDS,
   CYCLE_ORDER,
   ELEVATOR_TOP,
@@ -30,6 +32,7 @@ import {
   starPhrase,
   subj,
   topic,
+  type BusKind,
   type CountItem,
   type CycleReason,
   type DialKey,
@@ -153,6 +156,19 @@ export const P = {
   /** 전화를 받은 동물 친구 (동물 목소리) */
   dialHello: (name: string) => `여보세요? 나 ${copula(name)}! 전화해 줘서 고마워!`,
 
+  /* 딱 맞게 태워요 (빈자리가 몇 개인지는 말하지 않는다. 친구를 고를 때만 하나, 둘, 셋 하고 센다) */
+  busArrive: (kind: BusKind) => (kind === "bus" ? "빵빵! 버스가 왔어요!" : "칙칙폭폭! 기차가 왔어요!"),
+  busAsk: "빈자리에 딱 맞게 친구를 골라 줘!",
+  busPressGo: "다 골랐으면 출발 버튼을 눌러 줘!",
+  busPickFirst: "먼저 탈 친구를 골라 줘!",
+  busTooMany: "친구가 너무 많아요! 자리가 모자라요!",
+  busTooFew: "빈자리가 남았어요! 친구가 더 탈 수 있어요!",
+  busCountSeats: "빈자리를 같이 세어 볼까?",
+  busSameFriends: "친구도 똑같이 골라 줘!",
+  /** 다 타고 나서: "딱 맞아요! 친구 세 명!" */
+  busFit: (n: number) => `딱 맞아요! 친구 ${counterPhrase(n, "명")}!`,
+  busGo: (kind: BusKind) => (kind === "bus" ? "부릉부릉, 출발!" : "칙칙폭폭, 출발!"),
+
   /* 홈 */
   greetings: ["안녕! 같이 숫자 세어 볼까?", "삐약! 오늘도 재미있게 놀자!", "하나, 둘, 셋! 준비됐어?"],
   missedYou: "다시 왔구나! 보고 싶었어!",
@@ -194,7 +210,9 @@ export const P = {
     const { name, bang } = cycleName(game);
     if (reason === "start") return [`먼저 ${name}${bang}`];
     if (reason === "idle") return [`다른 놀이 해 볼까? 이번엔 ${name}${bang}`];
-    return [`이번엔 ${name}${bang}`, `다음은 ${name}${bang}`, `${name} 하러 가자!`];
+    // "딱 맞게 태워요" 처럼 문장으로 된 이름에는 "하러 가자" 를 붙이지 않는다
+    const go = name.endsWith("요") ? [] : [`${name} 하러 가자!`];
+    return [`이번엔 ${name}${bang}`, `다음은 ${name}${bang}`, ...go];
   },
   cycle: (game: GameId, reason: CycleReason): string => {
     const v = P.cycleVariants(game, reason);
@@ -364,6 +382,17 @@ export function allPhrases(): PhraseSpec[] {
   uniqueBy([...ANIMALS.map((a) => a.name), ...guests], (n) => n).forEach((name) =>
     add(P.dialHello(name), "cheer", false, "animal"),
   );
+
+  // 딱 맞게 태워요
+  BUS_KINDS.forEach((k) => {
+    add(P.busArrive(k), "cheer", true);
+    add(P.busGo(k), "cheer", true);
+  });
+  add(P.busAsk, "ask", true);
+  add(P.busPickFirst, "ask", true);
+  add(P.busSameFriends, "ask", true);
+  [P.busPressGo, P.busTooMany, P.busTooFew, P.busCountSeats].forEach((t) => add(t, "talk", true));
+  range(1, BUS_MAX).forEach((n) => add(P.busFit(n), "cheer"));
 
   // 나눠 주기: 몇 개 빼고 더 달라는 말 (먹이의 단위 × 차이)
   uniqueBy(foods, (f) => f.counter).forEach(({ counter }) =>

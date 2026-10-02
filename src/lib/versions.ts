@@ -13,6 +13,14 @@ export interface VersionNote {
 
 export const VERSIONS: VersionNote[] = [
   {
+    version: "1.10.0",
+    date: "2026-10-02",
+    notes: [
+      "새 놀이: 딱 맞게 태워요 (버스·기차의 빈자리만큼 친구를 골라 태우기. 빈자리 수는 숫자로 보여 주지 않아요)",
+      "빙글빙글 순서에 딱 맞게 태워요를 넣어 아홉 놀이가 돌아요",
+    ],
+  },
+  {
     version: "1.9.1",
     date: "2026-10-02",
     notes: [

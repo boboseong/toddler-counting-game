@@ -117,19 +117,23 @@ export function CycleTransition({
         )}
       </div>
 
-      {/* 순서 */}
+      {/* 순서 (좁은 폰에서는 화살표를 빼고 그림을 줄여서 한 줄에 다 들어가게) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="relative mt-8 flex items-center gap-2 rounded-full border-4 border-white bg-white/85 px-4 py-2 short:mt-3 short:py-1"
+        className="relative mt-8 flex items-center gap-1.5 rounded-full border-4 border-white bg-white/85 px-3 py-2 min-[560px]:gap-2 min-[560px]:px-4 short:mt-3 short:py-1"
       >
         {CYCLE_ORDER.map((g, i) => (
-          <span key={g} className="flex items-center gap-2">
-            {i > 0 ? <span className="text-slate-300">›</span> : null}
+          <span key={g} className="flex items-center gap-1.5 min-[560px]:gap-2">
+            {i > 0 ? <span className="hidden text-slate-300 min-[560px]:inline">›</span> : null}
             <Glyph
               emoji={GAME_META[g].emoji}
-              className={`transition-all ${i === idx ? "text-4xl short:text-3xl" : "text-2xl opacity-40 short:text-xl"}`}
+              className={`transition-all ${
+                i === idx
+                  ? "text-3xl min-[560px]:text-4xl short:text-3xl"
+                  : "text-xl opacity-40 min-[560px]:text-2xl short:text-xl"
+              }`}
             />
           </span>
         ))}
