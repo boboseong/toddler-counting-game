@@ -13,6 +13,11 @@ export interface VersionNote {
 
 export const VERSIONS: VersionNote[] = [
   {
+    version: "1.9.1",
+    date: "2026-10-02",
+    notes: ["부모님 설정 팁: 빙글빙글 놀이 수를 지금 놀이 수(8가지)로 바로잡음"],
+  },
+  {
     version: "1.9.0",
     date: "2026-10-02",
     notes: [
