@@ -159,6 +159,8 @@ export const P = {
   /* 딱 맞게 태워요 (빈자리가 몇 개인지는 말하지 않는다. 친구를 고를 때만 하나, 둘, 셋 하고 센다) */
   busArrive: (kind: BusKind) => (kind === "bus" ? "빵빵! 버스가 왔어요!" : "칙칙폭폭! 기차가 왔어요!"),
   busAsk: "빈자리에 딱 맞게 친구를 골라 줘!",
+  /** 다른 친구가 먼저 몇 자리에 타 있을 때 */
+  busAskTaken: "먼저 탄 친구가 있어요! 남은 자리만큼 태워 줘!",
   busPressGo: "다 골랐으면 출발 버튼을 눌러 줘!",
   busPickFirst: "먼저 탈 친구를 골라 줘!",
   busTooMany: "친구가 너무 많아요! 자리가 모자라요!",
@@ -389,6 +391,7 @@ export function allPhrases(): PhraseSpec[] {
     add(P.busGo(k), "cheer", true);
   });
   add(P.busAsk, "ask", true);
+  add(P.busAskTaken, "ask", true);
   add(P.busPickFirst, "ask", true);
   add(P.busSameFriends, "ask", true);
   [P.busPressGo, P.busTooMany, P.busTooFew, P.busCountSeats].forEach((t) => add(t, "talk", true));

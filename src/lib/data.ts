@@ -706,23 +706,33 @@ export function residentOf(floor: number): Resident {
 export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) => ({ min: 1, max: have }));
 
 /**
- * 딱 맞게 태워요: 버스·기차의 빈자리(min~max)만큼 정류장의 친구를 골라 태운다.
- * 쏙쏙 나눠 주기와 같은 단계를 10까지만 쓴다: 정류장 친구 수가 나눠 주기의 가진 개수(2·3·5·7·10)이고,
- * 빈자리는 1개부터 그 수까지. 그 앞에 도움 단계(help)를 하나 둔다. 도움 단계는 1단계와 수가 같고,
- * 말은 더하지 않는 대신 빈자리와 빈자리만큼의 친구를 노랗게 비춰서 무엇을 누를지 알려 준다.
+ * 딱 맞게 태워요: 버스·기차의 빈자리만큼 정류장의 친구를 골라 태운다.
+ * - 쏙쏙 나눠 주기와 같은 단계를 10까지만 쓴다: 정류장 친구 수(riders)가 나눠 주기의 가진 개수(2·3·5·7·10)이고,
+ *   자리(min~max)는 1개부터 그 수까지.
+ * - 그 앞에 도움 단계(help)를 하나 둔다. 도움 단계는 그다음 단계와 수가 같고, 말은 더하지 않는 대신
+ *   빈자리와 빈자리만큼의 친구를 노랗게 비춰서 무엇을 누를지 알려 준다.
+ * - 끝의 세 단계는 다른 친구가 먼저 몇 자리에 타 있어서(taken), 남은 자리만큼만 태운다.
  * 빈자리 수는 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
  */
 export interface BusLevel extends CountLevel {
+  /** 정류장에서 기다리는 친구 수 */
+  riders: number;
   /** 빈자리와 태울 친구, 다 고르면 출발 버튼까지 노랗게 비춘다 */
   help: boolean;
+  /** 먼저 타 있는 친구 수 [가장 적게, 가장 많이] (늘 한 자리는 비어 있게 자리 수보다 적게) */
+  taken: [number, number];
 }
 
 export const BUS_LEVELS: BusLevel[] = [
-  { min: 1, max: 2, help: true },
-  ...[2, 3, 5, 7, 10].map((n) => ({ min: 1, max: n, help: false })),
+  { min: 1, max: 2, riders: 2, help: true, taken: [0, 0] },
+  ...[2, 3, 5, 7, 10].map((n): BusLevel => ({ min: 1, max: n, riders: n, help: false, taken: [0, 0] })),
+  // 먼저 탄 친구가 있다: 자리 3~5개 중 1~2자리 · 5~7개 중 1~3자리 · 8~10개 중 2~4자리
+  { min: 3, max: 5, riders: 5, help: false, taken: [1, 2] },
+  { min: 5, max: 7, riders: 7, help: false, taken: [1, 3] },
+  { min: 8, max: 10, riders: 10, help: false, taken: [2, 4] },
 ];
 
-/** 딱 맞게 태워요에서 나오는 가장 많은 빈자리 (= 가장 많은 정류장 친구) */
+/** 딱 맞게 태워요에서 나오는 가장 많은 자리 (= 한 번에 태우는 가장 많은 친구) */
 export const BUS_MAX = Math.max(...BUS_LEVELS.map((l) => l.max));
 
 /** 딱 맞게 태워요에 오는 탈것 */
@@ -916,7 +926,10 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     }
     case "bus": {
       const s = busLevel(level);
-      return `친구 ${s.max}명 중 ${s.min}~${s.max}명 태우기${s.help ? " · 노란 빛 도움" : ""}`;
+      if (s.taken[1] > 0) {
+        return `친구 ${s.riders}명 · 자리 ${s.min}~${s.max}개 중 ${s.taken[0]}~${s.taken[1]}자리는 먼저 탐`;
+      }
+      return `친구 ${s.riders}명 중 ${s.min}~${s.max}명 태우기${s.help ? " · 노란 빛 도움" : ""}`;
     }
   }
 }

@@ -22,6 +22,7 @@ import {
   randomIntExcept,
   randomPraise,
   shuffle,
+  STICKERS,
   type BusKind,
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
@@ -44,6 +45,7 @@ import { useMood } from "../fx/useMood";
  * (자리가 차는 걸 보고 맞추지 않도록). 출발 버튼을 눌렀을 때 고른 친구 수가 빈자리 수와 같아야
  * 친구들이 한 명씩 자리에 앉고 출발한다. 빈자리가 몇 개인지는 보여 주지도 말하지도 않는다
  * (첫 도움 단계에서만 빈자리와 빈자리만큼의 친구를 노랗게 비춰서 무엇을 누를지 알려 준다).
+ * 끝의 단계들은 다른 친구가 먼저 몇 자리에 타 있어서 남은 자리만큼만 태운다.
  */
 
 interface Rider {
@@ -54,8 +56,14 @@ interface Rider {
 interface Round {
   id: number;
   kind: BusKind;
+  /** 차에 있는 자리 전체 (먼저 탄 친구 자리까지) */
   seats: number;
-  /** 정류장에서 기다리는 친구들 (단계의 가장 큰 수만큼. 빈자리와 같을 수도 있다) */
+  /** 다른 친구가 먼저 타 있는 자리 (자리 번호) 와 그 친구 */
+  taken: number[];
+  passengers: Rider[];
+  /** 비어 있는 자리 (자리 번호, 앞에서부터). 이만큼 태워야 한다 */
+  open: number[];
+  /** 정류장에서 기다리는 친구들 (단계마다 정해진 수. 빈자리와 같을 수도 있다) */
   riders: Rider[];
   /** 도움 단계: 빈자리와, 빈자리만큼의 친구(guide)를 노랗게 비춰 준다 */
   help: boolean;
@@ -89,6 +97,21 @@ const MAX_IDLE_HINTS = 2;
 const GO_GAP_MS = 600;
 /** 안 맞게 출발을 이만큼 누르면 빈자리를 같이 세어 준다 */
 const WRONGS_TO_COUNT = 2;
+
+/**
+ * 먼저 타 있는 친구: 정류장 친구와 헷갈리지 않게 정류장에 없는 동물 중에서
+ * (모으지 않은 스티커 동물도. 엘리베이터 층마다 사는 친구처럼)
+ */
+function passengerPool(riders: Rider[]): Rider[] {
+  const seen = new Set(riders.map((r) => r.name));
+  const out: Rider[] = [];
+  for (const a of [...ANIMALS, ...STICKERS.filter((st) => st.food)]) {
+    if (seen.has(a.name)) continue;
+    seen.add(a.name);
+    out.push({ emoji: a.emoji, name: a.name });
+  }
+  return out;
+}
 
 /** 정류장에서 기다리는 친구: 동물 친구들 + 모은 스티커 동물 (같은 친구는 한 번만) */
 function riderPool(friends: number[]): Rider[] {
@@ -261,9 +284,25 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       lv.max - lv.min >= 2 ? randomIntExcept(lv.min, lv.max, prev.current.seats) : randomInt(lv.min, lv.max);
     prev.current = { seats };
     // 정류장 친구 수는 쏙쏙 나눠 주기의 가진 개수처럼 단계마다 정해져 있다 (동물 친구가 12마리라 늘 모자라지 않다)
-    const riders = shuffle(riderPool(friendsRef.current)).slice(0, lv.max);
-    const guide = lv.help ? shuffle(riders.map((_, i) => i)).slice(0, seats) : [];
-    return { id, kind: Math.random() < 0.5 ? "bus" : "train", seats, riders, help: lv.help, guide };
+    const riders = shuffle(riderPool(friendsRef.current)).slice(0, lv.riders);
+    // 먼저 탄 친구는 아무 자리에나 (늘 한 자리는 비어 있게)
+    const takenN = randomInt(lv.taken[0], Math.min(lv.taken[1], seats - 1));
+    const all = Array.from({ length: seats }, (_, i) => i);
+    const taken = shuffle(all).slice(0, takenN).sort((a, b) => a - b);
+    const open = all.filter((i) => !taken.includes(i));
+    const passengers = shuffle(passengerPool(riders)).slice(0, takenN);
+    const guide = lv.help ? shuffle(riders.map((_, i) => i)).slice(0, open.length) : [];
+    return {
+      id,
+      kind: Math.random() < 0.5 ? "bus" : "train",
+      seats,
+      taken,
+      passengers,
+      open,
+      riders,
+      help: lv.help,
+      guide,
+    };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -311,6 +350,10 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   const idleTimer = useRef<number | null>(null);
 
   const { kind, seats, riders } = round;
+  /** 태워야 하는 친구 수 (= 빈자리) */
+  const need = round.open.length;
+  /** 이번 판의 부탁: 먼저 탄 친구가 있으면 "남은 자리만큼 태워 줘!" */
+  const askOf = (r: Round) => (r.taken.length > 0 ? P.busAskTaken : P.busAsk);
   const locked = guard.locked;
 
   const [chickMood, flashChick] = useMood(
@@ -347,7 +390,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       return;
     }
     // 아직 아무도 안 골랐으면 부탁을 다시, 골랐으면 "다 골랐으면 출발 버튼을 눌러 줘"
-    const line = pickedRef.current.length === 0 ? P.busAsk : P.busPressGo;
+    const line = pickedRef.current.length === 0 ? askOf(roundRef.current) : P.busPressGo;
     if (pickedRef.current.length > 0) setNudge(true);
     const ms = speakDuration(line);
     guard.lock(ms);
@@ -360,12 +403,12 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   // 버스(기차)가 들어와서 선다 → "빵빵! 버스가 왔어요! 빈자리에 딱 맞게 친구를 골라 줘!"
   // (도움 단계도 말은 같고, 대신 빈자리와 태울 친구를 노랗게 비춘다)
   useEffect(() => {
-    const intro = [P.busArrive(kind), P.busAsk];
+    const intro = [P.busArrive(kind), askOf(round)];
     const counts = Array.from({ length: riders.length }, (_, i) => P.count(i + 1));
     prefetchSpeech([
       ...intro,
       ...counts,
-      P.busFit(seats),
+      P.busFit(need),
       P.busGo(kind),
       P.busTooMany,
       P.busTooFew,
@@ -438,10 +481,11 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   /** 버스를 누르면 부탁을 다시 들려준다 */
   const tapBus = () => {
     if (phaseRef.current !== "pick" || guard.lockedRef.current) return;
-    const ms = speakDuration(P.busAsk);
+    const ask = askOf(roundRef.current);
+    const ms = speakDuration(ask);
     guard.lock(ms);
     flashBus("talk", ms);
-    speak(P.busAsk);
+    speak(ask);
     scheduleIdle(ms);
   };
 
@@ -457,12 +501,14 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     const introMs = speakDuration(intro);
     // "자리가 모자라요!" 를 다 말하면 말풍선도 "빈자리를 같이 세어 봐요" 로
     after(lead.length > 0 ? speakDuration(lead) : 0, () => setFeedback(null));
-    const step = countStepMs(r.seats);
-    const endMs = introMs + r.seats * step + 200;
+    // 먼저 탄 친구 자리는 빼고 빈자리만 센다
+    const n = r.open.length;
+    const step = countStepMs(n);
+    const endMs = introMs + n * step + 200;
     const total = endMs + speakDuration(P.busSameFriends);
     guard.lock(total);
     speak(intro);
-    for (let k = 0; k < r.seats; k++) {
+    for (let k = 0; k < n; k++) {
       after(introMs + k * step, () => {
         setGlow(k + 1);
         playPop(k + 1);
@@ -488,11 +534,12 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     playDing();
     const r = roundRef.current;
     const order = pickedRef.current;
-    const step = countStepMs(r.seats);
+    const step = countStepMs(r.open.length);
     order.forEach((ri, k) => {
       after(250 + k * step, () => {
         const from = centerOf(document.querySelector(`[data-bus-rider="${r.id}-${ri}"]`));
-        const seatEl = document.querySelector<HTMLElement>(`[data-bus-seat="${r.id}-${k}"]`);
+        // k 번째로 타는 친구는 k 번째 빈자리로 (먼저 탄 친구 자리는 건너뛴다)
+        const seatEl = document.querySelector<HTMLElement>(`[data-bus-seat="${r.id}-${r.open[k]}"]`);
         const seatBox = seatEl?.getBoundingClientRect();
         // 창문 줄 아래(차 몸통 아랫부분)의 그 자리 밑으로 건너간 뒤 창문 안으로 쏙 올라온다.
         // 창문 줄 위로 날아가면 이미 앉은 친구 위를 지나가서 한 자리에 여럿이 탄 것처럼 보인다
@@ -531,7 +578,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     });
     const fitAt = 250 + (order.length - 1) * step + BOARD_FLY_S * 1000 + 450;
     after(fitAt, () => {
-      const fit = P.busFit(r.seats);
+      const fit = P.busFit(r.open.length);
       speak(fit, { interrupt: false });
       flashBus("cheer", 2400);
       flashChick("cheer", 2400);
@@ -576,12 +623,12 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       scheduleIdle(ms);
       return;
     }
-    if (n === r.seats) {
+    if (n === r.open.length) {
       board();
       return;
     }
     // 많으면 "친구가 너무 많아요! 자리가 모자라요!", 적으면 "빈자리가 남았어요!"
-    const many = n > r.seats;
+    const many = n > r.open.length;
     const line = many ? P.busTooMany : P.busTooFew;
     wrongs.current += 1;
     miss();
@@ -660,7 +707,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   const canGo = phase === "pick" || phase === "hint";
   // 도움 단계: 빈자리와 빈자리만큼의 친구를 노랗게 비추고, 다 고르면 출발 버튼도 노랗게
   const helpOn = round.help && (phase === "arrive" || phase === "pick");
-  const goGlow = helpOn && phase === "pick" && picked.length === seats;
+  const goGlow = helpOn && phase === "pick" && picked.length === need;
 
   return (
     <GameFrame scene="station">
@@ -717,10 +764,18 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
                   <svg viewBox={`0 0 ${shape.w} ${shape.h}`} className="block h-full w-full overflow-visible" aria-hidden>
                     {shape.body}
                   </svg>
-                  {/* 자리: 빛나는 자리(같이 세기 · 도움 단계)와 앉은 친구 */}
+                  {/* 자리: 먼저 탄 친구 · 빛나는 빈자리(같이 세기 · 도움 단계) · 태운 친구 */}
                   {shape.seats.map((s, i) => {
-                    const rider = i < seated ? riders[picked[i]] : null;
-                    const lit = i < glow || helpOn;
+                    const takenAt = round.taken.indexOf(i);
+                    // 몇 번째 빈자리인지 (먼저 탄 친구 자리면 -1)
+                    const openAt = round.open.indexOf(i);
+                    const rider =
+                      takenAt >= 0
+                        ? round.passengers[takenAt]
+                        : openAt >= 0 && openAt < seated
+                          ? riders[picked[openAt]]
+                          : null;
+                    const lit = openAt >= 0 && (openAt < glow || helpOn);
                     return (
                       <div
                         key={i}
@@ -739,15 +794,16 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
                             className="absolute inset-0 bg-yellow-300/60"
                             style={{ borderRadius: 12 * k, boxShadow: "inset 0 0 0 4px #facc15" }}
                             initial={{ opacity: 0 }}
-                            animate={{ opacity: i === glow - 1 ? [0.5, 1, 0.5] : 0.8 }}
-                            transition={i === glow - 1 ? { duration: 0.6, repeat: Infinity } : { duration: 0.2 }}
+                            animate={{ opacity: openAt === glow - 1 ? [0.5, 1, 0.5] : 0.8 }}
+                            transition={openAt === glow - 1 ? { duration: 0.6, repeat: Infinity } : { duration: 0.2 }}
                           />
                         ) : null}
                         {rider ? (
                           <motion.span
                             className="absolute left-1/2 leading-none"
                             style={{ bottom: -seatPx * 0.16, fontSize: seatPx * 0.88, x: "-50%" }}
-                            initial={{ y: seatPx * 0.4 }}
+                            // 먼저 탄 친구는 처음부터 앉아 있고, 태운 친구는 창문 아래에서 쏙 올라온다
+                            initial={takenAt >= 0 ? false : { y: seatPx * 0.4 }}
                             animate={{ y: 0 }}
                             transition={{ type: "spring", stiffness: 400, damping: 18 }}
                           >
@@ -870,8 +926,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
         {banner ? (
           <WinBanner
             emoji={kind === "bus" ? "🚌" : "🚂"}
-            n={seats}
-            label={`친구 ${counterPhrase(seats, "명")}`}
+            n={need}
+            label={`친구 ${counterPhrase(need, "명")}`}
             praise={praise}
           />
         ) : null}
