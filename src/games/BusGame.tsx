@@ -173,19 +173,17 @@ function busShape(n: number, mood: Mood): Shape {
   const bh = PAD + win.h + PAD + LOWER;
   const seats = seatGrid(n, M + PAD, M + PAD);
   const fx0 = M + bw - FRONT;
-  const shieldH = Math.min(win.h, 54);
-  const shieldBottom = M + PAD + shieldH;
   const wheelTop = M + bh - R;
   const body = (
     <>
       <rect x={M} y={M} width={bw} height={bh} rx={28} fill="#ffc93c" {...stroke} />
       <path d={`M${M + 2} ${M + bh - 40} H${M + bw - 2}`} stroke="#e8a51c" strokeWidth={12} />
-      <rect x={fx0 + 10} y={M + PAD} width={FRONT - 26} height={shieldH} rx={12} fill={GLASS} {...thin} />
       <circle cx={M + bw - 13} cy={M + bh - 24} r={9} fill="#ffe27a" {...thin} />
       {seats.map((s, i) => (
         <SeatArt key={i} {...s} />
       ))}
-      <Face x={fx0 + FRONT / 2 - 4} y={(shieldBottom + wheelTop) / 2 - 8} s={1} mood={mood} cheeks={false} />
+      {/* 운전석 창문은 그리지 않는다 (빈 창문이 빈자리처럼 보여 세는 데 헷갈리지 않게) */}
+      <Face x={fx0 + FRONT / 2 - 4} y={(M + wheelTop) / 2 - 4} s={1} mood={mood} cheeks={false} />
       <Wheel x={M + 56} y={M + bh} r={R} />
       <Wheel x={M + bw - 50} y={M + bh} r={R} />
     </>
@@ -230,8 +228,8 @@ function trainShape(n: number, mood: Mood): Shape {
         strokeWidth={6}
       />
       <rect x={x0 - 8} y={ground - cabH - 12} width={CAB + 16} height={16} rx={6} fill="#e04848" {...stroke} />
+      {/* 운전실 창문은 그리지 않는다 (빈 창문이 빈자리처럼 보여 세는 데 헷갈리지 않게) */}
       <rect x={x0} y={ground - cabH} width={CAB} height={cabH} rx={8} fill="#ff5a5a" {...stroke} />
-      <rect x={x0 + 14} y={ground - cabH + 18} width={32} height={32} rx={6} fill={GLASS} {...thin} />
       <path d={`M${x0 + E - 4} ${ground - 26} L${x0 + E + 22} ${ground + 10} L${x0 + E - 4} ${ground + 10} Z`} fill="#ffd23f" {...stroke} />
       <Face x={x0 + CAB + (E - CAB) / 2 + 6} y={boilerTop + boilerH / 2 - 8} s={0.95} mood={mood} cheeks={false} />
       {carWheels.map((x) => (
