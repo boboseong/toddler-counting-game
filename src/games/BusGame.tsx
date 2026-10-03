@@ -73,6 +73,8 @@ type Feedback = "many" | "few";
 /** 정류장에 들어오는 시간 · 떠나는 시간 */
 const ARRIVE_MS = 1300;
 const DEPART_MS = 1400;
+/** 다 탄 뒤 축하 배너가 버스를 가리기 전에 다 탄 모습을 보여 주는 시간 */
+const SEATED_LOOK_MS = 1100;
 /** 친구 하나가 자리로 날아가는 시간(초) */
 const BOARD_FLY_S = 0.45;
 /** 아무것도 안 하고 이만큼 지나면 다시 알려 준다 (한 라운드에 MAX_IDLE_HINTS 번까지) */
@@ -483,7 +485,13 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       after(250 + k * step, () => {
         const from = centerOf(document.querySelector(`[data-bus-rider="${r.id}-${ri}"]`));
         const seatEl = document.querySelector<HTMLElement>(`[data-bus-seat="${r.id}-${k}"]`);
-        const to = centerOf(seatEl);
+        const seatBox = seatEl?.getBoundingClientRect();
+        // 창문 줄 아래(차 몸통 아랫부분)의 그 자리 밑으로 건너간 뒤 창문 안으로 쏙 올라온다.
+        // 창문 줄 위로 날아가면 이미 앉은 친구 위를 지나가서 한 자리에 여럿이 탄 것처럼 보인다
+        const rowBottom = Math.max(
+          0,
+          ...Array.from(document.querySelectorAll(`[data-bus-seat^="${r.id}-"]`), (el) => el.getBoundingClientRect().bottom),
+        );
         setLeaving((l) => [...l, ri]);
         let done = false;
         const land = () => {
@@ -492,20 +500,21 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
           setSeated(k + 1);
           playPop(k + 1);
           fx.haptic(10);
+          if (seatEl) fx.burstAt(seatEl, "sparkle", { count: 5 });
           speak(P.count(k + 1), { rate: 0.85, pitch: 1.2 });
         };
-        if (!from || !to || !seatEl) {
+        if (!from || !seatBox) {
           land();
           return;
         }
         fx.fly({
           from,
-          to,
+          to: { x: seatBox.left + seatBox.width / 2, y: rowBottom + seatBox.height * 0.5 },
           emoji: r.riders[ri].emoji,
-          size: seatEl.getBoundingClientRect().width * 0.9,
-          arc: 70,
+          size: seatBox.width * 0.75,
+          arc: 24,
           duration: BOARD_FLY_S,
-          // 친구가 자리로 옮겨 타는 것이 곧 "태운다"는 뜻이라 동작 줄이기 설정에서도 곧게 옮겨 간다
+          // 친구가 버스로 옮겨 타는 것이 곧 "태운다"는 뜻이라 동작 줄이기 설정에서도 곧게 옮겨 간다
           essential: true,
           onArrive: land,
         });
@@ -521,10 +530,11 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       fx.burstAt(document.querySelector("[data-bus-vehicle]"), "stars", { count: 14 });
       fx.haptic([10, 40, 10]);
       setPraise(randomPraise());
-      setBanner(true);
       onWin();
       if (!missed.current) onResult(true);
-      const goAt = Math.max(2400, speakDuration(fit) + 200);
+      // 다 탄 버스를 잠깐 보여 준 뒤에 축하 배너 (배너가 버스를 가린다)
+      after(SEATED_LOOK_MS, () => setBanner(true));
+      const goAt = SEATED_LOOK_MS + Math.max(2200, speakDuration(fit) + 200 - SEATED_LOOK_MS);
       after(goAt, () => {
         setBanner(false);
         setPhase("go");
