@@ -14,7 +14,7 @@ export interface VersionNote {
 export const VERSIONS: VersionNote[] = [
   {
     version: "1.10.0",
-    date: "2026-10-02",
+    date: "2026-10-03",
     notes: [
       "새 놀이: 딱 맞게 태워요 (버스·기차의 빈자리만큼 친구를 골라 태우기. 빈자리 수는 숫자로 보여 주지 않아요)",
       "딱 맞게 태워요 단계: 쏙쏙 나눠 주기와 같은 단계(친구 2·3·5·7·10명) 앞에, 빈자리와 태울 친구를 노란 빛으로 알려 주는 도움 단계",
