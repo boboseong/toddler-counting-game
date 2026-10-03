@@ -348,6 +348,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   const counted = useRef(false);
   const lastGo = useRef(0);
   const idleTimer = useRef<number | null>(null);
+  /** 이번에 놀이에 들어와서 이미 한 부탁 (같은 부탁은 판마다 되풀이하지 않는다) */
+  const asked = useRef(new Set<string>());
 
   const { kind, seats, riders } = round;
   /** 태워야 하는 친구 수 (= 빈자리) */
@@ -401,12 +403,16 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   /* ---------- 라운드 ---------- */
 
   // 버스(기차)가 들어와서 선다 → "빵빵! 버스가 왔어요! 빈자리에 딱 맞게 친구를 골라 줘!"
+  // 부탁은 놀이에 들어와 처음 한 번만 하고, 다음 판부터는 "빵빵! 버스가 왔어요!" 만 (말풍선 글은 그대로).
+  // 먼저 탄 친구가 있는 부탁("남은 자리만큼 태워 줘!")도 그런 판이 처음 나올 때 한 번.
   // (도움 단계도 말은 같고, 대신 빈자리와 태울 친구를 노랗게 비춘다)
   useEffect(() => {
-    const intro = [P.busArrive(kind), askOf(round)];
+    const arrive = P.busArrive(kind);
+    const ask = askOf(round);
     const counts = Array.from({ length: riders.length }, (_, i) => P.count(i + 1));
     prefetchSpeech([
-      ...intro,
+      arrive,
+      ask,
       ...counts,
       P.busFit(need),
       P.busGo(kind),
@@ -419,14 +425,18 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     setDrive("in");
     setMoving(true);
     after(ARRIVE_MS - 400, () => (kind === "bus" ? playHorn() : playWhistle()));
-    const ms = ARRIVE_MS + speakDuration(intro);
-    guard.lock(ms);
+    // 부탁을 할지는 버스가 설 때 정한다 (말하기 전에 놀이를 나가면 다음에 다시 한다)
+    guard.lock(ARRIVE_MS + speakDuration(asked.current.has(ask) ? [arrive] : [arrive, ask]));
     after(ARRIVE_MS, () => {
+      const intro = asked.current.has(ask) ? [arrive] : [arrive, ask];
+      asked.current.add(ask);
+      const ms = speakDuration(intro);
+      guard.lock(ms);
       setMoving(false);
       setPhase("pick");
       speak(intro, { interrupt: false });
+      scheduleIdle(ms);
     });
-    scheduleIdle(ms);
     return clearIdle;
   }, [round.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

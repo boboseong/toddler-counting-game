@@ -13,6 +13,11 @@ export interface VersionNote {
 
 export const VERSIONS: VersionNote[] = [
   {
+    version: "1.10.1",
+    date: "2026-10-03",
+    notes: ["딱 맞게 태워요: \"빈자리에 딱 맞게 친구를 골라 줘!\" 부탁은 놀이에 들어와 첫 판에만 해서, 다음 판부터는 버스가 서면 금방 누를 수 있어요"],
+  },
+  {
     version: "1.10.0",
     date: "2026-10-03",
     notes: [
