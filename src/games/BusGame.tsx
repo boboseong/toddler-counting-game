@@ -14,11 +14,11 @@ import {
 import { P } from "../lib/phrases";
 import {
   ANIMALS,
-  busExtraFriends,
   busLevel,
   counterPhrase,
   countStepMs,
   guestsFrom,
+  randomInt,
   randomIntExcept,
   randomPraise,
   shuffle,
@@ -42,7 +42,8 @@ import { useMood } from "../fx/useMood";
  * 버스나 기차가 정류장에 오면, 빈자리만큼 정류장의 친구를 눌러서 고른다.
  * 누를 때마다 "하나, 둘, 셋" 하고 세고 고른 친구는 위로 뜨며 색이 칠해지지만, 자리에는 아직 앉지 않는다
  * (자리가 차는 걸 보고 맞추지 않도록). 출발 버튼을 눌렀을 때 고른 친구 수가 빈자리 수와 같아야
- * 친구들이 한 명씩 자리에 앉고 출발한다. 빈자리가 몇 개인지는 보여 주지도 말하지도 않는다.
+ * 친구들이 한 명씩 자리에 앉고 출발한다. 빈자리가 몇 개인지는 보여 주지도 말하지도 않는다
+ * (첫 도움 단계에서만 판마다 병아리가 빈자리를 먼저 세어 준다).
  */
 
 interface Rider {
@@ -54,8 +55,10 @@ interface Round {
   id: number;
   kind: BusKind;
   seats: number;
-  /** 정류장에서 기다리는 친구들 (늘 빈자리보다 많다) */
+  /** 정류장에서 기다리는 친구들 (단계의 가장 큰 수만큼. 빈자리와 같을 수도 있다) */
   riders: Rider[];
+  /** 도움 단계: 판마다 빈자리를 먼저 세어 주고, 한 번만 틀려도 다시 세어 준다 */
+  help: boolean;
 }
 
 /**
@@ -253,11 +256,13 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
 
   const newRound = (id: number): Round => {
     const lv = busLevel(levelRef.current);
-    const seats = randomIntExcept(lv.min, lv.max, prev.current.seats);
+    // 빈자리가 1~2개뿐일 때 바로 앞과 다른 수만 내면 하나, 둘, 하나, 둘 … 번갈아 나와서 맞힐 수 있으니 그냥 고른다
+    const seats =
+      lv.max - lv.min >= 2 ? randomIntExcept(lv.min, lv.max, prev.current.seats) : randomInt(lv.min, lv.max);
     prev.current = { seats };
-    const pool = shuffle(riderPool(friendsRef.current));
-    const count = Math.min(pool.length, seats + busExtraFriends(seats));
-    return { id, kind: Math.random() < 0.5 ? "bus" : "train", seats, riders: pool.slice(0, count) };
+    // 정류장 친구 수는 쏙쏙 나눠 주기의 가진 개수처럼 단계마다 정해져 있다 (동물 친구가 12마리라 늘 모자라지 않다)
+    const riders = shuffle(riderPool(friendsRef.current)).slice(0, lv.max);
+    return { id, kind: Math.random() < 0.5 ? "bus" : "train", seats, riders, help: lv.help };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -351,8 +356,9 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   /* ---------- 라운드 ---------- */
 
   // 버스(기차)가 들어와서 선다 → "빵빵! 버스가 왔어요! 빈자리에 딱 맞게 친구를 골라 줘!"
+  // 도움 단계: "빵빵! 버스가 왔어요! 빈자리를 같이 세어 볼까? 하나, 둘! 친구도 똑같이 골라 줘!"
   useEffect(() => {
-    const intro = [P.busArrive(kind), P.busAsk];
+    const intro = round.help ? [P.busArrive(kind)] : [P.busArrive(kind), P.busAsk];
     const counts = Array.from({ length: riders.length }, (_, i) => P.count(i + 1));
     prefetchSpeech([
       ...intro,
@@ -365,11 +371,20 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       P.busCountSeats,
       P.busSameFriends,
     ]);
-    const ms = ARRIVE_MS + speakDuration(intro);
-    guard.lock(ms);
     setDrive("in");
     setMoving(true);
     after(ARRIVE_MS - 400, () => (kind === "bus" ? playHorn() : playWhistle()));
+    if (round.help) {
+      // 빈자리를 세어 주는 동안 잠그고, 다 세면 고를 수 있다 (힌트로 치지 않는다)
+      guard.lock(ARRIVE_MS + speakDuration(intro));
+      after(ARRIVE_MS, () => {
+        setMoving(false);
+        countSeats(intro, true);
+      });
+      return clearIdle;
+    }
+    const ms = ARRIVE_MS + speakDuration(intro);
+    guard.lock(ms);
     after(ARRIVE_MS, () => {
       setMoving(false);
       setPhase("pick");
@@ -437,10 +452,15 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     scheduleIdle(ms);
   };
 
-  /** 빈자리를 하나씩 빛내며 같이 센다 → "친구도 똑같이 골라 줘!" */
-  function countSeats(lead: string[]) {
-    counted.current = true;
-    miss();
+  /**
+   * 빈자리를 하나씩 빛내며 같이 센다 → "친구도 똑같이 골라 줘!".
+   * free: 도움 단계에서 판마다 먼저 세어 주는 것 (힌트로 치지 않는다)
+   */
+  function countSeats(lead: string[], free = false) {
+    if (!free) {
+      counted.current = true;
+      miss();
+    }
     clearIdle();
     setPhase("hint");
     setGlow(0);
@@ -448,7 +468,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     const intro = [...lead, P.busCountSeats];
     const introMs = speakDuration(intro);
     // "자리가 모자라요!" 를 다 말하면 말풍선도 "빈자리를 같이 세어 봐요" 로
-    after(lead.length > 0 ? speakDuration(lead) : 0, () => setFeedback(null));
+    if (!free) after(lead.length > 0 ? speakDuration(lead) : 0, () => setFeedback(null));
     const step = countStepMs(r.seats);
     const endMs = introMs + r.seats * step + 200;
     const total = endMs + speakDuration(P.busSameFriends);
@@ -583,7 +603,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     fx.haptic(30);
     flashBus(many ? "surprised" : "hmm", 1800);
     flashChick("hmm", 1800);
-    if (wrongs.current >= WRONGS_TO_COUNT && !counted.current) {
+    // 다시 세어 주기: 보통은 두 번 틀리면 한 번, 도움 단계는 틀릴 때마다
+    if (r.help || (wrongs.current >= WRONGS_TO_COUNT && !counted.current)) {
       countSeats([line]);
       return;
     }

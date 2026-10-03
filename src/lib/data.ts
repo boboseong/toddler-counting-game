@@ -706,26 +706,24 @@ export function residentOf(floor: number): Resident {
 export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) => ({ min: 1, max: have }));
 
 /**
- * 딱 맞게 태워요: 버스·기차의 빈자리 수(min~max)만큼 정류장의 친구를 골라 태운다.
- * 정류장에는 늘 빈자리보다 1~3명 더 기다려서, 다 고르면 되는 일이 없게 한다.
- * 숫자는 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
+ * 딱 맞게 태워요: 버스·기차의 빈자리(min~max)만큼 정류장의 친구를 골라 태운다.
+ * 쏙쏙 나눠 주기와 같은 단계를 10까지만 쓴다: 정류장 친구 수가 나눠 주기의 가진 개수(2·3·5·7·10)이고,
+ * 빈자리는 1개부터 그 수까지. 그 앞에 도움 단계(help)를 하나 둔다. 도움 단계는 1단계와 수가 같고,
+ * 판마다 병아리가 빈자리를 먼저 하나씩 비추며 세어 준다.
+ * 도움 단계 밖에서는 빈자리 수를 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
  */
-export const BUS_LEVELS: CountLevel[] = [
-  { min: 1, max: 3 },
-  { min: 2, max: 4 },
-  { min: 2, max: 5 },
-  { min: 3, max: 6 },
-  { min: 4, max: 8 },
-  { min: 5, max: 10 },
+export interface BusLevel extends CountLevel {
+  /** 판마다 빈자리를 먼저 세어 주고, 한 번만 틀려도 다시 세어 준다 */
+  help: boolean;
+}
+
+export const BUS_LEVELS: BusLevel[] = [
+  { min: 1, max: 2, help: true },
+  ...[2, 3, 5, 7, 10].map((n) => ({ min: 1, max: n, help: false })),
 ];
 
-/** 딱 맞게 태워요에서 나오는 가장 많은 빈자리 */
+/** 딱 맞게 태워요에서 나오는 가장 많은 빈자리 (= 가장 많은 정류장 친구) */
 export const BUS_MAX = Math.max(...BUS_LEVELS.map((l) => l.max));
-
-/** 딱 맞게 태워요에서 빈자리보다 더 기다리는 친구 수 (빈자리가 많을수록 조금 더) */
-export function busExtraFriends(seats: number): number {
-  return randomInt(1, seats <= 3 ? 2 : 3);
-}
 
 /** 딱 맞게 태워요에 오는 탈것 */
 export type BusKind = "bus" | "train";
@@ -874,7 +872,7 @@ export function shareLevel(level: number): CountLevel {
   return SHARE_LEVELS[clampLevel("share", level) - 1];
 }
 
-export function busLevel(level: number): CountLevel {
+export function busLevel(level: number): BusLevel {
   return BUS_LEVELS[clampLevel("bus", level) - 1];
 }
 
@@ -918,7 +916,7 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     }
     case "bus": {
       const s = busLevel(level);
-      return `빈자리 ${s.min}~${s.max}개`;
+      return `친구 ${s.max}명 중 ${s.min}~${s.max}명 태우기${s.help ? " · 빈자리를 먼저 세어 줌" : ""}`;
     }
   }
 }
