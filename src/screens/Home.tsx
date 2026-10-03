@@ -42,7 +42,8 @@ const CARDS: { id: GameId | "cycle"; emoji: string; title: string; sub: string; 
 
 /**
  * 가로 화면의 칸 수와 빙글빙글 폭. 네 칸이나 다섯 칸 중에서 빙글빙글(한 칸 또는 두 칸)까지 넣었을 때
- * 줄이 꽉 차는 쪽을 고른다 (놀이 7개 → 네 칸 × 두 줄, 8개 → 다섯 칸 × 두 줄에 빙글빙글 두 칸)
+ * 줄이 꽉 차는 쪽을 고른다 (놀이 7개 → 네 칸 × 두 줄, 8개 → 다섯 칸 × 두 줄에 빙글빙글 두 칸,
+ * 9개 → 다섯 칸 × 두 줄)
  */
 function landscapeGrid(n: number): { cols: 4 | 5; cycleSpan: 1 | 2 } {
   for (const cycleSpan of [1, 2] as const) {
@@ -51,6 +52,17 @@ function landscapeGrid(n: number): { cols: 4 | 5; cycleSpan: 1 | 2 } {
   return { cols: 4, cycleSpan: 1 };
 }
 const LANDSCAPE = landscapeGrid(GAME_IDS.length);
+
+/**
+ * 태블릿 세로 화면의 칸 수. 놀이 카드(빙글빙글이 아래 띠가 아니면 빙글빙글까지)가 줄을 꽉 채우는 쪽을 고른다
+ * (Tailwind 가 읽도록 클래스는 통째로 적는다)
+ */
+function portraitTabletCols(n: number, cycleBanner: boolean): { cols: 3 | 4 | 5; cls: string } {
+  const cells = cycleBanner ? n : n + 1;
+  if (cells % 4 === 0) return { cols: 4, cls: "sm:grid-cols-4" };
+  if (cells % 5 === 0) return { cols: 5, cls: "sm:grid-cols-5" };
+  return { cols: 3, cls: "sm:grid-cols-3" };
+}
 
 /** 가로 화면인지 (화면을 돌리면 다시 본다) */
 function useLandscape(): boolean {
@@ -101,7 +113,10 @@ export default function Home({
   const cycleBanner = !landscape && GAME_IDS.length % 2 === 0;
   // 빙글빙글을 옆으로 눕혀 그리는지 (세로 화면의 띠 · 가로 화면의 두 칸짜리)
   const cycleRow = cycleBanner || (landscape && LANDSCAPE.cycleSpan === 2);
-  const gridMax = landscape && LANDSCAPE.cols === 5 ? "max-w-5xl" : "max-w-4xl";
+  const tablet = portraitTabletCols(GAME_IDS.length, cycleBanner);
+  // 한 줄에 다섯 칸이면 카드가 좁아서 판을 조금 넓힌다 (태블릿 세로는 제목 글씨도 줄인다)
+  const fiveCols = landscape ? LANDSCAPE.cols === 5 : tablet.cols === 5;
+  const gridMax = fiveCols ? "max-w-5xl" : "max-w-4xl";
   const pressTimer = useRef<number | null>(null);
   const [pressing, setPressing] = useState(false);
 
@@ -198,8 +213,8 @@ export default function Home({
           className={`grid w-full ${gridMax} ${
             landscape
               ? `${LANDSCAPE.cols === 5 ? "grid-cols-5" : "grid-cols-4"} gap-3 sm:gap-4 short:gap-2`
-              : // 태블릿 세로: 놀이 카드가 네 칸으로 딱 나눠지면 네 칸, 빙글빙글까지 짝을 맞춰야 하면 네 칸, 아니면 세 칸
-                `grid-cols-2 gap-3 sm:gap-4 ${GAME_IDS.length % 4 === 0 || !cycleBanner ? "sm:grid-cols-4" : "sm:grid-cols-3"}`
+              : // 태블릿 세로: 줄이 꽉 차는 칸 수 (네 칸 · 다섯 칸, 안 되면 세 칸)
+                `grid-cols-2 gap-3 sm:gap-4 ${tablet.cls}`
           }`}
         >
           {CARDS.map((g, i) => {
@@ -231,7 +246,9 @@ export default function Home({
                 />
                 <span className={wide ? "flex flex-col items-start" : "contents"}>
                   <span
-                    className={`break-keep text-center text-lg min-[400px]:text-2xl short:text-lg ${landscape ? "sm:text-2xl" : "sm:text-3xl"}`}
+                    className={`break-keep text-center text-lg min-[400px]:text-2xl short:text-lg ${
+                      landscape ? "sm:text-2xl" : fiveCols ? "sm:text-xl" : "sm:text-3xl"
+                    }`}
                     style={{ textShadow: "0 2px 0 rgba(0,0,0,0.2)" }}
                   >
                     {g.title}

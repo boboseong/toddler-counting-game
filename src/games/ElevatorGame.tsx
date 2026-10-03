@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   clipMs,
   playDing,
@@ -24,6 +24,7 @@ import {
 } from "../lib/data";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
+import { useBox } from "../hooks/useBox";
 import { BigNumeral, GameFrame, ListenChip, SpeechBubble, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
 import { Chick } from "../art/Chick";
@@ -118,21 +119,6 @@ function hallColor(floor: number) {
 }
 
 /* ---------- 크기 ---------- */
-
-function useBox<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, box] as const;
-}
 
 /** 버튼판은 10층씩 한 묶음 (1~10층, 11~20층) */
 const BANK = 10;
