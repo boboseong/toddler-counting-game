@@ -43,7 +43,7 @@ import { useMood } from "../fx/useMood";
  * 누를 때마다 "하나, 둘, 셋" 하고 세고 고른 친구는 위로 뜨며 색이 칠해지지만, 자리에는 아직 앉지 않는다
  * (자리가 차는 걸 보고 맞추지 않도록). 출발 버튼을 눌렀을 때 고른 친구 수가 빈자리 수와 같아야
  * 친구들이 한 명씩 자리에 앉고 출발한다. 빈자리가 몇 개인지는 보여 주지도 말하지도 않는다
- * (첫 도움 단계에서만 판마다 병아리가 빈자리를 먼저 세어 준다).
+ * (첫 도움 단계에서만 빈자리와 빈자리만큼의 친구를 노랗게 비춰서 무엇을 누를지 알려 준다).
  */
 
 interface Rider {
@@ -57,8 +57,10 @@ interface Round {
   seats: number;
   /** 정류장에서 기다리는 친구들 (단계의 가장 큰 수만큼. 빈자리와 같을 수도 있다) */
   riders: Rider[];
-  /** 도움 단계: 판마다 빈자리를 먼저 세어 주고, 한 번만 틀려도 다시 세어 준다 */
+  /** 도움 단계: 빈자리와, 빈자리만큼의 친구(guide)를 노랗게 비춰 준다 */
   help: boolean;
+  /** 도움 단계에서 노랗게 비추는 친구 (riders 의 번호, 빈자리 수만큼 아무 자리에서나) */
+  guide: number[];
 }
 
 /**
@@ -262,7 +264,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     prev.current = { seats };
     // 정류장 친구 수는 쏙쏙 나눠 주기의 가진 개수처럼 단계마다 정해져 있다 (동물 친구가 12마리라 늘 모자라지 않다)
     const riders = shuffle(riderPool(friendsRef.current)).slice(0, lv.max);
-    return { id, kind: Math.random() < 0.5 ? "bus" : "train", seats, riders, help: lv.help };
+    const guide = lv.help ? shuffle(riders.map((_, i) => i)).slice(0, seats) : [];
+    return { id, kind: Math.random() < 0.5 ? "bus" : "train", seats, riders, help: lv.help, guide };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -340,7 +343,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     }
     idleHints.current += 1;
     miss();
-    if (idleHints.current >= MAX_IDLE_HINTS && !counted.current) {
+    // 또 가만히 있으면 빈자리를 같이 센다 (도움 단계는 노란 빛이 있으니 할 일만 다시 알려 준다)
+    if (idleHints.current >= MAX_IDLE_HINTS && !counted.current && !roundRef.current.help) {
       countSeats([]);
       return;
     }
@@ -356,9 +360,9 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   /* ---------- 라운드 ---------- */
 
   // 버스(기차)가 들어와서 선다 → "빵빵! 버스가 왔어요! 빈자리에 딱 맞게 친구를 골라 줘!"
-  // 도움 단계: "빵빵! 버스가 왔어요! 빈자리를 같이 세어 볼까? 하나, 둘! 친구도 똑같이 골라 줘!"
+  // (도움 단계도 말은 같고, 대신 빈자리와 태울 친구를 노랗게 비춘다)
   useEffect(() => {
-    const intro = round.help ? [P.busArrive(kind)] : [P.busArrive(kind), P.busAsk];
+    const intro = [P.busArrive(kind), P.busAsk];
     const counts = Array.from({ length: riders.length }, (_, i) => P.count(i + 1));
     prefetchSpeech([
       ...intro,
@@ -374,15 +378,6 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     setDrive("in");
     setMoving(true);
     after(ARRIVE_MS - 400, () => (kind === "bus" ? playHorn() : playWhistle()));
-    if (round.help) {
-      // 빈자리를 세어 주는 동안 잠그고, 다 세면 고를 수 있다 (힌트로 치지 않는다)
-      guard.lock(ARRIVE_MS + speakDuration(intro));
-      after(ARRIVE_MS, () => {
-        setMoving(false);
-        countSeats(intro, true);
-      });
-      return clearIdle;
-    }
     const ms = ARRIVE_MS + speakDuration(intro);
     guard.lock(ms);
     after(ARRIVE_MS, () => {
@@ -452,15 +447,10 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     scheduleIdle(ms);
   };
 
-  /**
-   * 빈자리를 하나씩 빛내며 같이 센다 → "친구도 똑같이 골라 줘!".
-   * free: 도움 단계에서 판마다 먼저 세어 주는 것 (힌트로 치지 않는다)
-   */
-  function countSeats(lead: string[], free = false) {
-    if (!free) {
-      counted.current = true;
-      miss();
-    }
+  /** 빈자리를 하나씩 빛내며 같이 센다 → "친구도 똑같이 골라 줘!" */
+  function countSeats(lead: string[]) {
+    counted.current = true;
+    miss();
     clearIdle();
     setPhase("hint");
     setGlow(0);
@@ -468,7 +458,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     const intro = [...lead, P.busCountSeats];
     const introMs = speakDuration(intro);
     // "자리가 모자라요!" 를 다 말하면 말풍선도 "빈자리를 같이 세어 봐요" 로
-    if (!free) after(lead.length > 0 ? speakDuration(lead) : 0, () => setFeedback(null));
+    after(lead.length > 0 ? speakDuration(lead) : 0, () => setFeedback(null));
     const step = countStepMs(r.seats);
     const endMs = introMs + r.seats * step + 200;
     const total = endMs + speakDuration(P.busSameFriends);
@@ -603,8 +593,8 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     fx.haptic(30);
     flashBus(many ? "surprised" : "hmm", 1800);
     flashChick("hmm", 1800);
-    // 다시 세어 주기: 보통은 두 번 틀리면 한 번, 도움 단계는 틀릴 때마다
-    if (r.help || (wrongs.current >= WRONGS_TO_COUNT && !counted.current)) {
+    // 두 번 틀리면 빈자리를 같이 센다 (도움 단계는 노란 빛이 있으니 많은지 적은지만 짧게)
+    if (!r.help && wrongs.current >= WRONGS_TO_COUNT && !counted.current) {
       countSeats([line]);
       return;
     }
@@ -664,12 +654,15 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     ) : locked || phase === "arrive" || phase === "hint" ? (
       <ListenChip />
     ) : picked.length === 0 ? (
-      "탈 친구를 눌러요"
+      round.help ? "노란 친구를 눌러요" : "탈 친구를 눌러요"
     ) : (
       "다 골랐으면 출발!"
     );
 
   const canGo = phase === "pick" || phase === "hint";
+  // 도움 단계: 빈자리와 빈자리만큼의 친구를 노랗게 비추고, 다 고르면 출발 버튼도 노랗게
+  const helpOn = round.help && (phase === "arrive" || phase === "pick");
+  const goGlow = helpOn && phase === "pick" && picked.length === seats;
 
   return (
     <GameFrame scene="station">
@@ -726,10 +719,10 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
                   <svg viewBox={`0 0 ${shape.w} ${shape.h}`} className="block h-full w-full overflow-visible" aria-hidden>
                     {shape.body}
                   </svg>
-                  {/* 자리: 빛나는 자리(같이 세기)와 앉은 친구 */}
+                  {/* 자리: 빛나는 자리(같이 세기 · 도움 단계)와 앉은 친구 */}
                   {shape.seats.map((s, i) => {
                     const rider = i < seated ? riders[picked[i]] : null;
-                    const lit = i < glow;
+                    const lit = i < glow || helpOn;
                     return (
                       <div
                         key={i}
@@ -795,6 +788,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
                 {riders.map((r, i) => {
                   const on = picked.includes(i);
                   const gone = leaving.includes(i);
+                  const guided = helpOn && !on && round.guide.includes(i);
                   return (
                     <motion.button
                       key={`${round.id}-${i}`}
@@ -815,13 +809,24 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
                       transition={{ type: "spring", stiffness: 420, damping: 20, delay: phase === "arrive" ? 0.06 * i : 0 }}
                       whileTap={{ scale: 0.9 }}
                     >
+                      {/* 도움 단계: 태울 친구 둘레에 노란 빛이 두근두근 (누르라는 뜻) */}
+                      {guided ? (
+                        <motion.span
+                          className="pointer-events-none absolute rounded-full bg-yellow-300"
+                          style={{ inset: -riderPx * 0.07 }}
+                          animate={{ scale: [1, 1.08, 1], opacity: [0.9, 0.45, 0.9] }}
+                          transition={{ duration: 1.1, repeat: Infinity }}
+                        />
+                      ) : null}
                       {/* 고른 친구는 발판이 노랗게 칠해진다 */}
                       <span
                         className="absolute inset-0 rounded-full border-4 transition-colors duration-200"
                         style={
                           on
                             ? { background: "#fde68a", borderColor: "#f59e0b", boxShadow: "0 0 0 4px rgba(253,230,138,0.7)" }
-                            : { background: "rgba(255,255,255,0.8)", borderColor: "#ffffff" }
+                            : guided
+                              ? { background: "#fef9c3", borderColor: "#facc15" }
+                              : { background: "rgba(255,255,255,0.8)", borderColor: "#ffffff" }
                         }
                       />
                       <Glyph
@@ -837,19 +842,29 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
             </div>
           </div>
 
-          <motion.button
-            type="button"
-            animate={nudge && phase === "pick" ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-            transition={nudge ? { duration: 1, repeat: Infinity } : { duration: 0.2 }}
-            whileTap={{ scale: 0.93 }}
-            onPointerDown={handleGo}
-            disabled={!canGo}
-            className={`pressable mt-2 flex shrink-0 items-center gap-2 rounded-full border-4 border-white bg-green-500 px-8 py-2 text-2xl text-white shadow-[0_6px_0_0_rgba(0,0,0,0.15)] transition-opacity sm:text-3xl short:mb-1 short:mt-0 short:px-5 short:py-1.5 short:text-xl ${
-              canGo ? (locked || picked.length === 0 ? "opacity-60" : "") : "invisible"
-            }`}
-          >
-            <Glyph emoji={kind === "bus" ? "🚌" : "🚂"} className="text-[1.1em]" /> 출발!
-          </motion.button>
+          <div className="relative mt-2 shrink-0 short:mb-1 short:mt-0">
+            {/* 도움 단계: 빈자리만큼 다 골랐으면 출발 버튼 둘레에 노란 빛 */}
+            {goGlow ? (
+              <motion.span
+                className="pointer-events-none absolute -inset-2 rounded-full bg-yellow-300"
+                animate={{ scale: [1, 1.08, 1], opacity: [0.9, 0.45, 0.9] }}
+                transition={{ duration: 1.1, repeat: Infinity }}
+              />
+            ) : null}
+            <motion.button
+              type="button"
+              animate={(nudge || goGlow) && phase === "pick" ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+              transition={nudge || goGlow ? { duration: 1, repeat: Infinity } : { duration: 0.2 }}
+              whileTap={{ scale: 0.93 }}
+              onPointerDown={handleGo}
+              disabled={!canGo}
+              className={`pressable relative flex items-center gap-2 rounded-full border-4 border-white bg-green-500 px-8 py-2 text-2xl text-white shadow-[0_6px_0_0_rgba(0,0,0,0.15)] transition-opacity sm:text-3xl short:px-5 short:py-1.5 short:text-xl ${
+                canGo ? (locked || picked.length === 0 ? "opacity-60" : "") : "invisible"
+              }`}
+            >
+              <Glyph emoji={kind === "bus" ? "🚌" : "🚂"} className="text-[1.1em]" /> 출발!
+            </motion.button>
+          </div>
         </div>
       </div>
 

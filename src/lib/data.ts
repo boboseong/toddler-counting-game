@@ -709,11 +709,11 @@ export const SHARE_LEVELS: CountLevel[] = [2, 3, 5, 7, 10, 15, 20].map((have) =>
  * 딱 맞게 태워요: 버스·기차의 빈자리(min~max)만큼 정류장의 친구를 골라 태운다.
  * 쏙쏙 나눠 주기와 같은 단계를 10까지만 쓴다: 정류장 친구 수가 나눠 주기의 가진 개수(2·3·5·7·10)이고,
  * 빈자리는 1개부터 그 수까지. 그 앞에 도움 단계(help)를 하나 둔다. 도움 단계는 1단계와 수가 같고,
- * 판마다 병아리가 빈자리를 먼저 하나씩 비추며 세어 준다.
- * 도움 단계 밖에서는 빈자리 수를 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
+ * 말은 더하지 않는 대신 빈자리와 빈자리만큼의 친구를 노랗게 비춰서 무엇을 누를지 알려 준다.
+ * 빈자리 수는 보여 주지도 말하지도 않고, 고를 때만 "하나, 둘, 셋" 하고 세어 준다
  */
 export interface BusLevel extends CountLevel {
-  /** 판마다 빈자리를 먼저 세어 주고, 한 번만 틀려도 다시 세어 준다 */
+  /** 빈자리와 태울 친구, 다 고르면 출발 버튼까지 노랗게 비춘다 */
   help: boolean;
 }
 
@@ -916,7 +916,7 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     }
     case "bus": {
       const s = busLevel(level);
-      return `친구 ${s.max}명 중 ${s.min}~${s.max}명 태우기${s.help ? " · 빈자리를 먼저 세어 줌" : ""}`;
+      return `친구 ${s.max}명 중 ${s.min}~${s.max}명 태우기${s.help ? " · 노란 빛 도움" : ""}`;
     }
   }
 }
