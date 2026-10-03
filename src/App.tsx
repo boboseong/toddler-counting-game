@@ -501,7 +501,6 @@ export default function App() {
   /** 선물 상자를 열었을 때 */
   const openReveal = useCallback(() => {
     playFanfare();
-    fx.shake(1);
     fire({
       particleCount: 200,
       spread: 160,
@@ -631,7 +630,8 @@ export default function App() {
         className="relative h-[100dvh] w-screen overflow-hidden bg-sky-100 text-slate-800"
         onPointerDownCapture={onAnyPointerDown}
       >
-        <div ref={rootRef} className="h-full w-full">
+        {/* 선물 화면이 떠 있는 동안 가려진 놀이 화면의 CSS 움직임은 멈춰 둔다 (index.css 의 .bg-paused) */}
+        <div ref={rootRef} className={`h-full w-full ${reveal ? "bg-paused" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={contentKey}

@@ -242,7 +242,25 @@ button {
   animation: twinkle 1.8s ease-in-out infinite;
 }
 
+/* 선물 화면의 빛줄기. 화면을 다 덮는 만큼만(대각선 길이) 그리고, CSS 애니메이션이라 GPU 가 돌린다 */
+.rays {
+  width: 140vmax;
+  height: 140vmax;
+  width: hypot(100vw, 100vh);
+  height: hypot(100vw, 100vh);
+  background: repeating-conic-gradient(from 0deg, #fde68a 0deg 12deg, transparent 12deg 24deg);
+  will-change: transform;
+  animation: spin-slow 24s linear infinite;
+}
+
+/* 선물 화면이 떠 있는 동안 가려진 뒤 화면의 CSS 움직임을 멈춘다 (같이 그리느라 저사양 폰에서 버벅이지 않게) */
+.bg-paused,
+.bg-paused * {
+  animation-play-state: paused !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .rays,
   .twinkle,
   .floaty,
   .floaty-slow,

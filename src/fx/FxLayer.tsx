@@ -153,9 +153,9 @@ export function FxLayer({ shakeTarget }: { shakeTarget: RefObject<HTMLElement | 
       setFlights((list) => [...list, { ...e, id, target, calm: reducedMotion() }]);
     });
     const offShake = shakeCh.on((s) => {
-      const el = shakeTarget.current;
+      const el = s.el ?? shakeTarget.current;
       if (!el) return;
-      const a = 5 * s;
+      const a = 5 * s.strength;
       void animate(el, { x: [0, -a, a, -a * 0.6, a * 0.6, 0], y: [0, a * 0.4, -a * 0.4, 0] }, { duration: 0.35 });
     });
     return () => {

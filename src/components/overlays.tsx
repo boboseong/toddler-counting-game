@@ -32,6 +32,7 @@ import { StickerFace } from "./buddy";
 import { Glyph } from "../art/Glyph";
 import { Chick } from "../art/Chick";
 import { useAutoAdvance } from "../hooks/useAutoAdvance";
+import { fx } from "../fx/bus";
 
 /** 선물 상자는 적어도 이만큼 보여 준 뒤(그리고 "선물이 왔어요!" 가 끝난 뒤) 누를 수 있다 */
 const GIFT_MIN_MS = 800;
@@ -101,9 +102,13 @@ export function StickerReveal({
     speak(say, { pitch: 1.3 });
   }, [index, opened, shiny, newAlbum, album]);
 
+  // 상자를 열 때 흔드는 자리. 가려진 뒤 화면 전체를 흔들면 저사양 폰에서 버벅여서 카드만 흔든다
+  const stageRef = useRef<HTMLDivElement>(null);
+
   const openGift = () => {
     if (!giftReady || opened) return;
     setOpenedFor(unlock);
+    fx.shake(1, stageRef.current);
     onOpen();
   };
 
@@ -123,126 +128,122 @@ export function StickerReveal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-violet-900/60 backdrop-blur-sm"
+          // 흐림(backdrop-blur)은 뒤 화면이 바뀔 때마다 다시 계산해야 해서 저사양 폰에서 버벅인다.
+          // 흐림 대신, 흐렸을 때와 같은 보랏빛을 거의 불투명하게 깔아 뒤 화면을 가린다
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#8364bb]/90"
         >
-          {/* 빛줄기 */}
-          <motion.div
-            className="pointer-events-none absolute h-[140vmax] w-[140vmax] opacity-40"
-            style={{
-              background:
-                "repeating-conic-gradient(from 0deg, #fde68a 0deg 12deg, transparent 12deg 24deg)",
-            }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
-          />
-          <AnimatePresence mode="wait">
-            {!opened ? (
-              <motion.div
-                key="gift"
-                initial={{ scale: 0.2, y: 80, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 1.4, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 260, damping: 16 }}
-                className="relative flex flex-col items-center gap-4 text-center short:gap-2"
-              >
-                <div className="break-keep text-4xl text-white drop-shadow sm:text-5xl short:text-3xl">
-                  선물이 왔어요!
-                </div>
-                <motion.button
-                  onClick={openGift}
-                  disabled={!giftReady}
-                  aria-label="선물 열기"
-                  animate={
-                    giftReady
-                      ? { scale: [1, 1.1, 1], rotate: [0, -6, 6, 0] }
-                      : { scale: 1, rotate: [0, -3, 3, 0] }
-                  }
-                  transition={{ duration: giftReady ? 0.9 : 1.6, repeat: Infinity }}
-                  whileTap={giftReady ? { scale: 0.9 } : undefined}
-                  className={`relative flex h-[clamp(9rem,min(40vw,34vh),15rem)] w-[clamp(9rem,min(40vw,34vh),15rem)] items-center justify-center rounded-[3rem] border-8 bg-white/90 shadow-2xl transition-colors ${
-                    giftReady ? "border-yellow-300" : "border-white/60"
+          {/* 빛줄기 (index.css 의 .rays: CSS 애니메이션이라 메인 스레드가 아닌 GPU 가 돌린다) */}
+          <div className="rays pointer-events-none absolute opacity-40" />
+          <div ref={stageRef} className="relative">
+            <AnimatePresence mode="wait">
+              {!opened ? (
+                <motion.div
+                  key="gift"
+                  initial={{ scale: 0.2, y: 80, opacity: 0 }}
+                  animate={{ scale: 1, y: 0, opacity: 1 }}
+                  exit={{ scale: 1.4, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 16 }}
+                  className="relative flex flex-col items-center gap-4 text-center short:gap-2"
+                >
+                  <div className="break-keep text-4xl text-white drop-shadow sm:text-5xl short:text-3xl">
+                    선물이 왔어요!
+                  </div>
+                  <motion.button
+                    onClick={openGift}
+                    disabled={!giftReady}
+                    aria-label="선물 열기"
+                    animate={
+                      giftReady
+                        ? { scale: [1, 1.1, 1], rotate: [0, -6, 6, 0] }
+                        : { scale: 1, rotate: [0, -3, 3, 0] }
+                    }
+                    transition={{ duration: giftReady ? 0.9 : 1.6, repeat: Infinity }}
+                    whileTap={giftReady ? { scale: 0.9 } : undefined}
+                    className={`relative flex h-[clamp(9rem,min(40vw,34vh),15rem)] w-[clamp(9rem,min(40vw,34vh),15rem)] items-center justify-center rounded-[3rem] border-8 bg-white/90 shadow-2xl transition-colors ${
+                      giftReady ? "border-yellow-300" : "border-white/60"
+                    }`}
+                  >
+                    {giftReady ? (
+                      <motion.span
+                        className="pointer-events-none absolute inset-0 rounded-[2.6rem] border-8 border-yellow-200"
+                        initial={{ opacity: 0.9, scale: 1 }}
+                        animate={{ opacity: 0, scale: 1.35 }}
+                        transition={{ duration: 1.1, repeat: Infinity }}
+                      />
+                    ) : null}
+                    <Glyph emoji="🎁" mood="happy" className="text-[clamp(5rem,min(24vw,20vh),9rem)]" />
+                  </motion.button>
+                  <div className="h-10 text-2xl text-white/90 short:h-8 short:text-xl">
+                    {giftReady ? (
+                      <motion.span
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="inline-flex items-center gap-2"
+                      >
+                        <motion.span
+                          className="inline-block"
+                          animate={{ y: [0, -8, 0] }}
+                          transition={{ duration: 0.8, repeat: Infinity }}
+                        >
+                          <Glyph emoji="👆" />
+                        </motion.span>
+                        눌러 봐요
+                      </motion.span>
+                    ) : (
+                      <span className="text-white/60">잘 들어 봐!</span>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="friend"
+                  initial={{ scale: 0.2, rotate: -20, y: 80 }}
+                  animate={{ scale: 1, rotate: 0, y: 0 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 14 }}
+                  className={`relative flex flex-col items-center gap-3 rounded-[3rem] border-8 px-10 py-8 text-center shadow-2xl short:gap-1 short:py-4 ${
+                    shiny ? "border-amber-400 bg-gradient-to-b from-yellow-50 to-amber-100" : "border-yellow-300 bg-white"
                   }`}
                 >
-                  {giftReady ? (
-                    <motion.span
-                      className="pointer-events-none absolute inset-0 rounded-[2.6rem] border-8 border-yellow-200"
-                      initial={{ opacity: 0.9, scale: 1 }}
-                      animate={{ opacity: 0, scale: 1.35 }}
-                      transition={{ duration: 1.1, repeat: Infinity }}
-                    />
+                  <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
+                  {newAlbum && album ? (
+                    <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
+                      <Glyph emoji={album.emoji} /> {album.title}
+                    </div>
                   ) : null}
-                  <Glyph emoji="🎁" mood="happy" className="text-[clamp(5rem,min(24vw,20vh),9rem)]" />
-                </motion.button>
-                <div className="h-10 text-2xl text-white/90 short:h-8 short:text-xl">
-                  {giftReady ? (
-                    <motion.span
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="inline-flex items-center gap-2"
-                    >
-                      <motion.span
-                        className="inline-block"
-                        animate={{ y: [0, -8, 0] }}
-                        transition={{ duration: 0.8, repeat: Infinity }}
+                  <motion.div
+                    className="drop-shadow-xl"
+                    animate={{ y: [0, -18, 0], rotate: [0, -8, 8, 0] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  >
+                    <StickerFace
+                      index={index}
+                      shiny={shiny}
+                      mood="cheer"
+                      className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
+                    />
+                  </motion.div>
+                  <div className="text-5xl text-slate-700 sm:text-6xl short:text-4xl">{STICKERS[index].name}</div>
+                  {/* 이름을 다 말하고 나서 확인 버튼 (그전에는 자리만 잡아 둔다) */}
+                  <div className="mt-2 flex h-16 items-center justify-center short:mt-0 short:h-12">
+                    {closeReady ? (
+                      <motion.button
+                        onClick={close}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: [1, 1.06, 1], opacity: 1 }}
+                        transition={{ scale: { duration: 1, repeat: Infinity }, opacity: { duration: 0.2 } }}
+                        whileTap={{ scale: 0.9 }}
+                        className="rounded-full border-4 border-white bg-emerald-400 px-10 py-2 text-3xl text-white shadow-[0_6px_0_0_#059669] short:py-1 short:text-2xl"
                       >
-                        <Glyph emoji="👆" />
-                      </motion.span>
-                      눌러 봐요
-                    </motion.span>
-                  ) : (
-                    <span className="text-white/60">잘 들어 봐!</span>
-                  )}
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="friend"
-                initial={{ scale: 0.2, rotate: -20, y: 80 }}
-                animate={{ scale: 1, rotate: 0, y: 0 }}
-                transition={{ type: "spring", stiffness: 260, damping: 14 }}
-                className={`relative flex flex-col items-center gap-3 rounded-[3rem] border-8 px-10 py-8 text-center shadow-2xl short:gap-1 short:py-4 ${
-                  shiny ? "border-amber-400 bg-gradient-to-b from-yellow-50 to-amber-100" : "border-yellow-300 bg-white"
-                }`}
-              >
-                <div className="break-keep text-3xl text-violet-500 sm:text-4xl short:text-2xl">{title}</div>
-                {newAlbum && album ? (
-                  <div className="rounded-full bg-violet-100 px-4 py-1 text-xl text-violet-600">
-                    <Glyph emoji={album.emoji} /> {album.title}
+                        확인 <Glyph emoji="✔" />
+                      </motion.button>
+                    ) : (
+                      <span className="text-lg text-slate-300">잘 들어 봐!</span>
+                    )}
                   </div>
-                ) : null}
-                <motion.div
-                  className="drop-shadow-xl"
-                  animate={{ y: [0, -18, 0], rotate: [0, -8, 8, 0] }}
-                  transition={{ duration: 1.2, repeat: Infinity }}
-                >
-                  <StickerFace
-                    index={index}
-                    shiny={shiny}
-                    mood="cheer"
-                    className="text-[clamp(6rem,min(30vw,30vh),12rem)]"
-                  />
                 </motion.div>
-                <div className="text-5xl text-slate-700 sm:text-6xl short:text-4xl">{STICKERS[index].name}</div>
-                {/* 이름을 다 말하고 나서 확인 버튼 (그전에는 자리만 잡아 둔다) */}
-                <div className="mt-2 flex h-16 items-center justify-center short:mt-0 short:h-12">
-                  {closeReady ? (
-                    <motion.button
-                      onClick={close}
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: [1, 1.06, 1], opacity: 1 }}
-                      transition={{ scale: { duration: 1, repeat: Infinity }, opacity: { duration: 0.2 } }}
-                      whileTap={{ scale: 0.9 }}
-                      className="rounded-full border-4 border-white bg-emerald-400 px-10 py-2 text-3xl text-white shadow-[0_6px_0_0_#059669] short:py-1 short:text-2xl"
-                    >
-                      확인 <Glyph emoji="✔" />
-                    </motion.button>
-                  ) : (
-                    <span className="text-lg text-slate-300">잘 들어 봐!</span>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
       ) : null}
     </AnimatePresence>

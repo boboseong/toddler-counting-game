@@ -53,9 +53,15 @@ function channel<T>() {
   };
 }
 
+export interface ShakeEvent {
+  strength: number;
+  /** 흔들 요소 (없으면 화면 전체) */
+  el?: HTMLElement | null;
+}
+
 export const burstCh = channel<BurstEvent>();
 export const flyCh = channel<FlyEvent>();
-export const shakeCh = channel<number>();
+export const shakeCh = channel<ShakeEvent>();
 export const lookCh = channel<Point>();
 export const pokeCh = channel<string>();
 
@@ -96,10 +102,10 @@ export const fx = {
     }
     flyCh.emit(e);
   },
-  /** 화면을 살짝 흔든다 (1 = 보통) */
-  shake(strength = 1) {
+  /** 화면을 살짝 흔든다 (1 = 보통). el 을 주면 그 요소만 */
+  shake(strength = 1, el?: HTMLElement | null) {
     if (reducedMotion()) return;
-    shakeCh.emit(strength);
+    shakeCh.emit({ strength, el });
   },
   /** 마지막으로 누른 곳 (캐릭터가 그쪽을 쳐다본다) */
   look(x: number, y: number) {
