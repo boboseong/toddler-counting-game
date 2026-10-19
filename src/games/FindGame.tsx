@@ -12,7 +12,7 @@ import {
   numeralName,
   obj,
   pick,
-  randomIntExcept,
+  pickTarget,
   randomPraise,
   randomSlowPhrase,
   shuffle,
@@ -264,7 +264,8 @@ export default function FindGame({ level, stars, tapGap, onHome, onWin, onResult
 
   const newRound = (id: number): Round => {
     const lv = findLevel(levelRef.current);
-    const target = randomIntExcept(lv.min, lv.max, prev.current.target);
+    // 이 단계에서 새로 나온 가장 큰 수는 3번에 1번
+    const target = pickTarget(lv.min, lv.max, prev.current.target);
     const prompt = pick(lv.prompts, prev.current.prompt);
     const theme = pick(THEMES, prev.current.theme);
     const item = pick(ITEMS, prev.current.item);

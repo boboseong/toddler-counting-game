@@ -6,6 +6,7 @@ import {
   ELEVATOR_TOP,
   GAME_IDS,
   LEVEL_RULES,
+  LEVELS_VERSION,
   MAX_LEVELS,
   SCENE_MAX,
   SESSION_LIMITS,
@@ -13,6 +14,7 @@ import {
   UNLOCK_TOTAL,
   clampLevel,
   isFollowGame,
+  levelFromV1,
   starsForUnlock,
   type CyclePace,
   type GameId,
@@ -59,6 +61,8 @@ export interface Progress {
   /** 놀이 시간 알림(분). 0 이면 끔 */
   sessionMin: number;
   levels: Record<GameId, number>;
+  /** levels 가 어느 단계 표 기준인지 (LEVELS_VERSION) */
+  levelsVersion: number;
   soundOn: boolean;
   voiceOn: boolean;
   /** 누를 때 짧은 진동 (지원하는 기기만) */
@@ -99,6 +103,7 @@ const DEFAULT: Progress = {
   today: { day: "", stars: 0, stickers: [] },
   sessionMin: 0,
   levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1, elevator: 1, dial: 1, share: 1, bus: 1 },
+  levelsVersion: LEVELS_VERSION,
   soundOn: true,
   voiceOn: true,
   hapticsOn: true,
@@ -160,9 +165,11 @@ function load(): Progress {
     const saved = JSON.parse(raw) as Partial<Progress>;
     const parsed = typeof saved.jar === "number" ? saved : fromOldPace(saved);
     const levels = { ...DEFAULT.levels };
+    // 단계 표가 바뀌기 전의 기록이면 하던 숫자 범위의 단계로 옮긴다
+    const v1 = (parsed.levelsVersion ?? 1) < LEVELS_VERSION;
     for (const g of GAME_IDS) {
       const v = parsed.levels?.[g];
-      if (typeof v === "number") levels[g] = clampLevel(g, v);
+      if (typeof v === "number") levels[g] = clampLevel(g, v1 ? levelFromV1(g, v) : v);
     }
     const cyclePace: CyclePace =
       parsed.cyclePace && parsed.cyclePace in CYCLE_PACES ? parsed.cyclePace : DEFAULT.cyclePace;
@@ -223,6 +230,7 @@ function load(): Progress {
       today,
       sessionMin,
       levels,
+      levelsVersion: LEVELS_VERSION,
       cyclePace,
       cycleNext,
       elevatorRides,

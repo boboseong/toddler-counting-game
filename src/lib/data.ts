@@ -525,6 +525,19 @@ export interface CountLevel {
   max: number;
 }
 
+/** 숫자 찾기·딩동 엘리베이터: 그 단계에서 새로 나온 수(범위의 가장 큰 수)가 문제로 나올 확률 */
+export const NEW_NUMBER_CHANCE = 1 / 3;
+
+/**
+ * 문제로 낼 수 (min~max). 새로 나온 수 max 는 늘 NEW_NUMBER_CHANCE 로 나오고,
+ * 나머지는 min~max-1 에서 고르게 나온다. 나머지끼리는 바로 앞 문제와 같은 수를 (가능하면) 피하고,
+ * max 는 확률을 지키려고 연달아 나올 수도 있다.
+ */
+export function pickTarget(min: number, max: number, prev?: number): number {
+  if (max <= min || Math.random() < NEW_NUMBER_CHANCE) return max;
+  return randomIntExcept(min, max - 1, prev);
+}
+
 /**
  * 문제를 푸는 단계가 없는 놀이(톡톡 세기 · 거품 팡팡)는 세기만 하면 끝나서 스스로 난이도를 잴 수 없다.
  * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 먹이 주기 · 숫자 찾기 · 나눠 주기)에서
@@ -608,6 +621,9 @@ export const HOWMANY_LEVELS: HowManyLevel[] = [
 
 /**
  * 숫자 찾기: 흩어진 숫자 중에서 말한 숫자를 찾는다.
+ * 딩동 엘리베이터처럼 한 단계에 가장 큰 수가 하나씩 늘고, 새로 나온 그 수가 3번에 1번 문제로 나온다 (pickTarget).
+ * 10을 넘으면 범위를 열 개로 두어 아래쪽 작은 수가 하나씩 빠진다 (2~11, 3~12 … 10~19).
+ * 소리가 비슷한 1과 2, 11과 12는 한 판에 같이 나오지 않는다 (FIND_APART).
  * - items: 화면에 흩어 놓는 숫자 개수
  * - prompts: 문제를 내는 방식 (한 라운드마다 이 중 하나)
  *   show  = 말풍선에 숫자를 보여 주며 "숫자 5를 찾아줘" (보고 찾기)
@@ -624,19 +640,35 @@ export interface FindLevel extends CountLevel {
 }
 
 export const FIND_LEVELS: FindLevel[] = [
-  { min: 1, max: 3, items: 3, prompts: ["show"], near: false },
+  { min: 1, max: 3, items: 2, prompts: ["show"], near: false },
+  { min: 1, max: 4, items: 3, prompts: ["show"], near: false },
   { min: 1, max: 5, items: 3, prompts: ["show"], near: false },
-  { min: 1, max: 5, items: 4, prompts: ["show"], near: false },
-  { min: 1, max: 5, items: 4, prompts: ["hear"], near: false },
-  { min: 1, max: 5, items: 5, prompts: ["count"], near: false },
-  { min: 1, max: 7, items: 5, prompts: ["show", "hear", "count"], near: false },
-  { min: 1, max: 9, items: 6, prompts: ["hear", "count"], near: false },
-  { min: 1, max: 10, items: 6, prompts: ["hear", "count"], near: false },
-  { min: 5, max: 13, items: 6, prompts: ["show", "hear", "count"], near: false },
-  { min: 8, max: 16, items: 7, prompts: ["hear", "count"], near: false },
+  { min: 1, max: 6, items: 4, prompts: ["show", "hear"], near: false },
+  { min: 1, max: 7, items: 4, prompts: ["show", "hear"], near: false },
+  { min: 1, max: 8, items: 5, prompts: ["show", "hear", "count"], near: false },
+  { min: 1, max: 9, items: 5, prompts: ["show", "hear", "count"], near: false },
+  { min: 1, max: 10, items: 6, prompts: ["show", "hear", "count"], near: false },
+  { min: 2, max: 11, items: 6, prompts: ["show", "hear", "count"], near: false },
+  { min: 3, max: 12, items: 6, prompts: ["show", "hear", "count"], near: false },
+  { min: 4, max: 13, items: 6, prompts: ["show", "hear", "count"], near: false },
+  { min: 5, max: 14, items: 7, prompts: ["hear", "count"], near: false },
+  { min: 6, max: 15, items: 7, prompts: ["hear", "count"], near: false },
+  { min: 7, max: 16, items: 7, prompts: ["hear", "count"], near: false },
+  { min: 8, max: 17, items: 8, prompts: ["hear", "count"], near: false },
+  { min: 9, max: 18, items: 8, prompts: ["hear", "count"], near: false },
   { min: 10, max: 19, items: 8, prompts: ["hear", "count"], near: false },
   { min: 10, max: 19, items: 9, prompts: ["hear", "count"], near: true },
 ];
+
+/** 숫자 찾기에서 한 판에 같이 나오지 않게 하는 수 짝: 소리가 비슷해서 헷갈린다 (일·이, 십일·십이) */
+export const FIND_APART: [number, number][] = [
+  [1, 2],
+  [11, 12],
+];
+
+function findApart(a: number, b: number): boolean {
+  return FIND_APART.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
 
 export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
   show: "보고",
@@ -644,28 +676,25 @@ export const FIND_PROMPT_LABELS: Record<FindPrompt, string> = {
   count: "세어서",
 };
 
+/** 엘리베이터 아파트의 꼭대기 층 */
+export const ELEVATOR_TOP = 20;
+
 /**
  * 딩동 엘리베이터: 손님이 "오 층 눌러 주세요!" 하면 그 층 버튼을 누른다.
  * 엘리베이터는 늘 1층에서 손님을 태우므로 목적지는 2층부터다.
+ * 단계는 2~3층에서 시작해 한 단계에 한 층씩 늘고(2~4층, 2~5층 … 2~20층),
+ * 새로 생긴 맨 위층이 3번에 1번 목적지로 나온다 (pickTarget).
+ * 정답 버튼의 노란 빛은 두 번 틀리거나 한참 가만히 있을 때만 비춘다.
  * - floors: 누를 수 있는 층 (1~floors 층). 버튼판은 단계가 바뀌어도 자리가 그대로이게
  *   10층씩 묶어서 보여 주고, 묶음 안의 나머지 층(5층 단계의 6~10층 등)은 음영으로 눌리지 않게 둔다
- * - glow: 정답 버튼에 노란 빛을 비춘다 (처음 단계에서만)
  */
 export interface ElevatorLevel {
   floors: number;
-  glow: boolean;
 }
 
-export const ELEVATOR_LEVELS: ElevatorLevel[] = [
-  { floors: 5, glow: true },
-  { floors: 5, glow: false },
-  { floors: 10, glow: false },
-  { floors: 15, glow: false },
-  { floors: 20, glow: false },
-];
-
-/** 엘리베이터 아파트의 꼭대기 층 */
-export const ELEVATOR_TOP = 20;
+export const ELEVATOR_LEVELS: ElevatorLevel[] = Array.from({ length: ELEVATOR_TOP - 2 }, (_, i) => ({
+  floors: i + 3,
+}));
 
 /**
  * 이 층 이상으로 올라갈 때는 층을 한 낱말씩 끊지 않고 이어서 빠르게 센다
@@ -673,10 +702,7 @@ export const ELEVATOR_TOP = 20;
  */
 export const ELEVATOR_RUN_FROM = 10;
 
-/**
- * 외우기: 여러 번 데려다 준 친구는 가끔 층을 말하지 않고 "우리 집에 데려다 줘!" 한다.
- * 노란 빛이 없는 단계에서만 (빛이 있으면 답이 보이니까)
- */
+/** 외우기: 여러 번 데려다 준 친구는 가끔 층을 말하지 않고 "우리 집에 데려다 줘!" 한다 */
 export const ELEVATOR_MEMORY = {
   /** 이만큼 데려다 준 친구부터 */
   known: 5,
@@ -858,6 +884,28 @@ export function clampLevel(game: GameId, level: number): number {
   return Math.min(max, Math.max(1, Math.round(level)));
 }
 
+/**
+ * 저장된 단계 번호가 어느 단계 표를 기준으로 한 것인지. 단계 표의 번호가 바뀌면 올린다.
+ * 2: 숫자 찾기·딩동 엘리베이터를 한 단계에 숫자 하나씩 늘리는 표로 바꿈
+ */
+export const LEVELS_VERSION = 2;
+
+/** 버전 1 단계 표에서 단계마다 가장 큰 수 (숫자 찾기 · 엘리베이터 맨 위층) */
+const V1_TOPS: Partial<Record<GameId, number[]>> = {
+  find: [3, 5, 5, 5, 5, 7, 9, 10, 13, 16, 19, 19],
+  elevator: [5, 5, 10, 15, 20],
+};
+
+/** 버전 1 단계 번호를 지금 표에서 같은 수까지 다루는 첫 단계로 옮긴다 (아이가 하던 범위를 그대로 이어 간다) */
+export function levelFromV1(game: GameId, level: number): number {
+  const tops = V1_TOPS[game];
+  if (!tops || !Number.isFinite(level)) return level;
+  const top = tops[Math.min(tops.length, Math.max(1, Math.round(level))) - 1];
+  const topOf = (l: number) => (game === "find" ? findLevel(l).max : elevatorLevel(l).floors);
+  for (let l = 1; l < MAX_LEVELS[game]; l++) if (topOf(l) >= top) return l;
+  return MAX_LEVELS[game];
+}
+
 export function feedLevel(level: number): FeedLevel {
   return FEED_LEVELS[clampLevel("feed", level) - 1];
 }
@@ -909,11 +957,11 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
     case "find": {
       const s = findLevel(level);
       const kinds = s.prompts.map((p) => FIND_PROMPT_LABELS[p]).join("·");
-      return `${s.min}~${s.max} · ${s.items}개 중 · ${kinds} 찾기${s.near ? " · 비슷한 수" : ""}`;
+      return `${s.min}~${s.max} · ${s.items}개 중 · ${kinds} 찾기${s.near ? " · 비슷한 수" : ""} · 3번에 1번은 ${s.max}`;
     }
     case "elevator": {
       const s = elevatorLevel(level);
-      return `1~${s.floors}층 · ${s.glow ? "노란 빛 도움" : "듣고 누르기 · 가끔 외우기"}`;
+      return `2~${s.floors}층 · 3번에 1번은 ${s.floors}층 · 가끔 외우기`;
     }
     case "dial": {
       const s = dialLevel(level);
@@ -936,17 +984,21 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
 
 /**
  * 숫자 찾기 오답 숫자 고르기 (items-1 개). near 면 정답 근처를 먼저 쓰고, 모자라면 범위 안의 아무 수로 채운다.
+ * FIND_APART 짝(1·2, 11·12)은 정답과도, 오답끼리도 한 판에 같이 넣지 않는다.
  */
 export function findDistractors(target: number, lv: FindLevel): number[] {
   const all: number[] = [];
-  for (let n = lv.min; n <= lv.max; n++) if (n !== target) all.push(n);
-  const want = Math.min(lv.items - 1, all.length);
-  const preferred = lv.near ? all.filter((n) => Math.abs(n - target) <= 3) : all;
-  const picked = shuffle(preferred).slice(0, want);
-  if (picked.length < want) {
-    const rest = shuffle(all.filter((n) => !picked.includes(n)));
-    picked.push(...rest.slice(0, want - picked.length));
-  }
+  for (let n = lv.min; n <= lv.max; n++) if (n !== target && !findApart(n, target)) all.push(n);
+  const want = lv.items - 1;
+  const picked: number[] = [];
+  const take = (pool: number[]) => {
+    for (const n of shuffle(pool)) {
+      if (picked.length >= want) return;
+      if (!picked.includes(n) && !picked.some((p) => findApart(p, n))) picked.push(n);
+    }
+  };
+  take(lv.near ? all.filter((n) => Math.abs(n - target) <= 3) : all);
+  take(all);
   return picked;
 }
 

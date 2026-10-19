@@ -17,7 +17,7 @@ import {
   ELEVATOR_RUN_FROM,
   NUM_COLORS,
   elevatorLevel,
-  randomIntExcept,
+  pickTarget,
   randomPraise,
   residentOf,
   type Resident,
@@ -44,7 +44,6 @@ interface Round {
   memory: boolean;
   /** 라운드 도중에 단계가 바뀌어도 버튼판이 바뀌지 않게 라운드에 묶어 둔다 */
   floors: number;
-  glow: boolean;
 }
 
 /**
@@ -338,12 +337,13 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
 
   const newRound = (id: number): Round => {
     const lv = elevatorLevel(levelRef.current);
-    const floor = randomIntExcept(2, lv.floors, prev.current.floor);
+    // 이 단계에서 새로 생긴 맨 위층은 3번에 1번
+    const floor = pickTarget(2, lv.floors, prev.current.floor);
     // 여러 번 데려다 준 친구는 가끔 층을 말하지 않는다 (두 번 연달아는 안 함)
     const known = (ridesRef.current[floor] ?? 0) >= ELEVATOR_MEMORY.known;
-    const memory = !lv.glow && known && !prev.current.memory && Math.random() < ELEVATOR_MEMORY.chance;
+    const memory = known && !prev.current.memory && Math.random() < ELEVATOR_MEMORY.chance;
     prev.current = { floor, memory };
-    return { id, floor, rider: residentOf(floor), memory, floors: lv.floors, glow: lv.glow };
+    return { id, floor, rider: residentOf(floor), memory, floors: lv.floors };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -631,7 +631,7 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
   const [stageRef, stage] = useBox<HTMLDivElement>();
   const { floor: target, rider, floors } = round;
   const locked = guard.locked;
-  const showNumber = round.glow || hint;
+  const showNumber = hint;
   const glowOn = showNumber && (phase === "ask" || phase === "visit");
   const listening = locked && (phase === "board" || phase === "ask" || phase === "visit");
 
