@@ -5,15 +5,18 @@ import { P } from "../lib/phrases";
 import {
   ITEMS,
   NUM_COLORS,
+  PORORO_COUNT,
   counterPhrase,
   mashLimitFor,
   pick,
+  pororoFaces,
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
   tapRange,
   type CountItem,
 } from "../lib/data";
+import { rollPororo } from "../lib/pororoRoll";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { BigNumeral, GameFrame, ListenChip, SlowBanner, TopBar, WinBanner } from "../components/ui";
@@ -26,6 +29,8 @@ interface Round {
   id: number;
   item: CountItem;
   count: number;
+  /** 뽀로로 친구들을 셀 때 한 명씩의 그림 (없으면 모두 item 그림) */
+  faces?: string[];
 }
 
 type Phase = "play" | "done" | "slow";
@@ -73,11 +78,13 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
   maxRef.current = countMax;
 
   const newRound = (id: number): Round => {
-    const item = pick(ITEMS, prev.current.item);
+    // 가끔 뽀로로 친구들을 센다 ("뽀로로 친구 몇 명?", 한 명씩 다른 친구)
+    const pororo = rollPororo();
+    const item = pororo ? PORORO_COUNT : pick(ITEMS, prev.current.item);
     const { min, max } = tapRange(maxRef.current);
     const count = randomIntExcept(min, max, prev.current.count);
     prev.current = { item, count };
-    return { id, item, count };
+    return { id, item, count, faces: pororo ? pororoFaces(count) : undefined };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -265,7 +272,7 @@ export default function TapCountGame({ countMax, stars, tapGap, onHome, onWin, o
                     animate={counted ? REACTIONS[reactionOf(item.emoji)] : {}}
                     transition={{ duration: 0.6 }}
                   >
-                    <Glyph emoji={item.emoji} mood={counted ? "happy" : "idle"} className={sz.emoji} />
+                    <Glyph emoji={round.faces?.[i] ?? item.emoji} mood={counted ? "happy" : "idle"} className={sz.emoji} />
                   </motion.span>
                   {counted ? (
                     <motion.span

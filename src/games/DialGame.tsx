@@ -21,10 +21,12 @@ import {
   dialNumber,
   mashLimitFor,
   pick,
+  PORORO_GUESTS,
   randomPraise,
   randomSlowPhrase,
   type DialKey,
 } from "../lib/data";
+import { rollPororo } from "../lib/pororoRoll";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { GameFrame, ListenChip, SlowBanner, SpeechBubble, TopBar } from "../components/ui";
@@ -167,8 +169,11 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
     const lv = dialLevel(levelRef.current);
     let keys = dialNumber(lv);
     for (let i = 0; i < 5 && keys.join("") === prev.current.keys; i++) keys = dialNumber(lv);
-    const callers = callersFrom(friendsRef.current).filter((c) => c.name !== prev.current.caller);
-    const caller = pick(callers);
+    // 가끔 뽀로로 친구가 전화를 받는다 ("여보세요? 나 뽀로로야!")
+    const pool: Caller[] = rollPororo()
+      ? PORORO_GUESTS.map(({ emoji, name }) => ({ emoji, name }))
+      : callersFrom(friendsRef.current);
+    const caller = pick(pool.filter((c) => c.name !== prev.current.caller));
     prev.current = { keys: keys.join(""), caller: caller.name };
     return { id, keys, guide: lv.guide, caller };
   };

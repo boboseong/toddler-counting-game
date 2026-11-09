@@ -7,6 +7,8 @@ import * as IC from "./icons";
 import * as I from "./items";
 import * as SEA from "./sea";
 import * as V from "./vehicles";
+import { PORORO_GUESTS } from "../lib/data";
+import { PORORO_ART } from "./pororo";
 import type { ArtProps, TapReaction } from "./types";
 
 export interface ArtEntry {
@@ -171,4 +173,6 @@ export const ART: Record<string, ArtEntry> = {
   "❔": { C: IC.Question },
   "▶": { C: IC.Play },
   "✔": { C: IC.Check },
+  // 뽀로로와 친구들: 이모지가 없어서 "pororo:이름" 열쇠로 찾는다 (lib/data.ts 의 PORORO_GUESTS)
+  ...Object.fromEntries(PORORO_GUESTS.map((g) => [g.emoji, { C: PORORO_ART[g.name].C, react: "hop" as const }])),
 };

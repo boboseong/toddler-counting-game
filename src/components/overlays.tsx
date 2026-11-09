@@ -923,10 +923,15 @@ export function ParentGate({
 }
 
 /* ---------- 같이 춤추는 병아리 (라운드 성공마다) ---------- */
-export function CheerChick({ cheer }: { cheer: number }) {
+export function CheerChick({ cheer, skip = false }: { cheer: number; skip?: boolean }) {
   const [shown, setShown] = useState(0);
   useEffect(() => {
     if (cheer === 0) return;
+    // 이번엔 뽀로로 친구가 대신 온다
+    if (skip) {
+      setShown(0);
+      return;
+    }
     setShown(cheer);
     const t = window.setTimeout(() => setShown(0), 2600);
     return () => window.clearTimeout(t);

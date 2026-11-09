@@ -18,6 +18,7 @@ import {
   counterPhrase,
   countStepMs,
   guestsFrom,
+  PORORO_GUESTS,
   randomInt,
   randomIntExcept,
   randomPraise,
@@ -25,6 +26,7 @@ import {
   STICKERS,
   type BusKind,
 } from "../lib/data";
+import { rollPororo } from "../lib/pororoRoll";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { useBox } from "../hooks/useBox";
@@ -283,8 +285,12 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
     const seats =
       lv.max - lv.min >= 2 ? randomIntExcept(lv.min, lv.max, prev.current.seats) : randomInt(lv.min, lv.max);
     prev.current = { seats };
-    // 정류장 친구 수는 쏙쏙 나눠 주기의 가진 개수처럼 단계마다 정해져 있다 (동물 친구가 12마리라 늘 모자라지 않다)
-    const riders = shuffle(riderPool(friendsRef.current)).slice(0, lv.riders);
+    // 정류장 친구 수는 쏙쏙 나눠 주기의 가진 개수처럼 단계마다 정해져 있다 (동물 친구가 12마리라 늘 모자라지 않다).
+    // 가끔 뽀로로 친구들이 줄을 선다 (일곱 명보다 많이 필요하면 나머지는 늘 오는 친구들로 채워서 섞는다)
+    const regular = shuffle(riderPool(friendsRef.current));
+    const riders = rollPororo()
+      ? shuffle([...shuffle(PORORO_GUESTS.map(({ emoji, name }) => ({ emoji, name }))), ...regular].slice(0, lv.riders))
+      : regular.slice(0, lv.riders);
     // 먼저 탄 친구는 아무 자리에나 (늘 한 자리는 비어 있게)
     const takenN = randomInt(lv.taken[0], Math.min(lv.taken[1], seats - 1));
     const all = Array.from({ length: seats }, (_, i) => i);

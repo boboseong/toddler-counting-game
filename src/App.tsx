@@ -62,6 +62,8 @@ import { FxLayer } from "./fx/FxLayer";
 import { fx } from "./fx/bus";
 import { CycleBar, CycleTransition } from "./components/cycle";
 import { BuddyContext, type BuddyInfo } from "./components/buddy";
+import { FriendVisit, type CheerBy } from "./components/visitor";
+import { rollVisit } from "./lib/pororoRoll";
 import type { GameProps, Screen } from "./types";
 
 const GAMES: Record<GameId, ComponentType<GameProps>> = {
@@ -175,6 +177,7 @@ export default function App() {
   const [bonusShown, setBonusShown] = useState(false);
   const [levelUpShown, setLevelUpShown] = useState(false);
   const [cheer, setCheer] = useState(0);
+  const [cheerBy, setCheerBy] = useState<CheerBy>("chick");
   const rootRef = useRef<HTMLDivElement>(null);
   const lastSparkle = useRef(0);
   const lastCelebration = useRef<Celebration>("confetti");
@@ -425,6 +428,8 @@ export default function App() {
     }
     setFlying((f) => [...f, ...items]);
     const unlocked = addStar(bonus ? 2 : 1);
+    // 가끔 병아리 대신 뽀로로 친구가 놀러 온다 (선물 상자가 열릴 땐 선물이 주인공이라 쉰다)
+    setCheerBy(unlocked === null && rollVisit() ? "friend" : "chick");
 
     // 이번 성공 뒤에 이어질 일: 오늘은 여기까지 / 빙글빙글 다음 놀이
     let after: "bye" | "switch" | null = null;
@@ -656,7 +661,12 @@ export default function App() {
 
         </div>
 
-        {isGame(screen) && !transition ? <CheerChick cheer={cheer} /> : null}
+        {isGame(screen) && !transition ? (
+          <>
+            <CheerChick cheer={cheer} skip={cheerBy === "friend"} />
+            <FriendVisit cheer={cheer} by={cheerBy} />
+          </>
+        ) : null}
         <BalloonRise burst={balloons} />
         <BonusBadge show={bonusShown} />
         <LevelUpBadge show={levelUpShown} />

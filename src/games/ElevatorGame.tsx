@@ -16,12 +16,15 @@ import {
   ELEVATOR_MEMORY,
   ELEVATOR_RUN_FROM,
   NUM_COLORS,
+  PORORO_GUESTS,
   elevatorLevel,
+  pick,
   pickTarget,
   randomPraise,
   residentOf,
   type Resident,
 } from "../lib/data";
+import { rollPororo } from "../lib/pororoRoll";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { useBox } from "../hooks/useBox";
@@ -44,6 +47,8 @@ interface Round {
   memory: boolean;
   /** 라운드 도중에 단계가 바뀌어도 버튼판이 바뀌지 않게 라운드에 묶어 둔다 */
   floors: number;
+  /** 뽀로로 친구가 그 층 친구네 집에 놀러 간다 (그 층에 사는 손님이 아니다) */
+  pororo: boolean;
 }
 
 /**
@@ -328,7 +333,7 @@ function FloorButton({
 export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHome, onWin, onResult }: GameProps) {
   const { after, clearAll } = useTimers();
   const guard = useRoundGuard(tapGap);
-  const prev = useRef<{ floor?: number; memory?: boolean }>({});
+  const prev = useRef<{ floor?: number; memory?: boolean; rider?: string }>({});
   const levelRef = useRef(level);
   levelRef.current = level;
   const ridesRef = useRef(rides);
@@ -339,11 +344,16 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     const lv = elevatorLevel(levelRef.current);
     // 이 단계에서 새로 생긴 맨 위층은 3번에 1번
     const floor = pickTarget(2, lv.floors, prev.current.floor);
+    // 가끔 뽀로로 친구가 타서 그 층 친구네 집에 놀러 간다 (외우기 문제는 내지 않는다)
+    const pororo = rollPororo();
     // 여러 번 데려다 준 친구는 가끔 층을 말하지 않는다 (두 번 연달아는 안 함)
     const known = (ridesRef.current[floor] ?? 0) >= ELEVATOR_MEMORY.known;
-    const memory = known && !prev.current.memory && Math.random() < ELEVATOR_MEMORY.chance;
-    prev.current = { floor, memory };
-    return { id, floor, rider: residentOf(floor), memory, floors: lv.floors };
+    const memory = !pororo && known && !prev.current.memory && Math.random() < ELEVATOR_MEMORY.chance;
+    const rider: Resident = pororo
+      ? pick(PORORO_GUESTS.filter((g) => g.name !== prev.current.rider).map(({ emoji, name }) => ({ emoji, name })))
+      : residentOf(floor);
+    prev.current = { floor, memory, rider: rider.name };
+    return { id, floor, rider, memory, floors: lv.floors, pororo };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -401,6 +411,9 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
   const riderBase: Mood = phase === "done" ? "cheer" : phase === "ride" ? "happy" : "idle";
   const [riderMood, flashRider] = useMood(riderBase);
 
+  /** 도착해서 손님이 하는 말: 사는 친구는 "우리 집이다!", 놀러 간 뽀로로 친구는 "친구네 집이다!" */
+  const thanksOf = (r: Round) => (r.pororo ? P.elevatorVisitThanks : P.elevatorThanks);
+
   /** 손님이 다시 부탁하는 말: 외우기 문제는 층을 알려 주기 전까지 "우리 집에 데려다 줘!" */
   const askLine = (r: Round) => (r.memory && !revealedRef.current ? P.elevatorAskHome : P.elevatorAsk(r.floor));
 
@@ -444,7 +457,7 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     const ask = askLine(r);
     const counts = Array.from({ length: r.floors }, (_, i) => P.elevatorCount(i + 1));
     const runs = countParts(1, r.floor).flatMap((p) => (p.floors.length > 1 ? [p.text] : []));
-    prefetchSpeech([board, ask, ...runs, ...counts, P.elevatorArrive(r.floor), P.elevatorThanks, P.elevatorHomeIs(r.floor)]);
+    prefetchSpeech([board, ask, ...runs, ...counts, P.elevatorArrive(r.floor), thanksOf(r), P.elevatorHomeIs(r.floor)]);
     const talkMs = speakDuration([board, ask]);
     guard.lock(BOARD_MS + talkMs);
     setOpen(true);
@@ -515,13 +528,14 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     const thanksAt = Math.max(1000, speakDuration(arrive));
     after(thanksAt, () => {
       flashRider("cheer", 3000);
-      riderSays(P.elevatorThanks);
+      riderSays(thanksOf(r));
       speak(p, { interrupt: false, pitch: 1.25 });
       flashChick("cheer", 3600);
       setBanner(true);
       // 틀리거나 힌트를 받은 뒤 데려다 줬으면 화면은 똑같이 축하하지만 단계에는 성공으로 치지 않는다
       if (wrongs.current === 0 && idleStage.current === 0) onResult(true);
-      onRide(r.floor);
+      // 외우기는 그 층에 사는 친구를 데려다 준 횟수로 정한다 (놀러 간 뽀로로 친구는 세지 않는다)
+      if (!r.pororo) onRide(r.floor);
       onWin();
     });
     after(thanksAt + 3800, nextRound);

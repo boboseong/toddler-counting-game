@@ -18,6 +18,8 @@ import {
   GAME_META,
   ITEMS,
   MAX_NUMBER,
+  PORORO_COUNT,
+  PORORO_GUESTS,
   PRAISES,
   SCENE_MAX,
   SLOW_PHRASES,
@@ -128,6 +130,8 @@ export const P = {
   elevatorNotHere: "여기가 아니에요!",
   /** 손님 */
   elevatorThanks: "우리 집이다! 고마워!",
+  /** 친구네 집에 놀러 가는 손님 (뽀로로 친구) */
+  elevatorVisitThanks: "친구네 집이다! 고마워!",
 
   /* 숫자 따라 누르기 (버튼은 한 자리씩 읽는다: 12 → 일, 이) */
   /** 버튼 이름: "일", "영", "별", "샵" */
@@ -373,6 +377,17 @@ export function allPhrases(): PhraseSpec[] {
     });
   });
   guests.forEach((name) => add(P.guestHello(name), "cheer"));
+  // 뽀로로와 친구들: 놀러 왔어 · 엘리베이터에 탔어요 · 전화 받기 · 세기
+  PORORO_GUESTS.forEach(({ name }) => {
+    add(P.guestHello(name), "cheer");
+    add(P.elevatorBoard(name), "talk");
+    add(P.dialHello(name), "cheer", false, "animal");
+  });
+  add(P.elevatorVisitThanks, "cheer", false, "animal");
+  add(P.tapIntro(PORORO_COUNT), "ask");
+  add(P.howManyIntro(PORORO_COUNT), "ask");
+  add(P.howManyAgain(PORORO_COUNT.counter), "ask");
+  nums.forEach((n) => add(P.itemCount(PORORO_COUNT, n), "cheer"));
 
   // 숫자 따라 누르기: 두 자리 문장 (숫자만, 같은 숫자가 이어지지 않음) · 전화 받는 동물 친구
   const digits = DIAL_KEYS.filter((k) => /\d/.test(k));

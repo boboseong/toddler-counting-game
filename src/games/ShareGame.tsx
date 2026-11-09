@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { playChomp, playDing, playPop, playSoft, playTap, prefetchSpeech, speak, speakDuration } from "../lib/audio";
+import { clipMs, playChomp, playDing, playPop, playSoft, playTap, prefetchSpeech, speak, speakDuration } from "../lib/audio";
 import { P } from "../lib/phrases";
 import {
   ANIMALS,
   GUEST_CHANCE,
+  PORORO_GUESTS,
   counterPhrase,
   guestsFrom,
   obj,
@@ -20,6 +21,7 @@ import { useRoundGuard } from "../hooks/useRoundGuard";
 import { BigNumeral, GameFrame, ListenChip, SpeechBubble, TopBar, WinBanner } from "../components/ui";
 import type { GameProps } from "../types";
 import { Glyph } from "../art/Glyph";
+import { rollPororo } from "../lib/pororoRoll";
 import type { Mood } from "../art/types";
 import { centerOf, fx, type Point } from "../fx/bus";
 import { useMood } from "../fx/useMood";
@@ -41,6 +43,8 @@ interface Round {
   have: number;
   /** 스티커로 모은 친구가 손님으로 왔다 */
   guest: boolean;
+  /** 뽀로로 친구가 손님으로 왔다 */
+  pororo: boolean;
 }
 
 type Phase = "play" | "done";
@@ -102,14 +106,19 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
 
   const newRound = (id: number): Round => {
     const lv = shareLevel(levelRef.current);
-    const guests = guestsFrom(friendsRef.current).filter((g) => g.name !== prev.current.animal?.name);
-    const guest = guests.length > 0 && Math.random() < GUEST_CHANCE;
-    const animal = guest
-      ? pick(guests)
-      : pick(ANIMALS.filter((a) => a.name !== prev.current.animal?.name));
+    const last = prev.current.animal?.name;
+    // 가끔 뽀로로 친구가 오고, 아니면 스티커 친구 손님, 아니면 늘 오는 동물 친구
+    const pororo = rollPororo();
+    const guests = guestsFrom(friendsRef.current).filter((g) => g.name !== last);
+    const guest = !pororo && guests.length > 0 && Math.random() < GUEST_CHANCE;
+    const animal: Animal = pororo
+      ? pick(PORORO_GUESTS.filter((g) => g.name !== last))
+      : guest
+        ? pick(guests)
+        : pick(ANIMALS.filter((a) => a.name !== last));
     const want = randomIntExcept(lv.min, lv.max, prev.current.want);
     prev.current = { animal, want };
-    return { id, animal, want, have: lv.max, guest };
+    return { id, animal, want, have: lv.max, guest, pororo };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -174,6 +183,7 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
 
   const { animal, want, have } = round;
   const food = animal.food;
+
   // 날아가는 중인 먹이는 어느 쪽에도 세지 않는다: 떠나면 내 숫자가 줄고, 도착해야 친구 숫자가 오른다
   const friendCount = given.filter((id) => !landing.includes(id)).length;
   const mine = have - given.length - landing.filter((id) => !given.includes(id)).length;
@@ -230,6 +240,8 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
     const intro: string[] = [];
     if (round.id === 0) intro.push(P.shareIntro);
     if (round.guest) intro.push(P.guestHello(animal.name));
+    // "뽀로로가 놀러 왔어!" 는 음성 파일이 있을 때만 (없으면 기계 목소리가 섞여서 어색하다)
+    if (round.pororo && clipMs(P.guestHello(animal.name)) !== null) intro.push(P.guestHello(animal.name));
     intro.push(ask);
     prefetchSpeech([...intro, P.feedThanks(food, want)]);
     const ms = 400 + speakDuration(intro);
@@ -608,6 +620,10 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
               {round.guest ? (
                 <span className="absolute -left-3 -top-3 whitespace-nowrap rounded-full border-2 border-white bg-violet-400 px-2 py-0.5 text-sm text-white shadow sm:text-base">
                   <Glyph emoji="📒" /> 내 친구
+                </span>
+              ) : round.pororo ? (
+                <span className="absolute -left-3 -top-3 whitespace-nowrap rounded-full border-2 border-white bg-sky-500 px-2 py-0.5 text-sm text-white shadow sm:text-base">
+                  {animal.name}
                 </span>
               ) : null}
             </motion.div>

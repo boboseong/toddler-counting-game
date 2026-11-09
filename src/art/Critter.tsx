@@ -42,6 +42,16 @@ export interface CritterSpec {
   limbs?: string;
   /** 발 색 (펭귄처럼 팔과 다르면) */
   feet?: string;
+  /** 몸통 색 (옷을 입은 친구). 없으면 털 색 */
+  body?: string;
+  /** 배(밝은 타원) 색. 옷에 가려 안 보이면 "none". 없으면 light */
+  bellyColor?: string;
+  /** 얼굴(눈·입) 크기 (기본 0.95) */
+  faceS?: number;
+  /** 입 크기 배율 [가로, 세로] (크롱처럼 입이 큰 친구) */
+  mouthScale?: [number, number];
+  /** 부리를 이만큼 내린다 (뽀로로처럼 고글이 눈을 덮으면) */
+  beakDy?: number;
   /** 입 위치를 더 내릴 때 (하마·악어처럼 주둥이가 크면) */
   mouthDy?: number;
   /** 머리 뒤 (갈기·꼬리) */
@@ -234,8 +244,8 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
         >
           <ellipse cx="40" cy="94" rx="7" ry="4.5" fill={feet} {...stroke} />
           <ellipse cx="60" cy="94" rx="7" ry="4.5" fill={feet} {...stroke} />
-          <ellipse cx="50" cy="79" rx="23" ry="16" fill={s.fur} {...stroke} />
-          <ellipse cx="50" cy="82" rx="14" ry="10" fill={s.light} />
+          <ellipse cx="50" cy="79" rx="23" ry="16" fill={s.body ?? s.fur} {...stroke} />
+          <ellipse cx="50" cy="82" rx="14" ry="10" fill={s.bellyColor ?? s.light} />
           {s.belly}
         </motion.g>
         {/* 팔: 기쁘면 번쩍 */}
@@ -272,12 +282,14 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
           <Face
             x={50}
             y={s.faceY ?? 44}
-            s={0.95}
+            s={s.faceS ?? 0.95}
             mood={mood}
             look={look}
             mouth={s.nose === "beak" ? "beak" : s.nose === "trunk" ? "none" : "mouth"}
             mouthDy={s.mouthDy ?? (s.nose === "snout" ? 7 : s.nose === "muzzle" ? 8.5 : s.nose === "big" ? 3 : 0)}
             cheeks={s.cheeks ?? true}
+            mouthScale={s.mouthScale}
+            beakDy={s.beakDy}
           />
           {s.nose === "trunk" ? <Trunk color={s.fur} mood={mood} /> : null}
           {s.front}

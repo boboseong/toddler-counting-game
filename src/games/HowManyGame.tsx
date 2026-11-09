@@ -5,18 +5,21 @@ import { P, type Line } from "../lib/phrases";
 import {
   ITEMS,
   NUM_COLORS,
+  PORORO_COUNT,
   countStepMs,
   counterPhrase,
   howManyChoices,
   howManyLevel,
   mashLimitFor,
   pick,
+  pororoFaces,
   randomIntExcept,
   randomPraise,
   randomSlowPhrase,
   shuffle,
   type CountItem,
 } from "../lib/data";
+import { rollPororo } from "../lib/pororoRoll";
 import { useTimers } from "../hooks/useTimers";
 import { useRoundGuard } from "../hooks/useRoundGuard";
 import { Dots, GameFrame, SlowBanner, SpeechBubble, TopBar, WinBanner } from "../components/ui";
@@ -32,6 +35,8 @@ interface Round {
   item: CountItem;
   count: number;
   choices: number[];
+  /** 뽀로로 친구들을 셀 때 한 명씩의 그림 (없으면 모두 item 그림) */
+  faces?: string[];
 }
 
 type Phase = "play" | "busy" | "done" | "slow";
@@ -72,10 +77,12 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
 
   const newRound = (id: number): Round => {
     const lv = howManyLevel(levelRef.current);
-    const item = pick(ITEMS, prev.current.item);
+    // 가끔 뽀로로 친구들을 센다 ("뽀로로 친구 몇 명일까?", 한 명씩 다른 친구)
+    const pororo = rollPororo();
+    const item = pororo ? PORORO_COUNT : pick(ITEMS, prev.current.item);
     const count = randomIntExcept(lv.min, lv.max, prev.current.count);
     prev.current = { item, count };
-    return { id, item, count, choices: howManyChoices(count, lv) };
+    return { id, item, count, choices: howManyChoices(count, lv), faces: pororo ? pororoFaces(count) : undefined };
   };
 
   const [round, setRound] = useState<Round>(() => newRound(0));
@@ -284,7 +291,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
                     transition={{ duration: 0.5 }}
                   >
                     <Glyph
-                      emoji={item.emoji}
+                      emoji={round.faces?.[i] ?? item.emoji}
                       mood={active ? "surprised" : counted || phase === "done" ? "happy" : "idle"}
                       className={`drop-shadow ${sz.emoji}`}
                     />

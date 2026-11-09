@@ -184,6 +184,13 @@ export function playLevelUp() {
   [523, 659, 784, 1047, 1319].forEach((n, i) => tone(n, i * 0.08, 0.22, "triangle", 0.16));
 }
 
+/** 뽀로로 친구가 놀러 옴 — 뿅뿅 띠리링 */
+export function playHello() {
+  tone(520, 0, 0.12, "sine", 0.13, 980);
+  tone(620, 0.15, 0.12, "sine", 0.13, 1180);
+  [1047, 1319, 1568, 2093].forEach((n, i) => tone(n, 0.34 + i * 0.07, 0.24, "triangle", 0.09));
+}
+
 /** 보너스 별 — 반짝반짝 */
 export function playBonus() {
   [1568, 1319, 1760, 1568, 2093].forEach((n, i) => tone(n, 0.9 + i * 0.07, 0.25, "sine", 0.12));

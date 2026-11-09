@@ -29,6 +29,10 @@ interface FaceProps {
   cheeks?: boolean;
   /** 눈 색 (판다처럼 눈 주변이 검으면 흰 눈동자) */
   eyeColor?: string;
+  /** 입 크기 배율 [가로, 세로] */
+  mouthScale?: [number, number];
+  /** 부리를 이만큼 내린다 */
+  beakDy?: number;
 }
 
 /**
@@ -45,6 +49,8 @@ export function Face({
   mouthDy = 0,
   cheeks = true,
   eyeColor = INK,
+  mouthScale,
+  beakDy = 0,
 }: FaceProps) {
   const r = useStableRandom();
   const blinkStyle: CSSProperties = { animationDelay: `${(r * 4).toFixed(2)}s` };
@@ -61,10 +67,13 @@ export function Face({
         </g>
       ))}
       {mouth === "beak" ? (
-        <Beak mood={mood} w={w} />
+        <g transform={`translate(0 ${beakDy})`}>
+          <Beak mood={mood} w={w} />
+        </g>
       ) : mouth === "mouth" ? (
-        <g transform={`translate(0 ${11 + mouthDy})`}>
-          <Mouth mood={mood} w={w} />
+        <g transform={`translate(0 ${11 + mouthDy})${mouthScale ? ` scale(${mouthScale[0]} ${mouthScale[1]})` : ""}`}>
+          {/* 입을 키워도 선 두께는 그대로 */}
+          <Mouth mood={mood} w={mouthScale ? (w * 2) / (mouthScale[0] + mouthScale[1]) : w} />
         </g>
       ) : null}
     </g>

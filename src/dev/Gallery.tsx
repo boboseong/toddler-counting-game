@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Glyph } from "../art/Glyph";
+import { PORORO_FRIENDS } from "../art/pororo";
 import { ART } from "../art/registry";
 import type { Mood } from "../art/types";
 
@@ -9,7 +10,8 @@ const MOODS: Mood[] = ["idle", "talk", "happy", "cheer", "surprised", "hmm", "ea
 export default function Gallery() {
   const [mood, setMood] = useState<Mood>("idle");
   const [full, setFull] = useState(0);
-  const list = Object.keys(ART);
+  // 뽀로로 친구 열쇠("pororo:이름")는 위에 따로 보여 준다
+  const list = Object.keys(ART).filter((k) => !k.startsWith("pororo:"));
   return (
     <div className="h-full overflow-y-auto bg-sky-50 p-4 text-slate-700">
       <h1 className="text-2xl">그림 모음 ({list.length})</h1>
@@ -27,6 +29,17 @@ export default function Gallery() {
           배부름
           <input type="range" min={0} max={1} step={0.1} value={full} onChange={(e) => setFull(Number(e.target.value))} />
         </label>
+      </div>
+      <h2 className="mb-2 text-xl">뽀로로와 친구들 (가끔 놀러 와요)</h2>
+      <div className="mb-6 flex flex-wrap items-end gap-3">
+        {PORORO_FRIENDS.map(({ name, C, size }) => (
+          <div key={name} className="flex flex-col items-center rounded-2xl bg-white p-3 shadow">
+            <span className="glyph" style={{ fontSize: `${(size ?? 1) * 6}rem` }}>
+              <C mood={mood} fullness={full} />
+            </span>
+            <span className="mt-1 text-xl">{name}</span>
+          </div>
+        ))}
       </div>
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {list.map((e) => (

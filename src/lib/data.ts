@@ -283,6 +283,42 @@ export interface Album {
 /** 모은 스티커 친구가 먹이 주기·나눠 주기에 손님으로 올 확률 */
 export const GUEST_CHANCE = 0.4;
 
+/** 놀이에서 맞혔을 때 뽀로로 친구가 놀러 올 확률 */
+export const FRIEND_VISIT_CHANCE = 0.1;
+
+/**
+ * 가끔 나오는 뽀로로와 친구들 (그림: art/pororo.tsx).
+ * 이모지가 없어서 emoji 자리에 "pororo:이름" 열쇠를 적고, art/registry.ts 가 이 열쇠로 그림을 찾는다
+ * (그래서 Glyph 를 쓰는 화면이면 어디서든 그림으로 나온다).
+ * 나눠 주기에 손님으로 오면 food 를 달라고 한다.
+ */
+export const PORORO_GUESTS = [
+  { emoji: "pororo:뽀로로", name: "뽀로로", food: F.fish },
+  { emoji: "pororo:크롱", name: "크롱", food: F.apple },
+  { emoji: "pororo:패티", name: "패티", food: F.shrimp },
+  { emoji: "pororo:루피", name: "루피", food: F.cookie },
+  { emoji: "pororo:에디", name: "에디", food: F.grape },
+  { emoji: "pororo:포비", name: "포비", food: F.berry },
+  { emoji: "pororo:해리", name: "해리", food: F.flower },
+] as const satisfies readonly Animal[];
+
+export type PororoName = (typeof PORORO_GUESTS)[number]["name"];
+
+/**
+ * 놀이 한 판에 뽀로로 친구가 나올 확률 (놀러 오기와 같은 10%).
+ * 나눠 주기 손님 · 딱 맞게 태워요 정류장 · 엘리베이터 손님 · 전화 받는 친구 · 톡톡 세기와 몇 개일까의 셀 것
+ */
+export const PORORO_ROUND_CHANCE = 0.1;
+
+/** 톡톡 세기 · 몇 개일까에서 뽀로로 친구들을 셀 때 ("뽀로로 친구 세 명!") */
+export const PORORO_COUNT: CountItem = { emoji: "pororo:뽀로로", name: "뽀로로 친구", counter: "명" };
+
+/** 뽀로로 친구를 n 명 세울 때 한 명씩의 그림 열쇠 (섞어서, 일곱 명을 넘으면 다시 처음부터) */
+export function pororoFaces(n: number): string[] {
+  const order = shuffle(PORORO_GUESTS.map((g) => g.emoji));
+  return Array.from({ length: n }, (_, i) => order[i % order.length]);
+}
+
 /** 먹이를 먹는 스티커 친구들 (손님) */
 export function guestsFrom(friends: number[]): Animal[] {
   const out: Animal[] = [];
