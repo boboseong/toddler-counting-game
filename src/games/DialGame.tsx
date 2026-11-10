@@ -19,6 +19,7 @@ import {
   dialGroupBreaks,
   dialLevel,
   dialNumber,
+  HINT_WAIT_MS,
   mashLimitFor,
   pick,
   PORORO_GUESTS,
@@ -53,8 +54,6 @@ interface Round {
 
 type Phase = "play" | "calling" | "slow";
 
-/** 누른 뒤 이만큼 아무것도 안 누르면 다음에 누를 것을 다시 알려 준다 */
-const IDLE_HINT_MS = 8000;
 /** 따르릉 소리가 끝나고 친구가 전화를 받기까지 */
 const RING_MS = 1700;
 
@@ -256,9 +255,10 @@ export default function DialGame({ level, stars, tapGap, friends, onHome, onWin,
     }
   };
 
+  /** 누른 뒤 한참(HINT_WAIT_MS) 아무것도 안 누르면 다음에 누를 것을 다시 알려 준다 */
   const scheduleIdleHint = (extra = 0) => {
     clearIdle();
-    idleTimer.current = window.setTimeout(giveHint, IDLE_HINT_MS + extra);
+    idleTimer.current = window.setTimeout(giveHint, HINT_WAIT_MS + extra);
   };
 
   useEffect(() => {

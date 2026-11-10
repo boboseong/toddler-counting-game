@@ -15,6 +15,7 @@ import { P } from "../lib/phrases";
 import {
   ELEVATOR_MEMORY,
   ELEVATOR_RUN_FROM,
+  HINT_WAIT_MS,
   NUM_COLORS,
   PORORO_GUESTS,
   elevatorLevel,
@@ -66,8 +67,6 @@ const BOARD_MS = 1200;
 const DOOR_MS = 650;
 /** 손님을 내려 준 뒤 1층으로 내려갈 때 한 층에 걸리는 시간 (세지 않고 빠르게) */
 const DESCEND_STEP_MS = 110;
-/** 한참 안 누르면 손님이 다시 말한다 */
-const IDLE_MS = 9000;
 
 /** 층을 지날 때 한 층에 걸리는 시간: 세는 말(일, 이, 삼 …) 길이에 맞춘다 */
 function stepMs(floor: number): number {
@@ -342,8 +341,8 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
 
   const newRound = (id: number): Round => {
     const lv = elevatorLevel(levelRef.current);
-    // 이 단계에서 새로 생긴 맨 위층은 3번에 1번
-    const floor = pickTarget(2, lv.floors, prev.current.floor);
+    // 이 단계에서 새로 생긴 두 층은 합쳐서 2번에 1번
+    const floor = pickTarget(2, lv.floors, lv.fresh, prev.current.floor);
     // 가끔 뽀로로 친구가 타서 그 층 친구네 집에 놀러 간다 (외우기 문제는 내지 않는다)
     const pororo = rollPororo();
     // 여러 번 데려다 준 친구는 가끔 층을 말하지 않는다 (두 번 연달아는 안 함)
@@ -445,9 +444,10 @@ export default function ElevatorGame({ level, stars, tapGap, rides, onRide, onHo
     if (idleStage.current < 2) scheduleIdle(ms);
   };
 
+  /** 한참(HINT_WAIT_MS) 안 누르면 손님이 다시 말한다 */
   const scheduleIdle = (lead = 0) => {
     clearIdle();
-    idleTimer.current = window.setTimeout(onIdle, lead + IDLE_MS);
+    idleTimer.current = window.setTimeout(onIdle, lead + HINT_WAIT_MS);
   };
 
   /* 1층에서 문이 열리고 손님이 타서 부탁한다 */

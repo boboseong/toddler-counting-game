@@ -9,6 +9,7 @@ import {
   PORORO_GUESTS,
   counterPhrase,
   guestsFrom,
+  HINT_WAIT_MS,
   obj,
   pick,
   randomIntExcept,
@@ -61,8 +62,7 @@ const DROP_SLACK_PX = 24;
 const FLY_S = 0.5;
 /** 날아가는 먹이 크기 (칸 크기에 대한 비율): 칸 안에 놓인 먹이 그림과 비슷하게 */
 const FLY_SIZE = 0.9;
-/** 아무것도 안 하고 이만큼 지나면 다시 알려 준다 (한 라운드에 MAX_HINTS 번까지) */
-const IDLE_HINT_MS = 9000;
+/** 아무것도 안 하고 HINT_WAIT_MS 가 지나면 다시 알려 준다 (한 라운드에 이만큼까지) */
 const MAX_HINTS = 2;
 /** "다 줬어요" 를 연달아 눌러도 한 번만 */
 const CONFIRM_GAP_MS = 600;
@@ -230,7 +230,7 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
   const scheduleIdle = (extra = 0) => {
     clearIdle();
     if (hints.current >= MAX_HINTS) return;
-    idleTimer.current = window.setTimeout(giveIdleHint, IDLE_HINT_MS + extra);
+    idleTimer.current = window.setTimeout(giveIdleHint, HINT_WAIT_MS + extra);
   };
 
   /* ---------- 라운드 ---------- */

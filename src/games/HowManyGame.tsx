@@ -8,6 +8,7 @@ import {
   PORORO_COUNT,
   countStepMs,
   counterPhrase,
+  HINT_WAIT_MS,
   howManyChoices,
   howManyLevel,
   mashLimitFor,
@@ -125,7 +126,7 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       speak(P.countTogether);
       setPhase("busy");
       after(1100, () => animateCount(() => reopen([P.howManyAgain(round.item.counter)])));
-    }, 10000 + round.count * 600); // 많을수록 세는 시간을 더 준다
+    }, HINT_WAIT_MS + round.count * 600); // 많을수록 세는 시간을 더 준다
   };
 
   useEffect(() => {
@@ -227,8 +228,11 @@ export default function HowManyGame({ level, stars, tapGap, onHome, onWin, onRes
       flashChick("hmm", 1300);
       fx.haptic(30);
       setWobble(n);
-      missed.current = true;
-      onResult(false);
+      // 다른 놀이처럼 한 판에 여러 번 틀려도 단계에는 한 번만 어려워한 것으로 친다
+      if (!missed.current) {
+        missed.current = true;
+        onResult(false);
+      }
       speak(P.wrongCountTogether);
       after(600, () => setWobble(null));
       after(1400, () =>

@@ -18,6 +18,7 @@ import {
   counterPhrase,
   countStepMs,
   guestsFrom,
+  HINT_WAIT_MS,
   PORORO_GUESTS,
   randomInt,
   randomIntExcept,
@@ -92,8 +93,7 @@ const DEPART_MS = 1400;
 const SEATED_LOOK_MS = 1100;
 /** 친구 하나가 자리로 날아가는 시간(초) */
 const BOARD_FLY_S = 0.45;
-/** 아무것도 안 하고 이만큼 지나면 다시 알려 준다 (한 라운드에 MAX_IDLE_HINTS 번까지) */
-const IDLE_HINT_MS = 9000;
+/** 아무것도 안 하고 HINT_WAIT_MS 가 지나면 다시 알려 준다 (한 라운드에 이만큼까지) */
 const MAX_IDLE_HINTS = 2;
 /** 출발 버튼을 연달아 눌러도 한 번만 */
 const GO_GAP_MS = 600;
@@ -379,7 +379,7 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
   const scheduleIdle = (lead = 0) => {
     clearIdle();
     if (idleHints.current >= MAX_IDLE_HINTS) return;
-    idleTimer.current = window.setTimeout(onIdle, lead + IDLE_HINT_MS);
+    idleTimer.current = window.setTimeout(onIdle, lead + HINT_WAIT_MS);
   };
 
   /** 처음엔 할 일을 다시 알려 주고, 또 가만히 있으면 빈자리를 같이 센다 */

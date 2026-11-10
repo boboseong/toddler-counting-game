@@ -14,7 +14,7 @@ import {
   UNLOCK_TOTAL,
   clampLevel,
   isFollowGame,
-  levelFromV1,
+  levelFromOld,
   starsForUnlock,
   type CyclePace,
   type GameId,
@@ -166,10 +166,12 @@ function load(): Progress {
     const parsed = typeof saved.jar === "number" ? saved : fromOldPace(saved);
     const levels = { ...DEFAULT.levels };
     // 단계 표가 바뀌기 전의 기록이면 하던 숫자 범위의 단계로 옮긴다
-    const v1 = (parsed.levelsVersion ?? 1) < LEVELS_VERSION;
+    const savedVersion = parsed.levelsVersion ?? 1;
     for (const g of GAME_IDS) {
       const v = parsed.levels?.[g];
-      if (typeof v === "number") levels[g] = clampLevel(g, v1 ? levelFromV1(g, v) : v);
+      if (typeof v === "number") {
+        levels[g] = clampLevel(g, savedVersion < LEVELS_VERSION ? levelFromOld(g, savedVersion, v) : v);
+      }
     }
     const cyclePace: CyclePace =
       parsed.cyclePace && parsed.cyclePace in CYCLE_PACES ? parsed.cyclePace : DEFAULT.cyclePace;
@@ -387,7 +389,7 @@ export function useProgress() {
   }, []);
 
   /**
-   * 적응형 난이도: 5연속 성공 → 레벨업, 2연속 실패 → 레벨다운 (LEVEL_RULES).
+   * 적응형 난이도: 4연속 성공 → 레벨업, 3연속 실패 → 레벨다운 (LEVEL_RULES).
    * 톡톡 세기·거품 팡팡은 다른 놀이의 최고 수를 따라가므로 여기서 바꾸지 않는다.
    * 레벨이 올라갔으면 true.
    */
