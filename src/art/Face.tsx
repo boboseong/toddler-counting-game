@@ -33,6 +33,12 @@ interface FaceProps {
   mouthScale?: [number, number];
   /** 부리를 이만큼 내린다 */
   beakDy?: number;
+  /** 부리 크기 배율 */
+  beakScale?: number;
+  /** 눈만 따로 줄이거나 키울 때 */
+  eyeScale?: number;
+  /** 두 눈 사이의 절반 (기본 12) */
+  eyeGap?: number;
 }
 
 /**
@@ -51,6 +57,9 @@ export function Face({
   eyeColor = INK,
   mouthScale,
   beakDy = 0,
+  beakScale = 1,
+  eyeScale = 1,
+  eyeGap = 12,
 }: FaceProps) {
   const r = useStableRandom();
   const blinkStyle: CSSProperties = { animationDelay: `${(r * 4).toFixed(2)}s` };
@@ -62,13 +71,13 @@ export function Face({
     <g transform={`translate(${x} ${y}) scale(${s})`}>
       {cheeks ? <Cheeks mood={mood} /> : null}
       {[-1, 1].map((side) => (
-        <g key={side} transform={`translate(${side * 12} 0)`}>
-          <Eye mood={mood} side={side} lx={lx} ly={ly} w={w} color={eyeColor} style={blinkStyle} />
+        <g key={side} transform={`translate(${side * eyeGap} 0)${eyeScale !== 1 ? ` scale(${eyeScale})` : ""}`}>
+          <Eye mood={mood} side={side} lx={lx} ly={ly} w={w / eyeScale} color={eyeColor} style={blinkStyle} />
         </g>
       ))}
       {mouth === "beak" ? (
-        <g transform={`translate(0 ${beakDy})`}>
-          <Beak mood={mood} w={w} />
+        <g transform={`translate(0 ${beakDy})${beakScale !== 1 ? ` scale(${beakScale})` : ""}`}>
+          <Beak mood={mood} w={w / beakScale} />
         </g>
       ) : mouth === "mouth" ? (
         <g transform={`translate(0 ${11 + mouthDy})${mouthScale ? ` scale(${mouthScale[0]} ${mouthScale[1]})` : ""}`}>

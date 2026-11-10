@@ -8,10 +8,16 @@ const MOODS: Mood[] = ["idle", "talk", "happy", "cheer", "surprised", "hmm", "ea
 
 /** 자체 제작 그림 한눈에 보기 (?gallery). 새 그림을 그릴 때 표정·크기를 확인하는 용도 */
 export default function Gallery() {
-  const [mood, setMood] = useState<Mood>("idle");
+  const [mood, setMood] = useState<Mood>(() => {
+    const m = new URLSearchParams(window.location.search).get("mood") as Mood | null;
+    return m && MOODS.includes(m) ? m : "idle";
+  });
   const [full, setFull] = useState(0);
   // 뽀로로 친구 열쇠("pororo:이름")는 위에 따로 보여 준다
   const list = Object.keys(ART).filter((k) => !k.startsWith("pororo:"));
+  // ?gallery&zoom=2 : 뽀로로 친구들을 크게 (생김새를 손볼 때), &mood=cheer : 처음 표정
+  const params = new URLSearchParams(window.location.search);
+  const zoom = Number(params.get("zoom")) || 1;
   return (
     <div className="h-full overflow-y-auto bg-sky-50 p-4 text-slate-700">
       <h1 className="text-2xl">그림 모음 ({list.length})</h1>
@@ -34,7 +40,7 @@ export default function Gallery() {
       <div className="mb-6 flex flex-wrap items-end gap-3">
         {PORORO_FRIENDS.map(({ name, C, size }) => (
           <div key={name} className="flex flex-col items-center rounded-2xl bg-white p-3 shadow">
-            <span className="glyph" style={{ fontSize: `${(size ?? 1) * 6}rem` }}>
+            <span className="glyph" style={{ fontSize: `${(size ?? 1) * 6 * zoom}rem` }}>
               <C mood={mood} fullness={full} />
             </span>
             <span className="mt-1 text-xl">{name}</span>

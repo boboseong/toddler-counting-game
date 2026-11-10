@@ -283,8 +283,8 @@ export interface Album {
 /** 모은 스티커 친구가 먹이 주기·나눠 주기에 손님으로 올 확률 */
 export const GUEST_CHANCE = 0.4;
 
-/** 놀이에서 맞혔을 때 뽀로로 친구가 놀러 올 확률 */
-export const FRIEND_VISIT_CHANCE = 0.1;
+/** 놀이에서 맞혔을 때 뽀로로 친구가 놀러 올 확률 (5번에 1번쯤) */
+export const FRIEND_VISIT_CHANCE = 0.2;
 
 /**
  * 가끔 나오는 뽀로로와 친구들 (그림: art/pororo.tsx).
@@ -305,10 +305,10 @@ export const PORORO_GUESTS = [
 export type PororoName = (typeof PORORO_GUESTS)[number]["name"];
 
 /**
- * 놀이 한 판에 뽀로로 친구가 나올 확률 (놀러 오기와 같은 10%).
+ * 놀이 한 판에 뽀로로 친구가 나올 확률 (놀러 오기와 같은 20%, 5판에 1판쯤).
  * 나눠 주기 손님 · 딱 맞게 태워요 정류장 · 엘리베이터 손님 · 전화 받는 친구 · 톡톡 세기와 몇 개일까의 셀 것
  */
-export const PORORO_ROUND_CHANCE = 0.1;
+export const PORORO_ROUND_CHANCE = 0.2;
 
 /** 톡톡 세기 · 몇 개일까에서 뽀로로 친구들을 셀 때 ("뽀로로 친구 세 명!") */
 export const PORORO_COUNT: CountItem = { emoji: "pororo:뽀로로", name: "뽀로로 친구", counter: "명" };

@@ -68,6 +68,20 @@ export interface CritterSpec {
   marks?: ReactNode;
   /** 얼굴보다 위 층 (수염 등) */
   front?: ReactNode;
+  /** 손 색 (소매와 손 색이 다른 친구: 장갑·맨손). 팔 끝에 동그란 손을 그린다 */
+  hands?: string;
+  /** false 면 팔을 그리지 않는다 (날개가 팔인 새) */
+  arms?: boolean;
+  /** 머리 모양을 통째로 바꿀 때 (기본은 반지름 28 동그라미) */
+  head?: ReactNode;
+  /** 입을 직접 그릴 때 (표정마다). 주면 공통 입은 그리지 않는다 */
+  mouth?: (mood: Mood) => ReactNode;
+  /** 눈만 따로 줄이거나 키울 때 (기본 1) */
+  eyeScale?: number;
+  /** 두 눈 사이의 절반 (기본 12) */
+  eyeGap?: number;
+  /** 부리 크기 배율 (기본 1) */
+  beakScale?: number;
 }
 
 /* ---------- 귀 (왼쪽을 그리고 오른쪽은 뒤집는다) ---------- */
@@ -249,20 +263,38 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
           {s.belly}
         </motion.g>
         {/* 팔: 기쁘면 번쩍 */}
-        {[-1, 1].map((side) => (
-          <motion.ellipse
-            key={side}
-            cx={50 + side * 21}
-            cy={80}
-            rx={5.5}
-            ry={8}
-            fill={limbs}
-            {...stroke}
-            style={{ originX: "50%", originY: "10%" }}
-            animate={armAngle(side)}
-            transition={mood === "cheer" ? { duration: 0.9, repeat: Infinity } : { type: "spring", stiffness: 200, damping: 14 }}
-          />
-        ))}
+        {s.arms === false
+          ? null
+          : [-1, 1].map((side) => {
+              const cx = 50 + side * 21;
+              const armTransition: Transition =
+                mood === "cheer" ? { duration: 0.9, repeat: Infinity } : { type: "spring", stiffness: 200, damping: 14 };
+              // 손 색이 따로 있으면 팔과 손을 한 묶음으로 돌린다
+              return s.hands ? (
+                <motion.g
+                  key={side}
+                  style={{ originX: "50%", originY: "10%" }}
+                  animate={armAngle(side)}
+                  transition={armTransition}
+                >
+                  <ellipse cx={cx} cy={80} rx={5.5} ry={8} fill={limbs} {...stroke} />
+                  <circle cx={cx} cy={84.6} r={4.9} fill={s.hands} {...stroke} />
+                </motion.g>
+              ) : (
+                <motion.ellipse
+                  key={side}
+                  cx={cx}
+                  cy={80}
+                  rx={5.5}
+                  ry={8}
+                  fill={limbs}
+                  {...stroke}
+                  style={{ originX: "50%", originY: "10%" }}
+                  animate={armAngle(side)}
+                  transition={armTransition}
+                />
+              );
+            })}
         {/* 머리 */}
         <motion.g style={{ originX: "50%", originY: "90%" }} animate={head.animate} transition={head.transition}>
           {s.ears !== "none" ? (
@@ -274,8 +306,12 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
             </>
           ) : null}
           {s.crown}
-          <circle cx="50" cy="44" r="28" fill={s.fur} {...stroke} />
-          <Shine x={34} y={27} rx={5} ry={8} />
+          {s.head ?? (
+            <>
+              <circle cx="50" cy="44" r="28" fill={s.fur} {...stroke} />
+              <Shine x={34} y={27} rx={5} ry={8} />
+            </>
+          )}
           {s.marks}
           {s.muzzle ? <ellipse cx="50" cy="55" rx="12.5" ry="9" fill={s.light} /> : null}
           <Nose kind={s.nose} color={s.noseColor ?? INK} />
@@ -285,12 +321,16 @@ export function Critter({ spec, mood = "idle", look, fullness = 0 }: ArtProps & 
             s={s.faceS ?? 0.95}
             mood={mood}
             look={look}
-            mouth={s.nose === "beak" ? "beak" : s.nose === "trunk" ? "none" : "mouth"}
+            mouth={s.mouth ? "none" : s.nose === "beak" ? "beak" : s.nose === "trunk" ? "none" : "mouth"}
             mouthDy={s.mouthDy ?? (s.nose === "snout" ? 7 : s.nose === "muzzle" ? 8.5 : s.nose === "big" ? 3 : 0)}
             cheeks={s.cheeks ?? true}
             mouthScale={s.mouthScale}
             beakDy={s.beakDy}
+            beakScale={s.beakScale}
+            eyeScale={s.eyeScale}
+            eyeGap={s.eyeGap}
           />
+          {s.mouth?.(mood)}
           {s.nose === "trunk" ? <Trunk color={s.fur} mood={mood} /> : null}
           {s.front}
         </motion.g>
