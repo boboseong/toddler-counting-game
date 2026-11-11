@@ -192,7 +192,7 @@ export const ANIMALS: Animal[] = [
 
 /**
  * 스티커. 앨범 순서대로 하나씩 열린다 (0~23 동물 친구 → 24~47 탈것 친구 → 48~71 숲속 친구).
- * food 가 있는 친구는 모은 뒤에 먹이 주기 놀이에 손님으로 찾아온다.
+ * food 가 있는 친구는 모은 뒤에 나눠 주기·깡충깡충 계단에 손님으로 찾아온다.
  */
 export const STICKERS: Sticker[] = [
   // 1권: 동물 친구
@@ -280,7 +280,7 @@ export interface Album {
   end: number;
 }
 
-/** 모은 스티커 친구가 먹이 주기·나눠 주기에 손님으로 올 확률 */
+/** 모은 스티커 친구가 나눠 주기·깡충깡충 계단에 손님으로 올 확률 */
 export const GUEST_CHANCE = 0.4;
 
 /** 놀이에서 맞혔을 때 뽀로로 친구가 놀러 올 확률 (5번에 1번쯤) */
@@ -306,7 +306,7 @@ export type PororoName = (typeof PORORO_GUESTS)[number]["name"];
 
 /**
  * 놀이 한 판에 뽀로로 친구가 나올 확률 (놀러 오기와 같은 20%, 5판에 1판쯤).
- * 나눠 주기 손님 · 딱 맞게 태워요 정류장 · 엘리베이터 손님 · 전화 받는 친구 · 톡톡 세기와 몇 개일까의 셀 것
+ * 나눠 주기 손님 · 딱 맞게 태워요 정류장 · 엘리베이터 손님 · 전화 받는 친구 · 계단을 오르는 친구 · 톡톡 세기와 몇 개일까의 셀 것
  */
 export const PORORO_ROUND_CHANCE = 0.2;
 
@@ -380,14 +380,14 @@ export const PRAISES = [
   "반짝반짝 빛나!",
 ];
 
-export type GameId = "tap" | "howmany" | "feed" | "bubbles" | "find" | "elevator" | "dial" | "share" | "bus";
+export type GameId = "tap" | "howmany" | "stairs" | "bubbles" | "find" | "elevator" | "dial" | "share" | "bus";
 
-export const GAME_IDS: GameId[] = ["tap", "howmany", "feed", "bubbles", "find", "elevator", "dial", "share", "bus"];
+export const GAME_IDS: GameId[] = ["tap", "howmany", "stairs", "bubbles", "find", "elevator", "dial", "share", "bus"];
 
 export const GAME_NAMES: Record<GameId, string> = {
   tap: "톡톡 세기",
   howmany: "몇 개일까?",
-  feed: "냠냠 먹이 주기",
+  stairs: "깡충깡충 계단",
   bubbles: "거품 팡팡",
   find: "숫자 찾기",
   elevator: "딩동 엘리베이터",
@@ -420,10 +420,10 @@ export const GAME_META: Record<GameId, GameMeta> = {
     bg: "linear-gradient(160deg,#86efac,#22c55e)",
     shadow: "#15803d",
   },
-  feed: {
-    emoji: "🐰",
-    title: "냠냠 먹이 주기",
-    sub: "딱 맞게 주세요",
+  stairs: {
+    emoji: "🪜",
+    title: "깡충깡충 계단",
+    sub: "다음은 몇 층일까요?",
     bg: "linear-gradient(160deg,#fcd34d,#f59e0b)",
     shadow: "#b45309",
   },
@@ -477,13 +477,13 @@ export const GAME_META: Record<GameId, GameMeta> = {
 
 /**
  * 순환 순서.
- * 집중이 많이 필요한 놀이(몇 개일까 · 숫자 따라 누르기 · 딩동 엘리베이터 · 숫자 찾기) 사이에 친구를 눌러 가며
- * 노는 놀이(톡톡 세기 · 딱 맞게 태워요 · 거품 팡팡 · 먹이 주기 · 나눠 주기)를 끼워서 긴장과 이완이 번갈아 오게 한다.
- * 버튼을 누르는 두 놀이(숫자 따라 누르기 · 딩동 엘리베이터)와 탈것이 나오는 두 놀이(딱 맞게 태워요 · 딩동 엘리베이터)는
- * 떨어뜨렸고, 딱 맞게 주는 세 놀이(딱 맞게 태워요 · 먹이 주기 · 나눠 주기)도 서로 붙지 않게 했다.
- * 한 바퀴의 끝(나눠 주기) 다음은 가장 쉬운 톡톡 세기로 돌아온다.
+ * 집중이 많이 필요한 놀이(숫자 따라 누르기 · 몇 개일까 · 딩동 엘리베이터 · 숫자 찾기) 사이에 친구를 눌러 가며
+ * 노는 놀이(톡톡 세기 · 딱 맞게 태워요 · 거품 팡팡 · 나눠 주기)를 끼워서 긴장과 이완이 번갈아 오게 한다.
+ * 버튼을 누르는 두 놀이(숫자 따라 누르기 · 딩동 엘리베이터), 탈것이 나오는 두 놀이(딱 맞게 태워요 · 딩동 엘리베이터),
+ * 딱 맞게 주는 두 놀이(딱 맞게 태워요 · 나눠 주기), 층을 오르는 두 놀이(딩동 엘리베이터 · 깡충깡충 계단)는 떨어뜨렸다.
+ * 한 바퀴의 끝은 친구가 깡충깡충 뛰는 계단이고, 그다음은 가장 쉬운 톡톡 세기로 돌아온다.
  */
-export const CYCLE_ORDER: GameId[] = ["tap", "dial", "bus", "howmany", "bubbles", "elevator", "feed", "find", "share"];
+export const CYCLE_ORDER: GameId[] = ["tap", "dial", "bus", "howmany", "bubbles", "elevator", "share", "find", "stairs"];
 
 export type CyclePace = "fast" | "normal" | "slow";
 
@@ -535,6 +535,11 @@ export interface CycleStats {
   wins: number;
   misses: number;
   elapsedMs: number;
+  /**
+   * 단계가 오르는 중: 틀리지 않고 연달아 맞히고 있고, 이번에 이 놀이에 와서 아직 단계가 오르지 않았다
+   * (맨 위 단계면 더 오를 곳이 없으니 false)
+   */
+  climbing?: boolean;
 }
 
 /** 이 놀이에서 몇 번 성공하면 다음 놀이로 넘어가는지 (순서 띠에 보여 주는 칸 수) */
@@ -550,6 +555,9 @@ export function cycleShouldSwitch(s: CycleStats, pace: CyclePace, game: GameId):
   // 톡톡 세기·거품 팡팡은 세기만 하면 무조건 성공이라 오래 붙잡지 않는다
   if (isFollowGame(game)) return s.wins >= p.quickWins;
   if (s.misses >= CYCLE_RULES.missesToSwitch) return true; // 어려워했으면 성공한 김에 분위기 전환
+  // 연달아 맞히는 중이면 단계가 오를 때까지 이 놀이에 머문다. 여기서 넘어가면 다음에 돌아올 때까지
+  // 이어 맞힌 횟수가 끊기기 쉬워서, 다 맞혀도 단계가 좀처럼 오르지 않는다 (길어야 LEVEL_RULES.upStreak 번)
+  if (s.climbing) return false;
   if (s.elapsedMs >= p.maxMs) return true; // 오래 했으면
   if (s.wins >= p.wins + 2) return true; // 아주 잘하고 있어도 한 놀이만 너무 오래 하지 않게
   return s.wins >= p.wins && s.elapsedMs >= p.minMs; // 기본: 정해진 횟수 + 최소 시간
@@ -609,7 +617,7 @@ function freshNote(fresh: number[], unit = ""): string {
 
 /**
  * 문제를 푸는 단계가 없는 놀이(톡톡 세기 · 거품 팡팡)는 세기만 하면 끝나서 스스로 난이도를 잴 수 없다.
- * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 먹이 주기 · 숫자 찾기 · 나눠 주기)에서
+ * 그래서 따로 단계를 두지 않고, 문제를 푸는 놀이(몇 개일까 · 숫자 찾기 · 나눠 주기)에서
  * 지금 다루는 가장 큰 수까지 센다.
  */
 export const FOLLOW_GAMES: GameId[] = ["tap", "bubbles"];
@@ -622,7 +630,6 @@ export function isFollowGame(game: GameId): boolean {
 export function problemMax(levels: Record<GameId, number>): number {
   return Math.max(
     howManyLevel(levels.howmany).max,
-    feedLevel(levels.feed).max,
     findLevel(levels.find).max,
     shareLevel(levels.share).max,
   );
@@ -640,21 +647,77 @@ export function bubbleTargetFor(maxN: number): number {
   return Math.min(MAX_NUMBER, Math.max(2, maxN));
 }
 
-/** 먹이 주기: 단계별 범위. confirm 이면 딱 맞게 준 뒤 "다 줬어요" 를 눌러야 끝난다 */
-export interface FeedLevel extends CountLevel {
-  confirm: boolean;
+/**
+ * 깡충깡충 계단: 친구가 계단을 한 층씩 오르내리고, 층마다 "삼 층 다음은?" 하고 다음 층의 숫자를 고른다
+ * (수의 순서: 이 다음은 삼, 삼 다음은 사).
+ * 지나온 층에는 숫자가 적혀 있고, 다음 층은 물음표, 그 너머는 비어 있다.
+ * - min~max: 계단이 놓이는 층의 범위. 계단 한 줄은 그 안에서 이어진 (hops + 1) 층
+ * - hops: 한 판에 뛰는 횟수 (= 한 판의 문제 수)
+ * - choices: 보기 개수
+ * - dir: up = 올라가기 (다음 수), down = 내려가기 (앞의 수), both = 판마다 둘 중 하나
+ * - fromEnd: 늘 범위의 끝에서 출발 (올라갈 땐 min 층, 내려갈 땐 max 층). 아니면 범위 안 아무 층에서나
+ * - color: 다음 층 계단이 정답 숫자 버튼과 같은 색이라 색으로도 찾을 수 있다 (처음 두 단계의 도움)
+ */
+export type StairDir = "up" | "down";
+
+export interface StairLevel extends CountLevel {
+  hops: number;
+  choices: number;
+  dir: StairDir | "both";
+  fromEnd: boolean;
+  color: boolean;
 }
 
-export const FEED_LEVELS: FeedLevel[] = [
-  { min: 1, max: 3, confirm: false },
-  { min: 1, max: 4, confirm: false },
-  { min: 1, max: 5, confirm: false },
-  { min: 1, max: 5, confirm: true },
-  { min: 3, max: 7, confirm: true },
-  { min: 5, max: 10, confirm: true },
-  { min: 8, max: 14, confirm: true },
-  { min: 11, max: 19, confirm: true },
+export const STAIR_LEVELS: StairLevel[] = [
+  { min: 1, max: 3, hops: 2, choices: 2, dir: "up", fromEnd: true, color: true },
+  { min: 1, max: 5, hops: 4, choices: 2, dir: "up", fromEnd: true, color: true },
+  { min: 1, max: 5, hops: 4, choices: 3, dir: "up", fromEnd: true, color: false },
+  { min: 1, max: 10, hops: 4, choices: 3, dir: "up", fromEnd: false, color: false },
+  { min: 1, max: 5, hops: 4, choices: 2, dir: "down", fromEnd: true, color: false },
+  { min: 1, max: 10, hops: 4, choices: 3, dir: "down", fromEnd: false, color: false },
+  { min: 1, max: 10, hops: 4, choices: 3, dir: "both", fromEnd: false, color: false },
+  { min: 7, max: 15, hops: 4, choices: 3, dir: "up", fromEnd: false, color: false },
+  { min: 11, max: 20, hops: 4, choices: 3, dir: "up", fromEnd: false, color: false },
+  { min: 1, max: 20, hops: 4, choices: 3, dir: "both", fromEnd: false, color: false },
 ];
+
+/** 깡충깡충 계단에서 나오는 가장 높은 층 */
+export const STAIR_TOP = Math.max(...STAIR_LEVELS.map((l) => l.max));
+
+/**
+ * 계단 한 줄: 지나갈 층을 차례로 (첫 칸이 출발 층).
+ * 아무 층에서나 출발하는 단계는 바로 앞 판(prevStart)과 같은 층에서 연달아 출발하지 않게 한다
+ */
+export function stairPath(lv: StairLevel, dir: StairDir, prevStart?: number): number[] {
+  const hops = Math.min(lv.hops, lv.max - lv.min);
+  // 계단의 맨 아래층이 될 수 있는 가장 높은 층
+  const lowMax = lv.max - hops;
+  let low: number;
+  if (lv.fromEnd) {
+    low = dir === "up" ? lv.min : lowMax;
+  } else {
+    const prevLow = prevStart === undefined ? undefined : dir === "up" ? prevStart : prevStart - hops;
+    low = randomIntExcept(lv.min, lowMax, prevLow);
+  }
+  const up = Array.from({ length: hops + 1 }, (_, i) => low + i);
+  return dir === "up" ? up : up.reverse();
+}
+
+/**
+ * 계단 보기 만들기: from 층에서 to 층(바로 위나 아래)으로 갈 때의 보기. 자리는 섞는다
+ * (작은 수부터 놓으면 1층 다음의 2처럼 낮은 층에서는 정답이 늘 맨 왼쪽에 온다).
+ * 오답은 정답 가까이에서 고른다: 지금 서 있는 층은 빼고, 정답보다 작은 수 둘과 큰 수 둘 중에서.
+ * (위쪽 수만 내면 정답이 늘 보기 중 가장 작은 수가 된다)
+ */
+export function stairChoices(from: number, to: number, choices: number): number[] {
+  const ok = (n: number) => n >= 1 && n <= STAIR_TOP && n !== from;
+  const near = [
+    ...[to - 1, to - 2, to - 3].filter(ok).slice(0, 2),
+    ...[to + 1, to + 2, to + 3].filter(ok).slice(0, 2),
+  ];
+  const picked = shuffle(near).slice(0, Math.max(1, choices - 1));
+  return shuffle([to, ...picked]);
+}
 
 /**
  * 몇 개일까?: 다른 놀이보다 어려워서 단계를 잘게 나눈다.
@@ -945,7 +1008,7 @@ export const LEVEL_RULES = {
 export const MAX_LEVELS: Record<GameId, number> = {
   tap: 1,
   howmany: HOWMANY_LEVELS.length,
-  feed: FEED_LEVELS.length,
+  stairs: STAIR_LEVELS.length,
   bubbles: 1,
   find: FIND_LEVELS.length,
   elevator: ELEVATOR_LEVELS.length,
@@ -1003,8 +1066,8 @@ export function levelFromOld(game: GameId, version: number, level: number): numb
   return best;
 }
 
-export function feedLevel(level: number): FeedLevel {
-  return FEED_LEVELS[clampLevel("feed", level) - 1];
+export function stairLevel(level: number): StairLevel {
+  return STAIR_LEVELS[clampLevel("stairs", level) - 1];
 }
 
 export function howManyLevel(level: number): HowManyLevel {
@@ -1039,9 +1102,11 @@ export function levelLabel(game: GameId, levels: Record<GameId, number>): string
       const s = tapRange(problemMax(levels));
       return `${s.min}~${s.max}`;
     }
-    case "feed": {
-      const s = feedLevel(level);
-      return `${s.min}~${s.max}${s.confirm ? " · 다 줬어요 누르기" : ""}`;
+    case "stairs": {
+      const s = stairLevel(level);
+      const dir = s.dir === "up" ? "올라가기" : s.dir === "down" ? "내려가기" : "오르내리기";
+      const from = s.fromEnd ? ` · ${s.dir === "down" ? s.max : s.min}층에서 출발` : "";
+      return `${s.min}~${s.max}층 ${dir}${from} · 보기 ${s.choices}개${s.color ? " · 같은 색 도움" : ""}`;
     }
     case "howmany": {
       const s = howManyLevel(level);
@@ -1128,13 +1193,28 @@ export function mashLimitFor(count: number): number {
   return Math.max(MASH_LIMIT, Math.ceil(count * 0.35));
 }
 
-/** 세는 탭 사이 최소 간격(ms) */
-export const DEFAULT_TAP_GAP = 700;
+/**
+ * 세는 탭 사이 최소 간격(ms). 이보다 빨리 이어 누르면 세지 않고, 그런 탭이 쌓이면 "천천히, 하나씩!" 이 뜬다.
+ * 아이가 조금 서둘러 누르는 정도로는 뜨지 않게 짧게 두었다 (정말 다다닥 누를 때만 뜬다).
+ */
+export const DEFAULT_TAP_GAP = 350;
 export const TAP_GAP_OPTIONS = [
-  { label: "빠르게", ms: 350 },
-  { label: "보통", ms: 700 },
-  { label: "천천히", ms: 1100 },
+  { label: "빠르게", ms: 175 },
+  { label: "보통", ms: 350 },
+  { label: "천천히", ms: 550 },
 ];
+
+/**
+ * 저장된 누르기 속도가 어느 표 기준인지.
+ * 2: 간격을 절반으로 줄임 (0.35 · 0.7 · 1.1초 → 0.175 · 0.35 · 0.55초). 그 전의 값은 불러올 때 같은 칸으로 옮긴다
+ */
+export const TAP_GAP_VERSION = 2;
+
+/** 예전 간격을 지금 표의 같은 칸으로 옮긴다 (보통 0.7초 → 보통 0.35초) */
+export function tapGapFromOld(ms: number): number {
+  const half = ms / 2;
+  return TAP_GAP_OPTIONS.reduce((best, o) => (Math.abs(o.ms - half) < Math.abs(best.ms - half) ? o : best)).ms;
+}
 
 /** 막 눌렀을 때 */
 export const SLOW_PHRASES = [

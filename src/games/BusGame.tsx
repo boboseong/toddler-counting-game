@@ -601,8 +601,9 @@ export default function BusGame({ level, friends, stars, tapGap, onHome, onWin, 
       fx.burstAt(document.querySelector("[data-bus-vehicle]"), "stars", { count: 14 });
       fx.haptic([10, 40, 10]);
       setPraise(randomPraise());
-      onWin();
+      // 단계 결과를 먼저 알린다 (빙글빙글이 onWin 에서 단계가 오르는 중인지 본다)
       if (!missed.current) onResult(true);
+      onWin();
       // 다 탄 버스를 잠깐 보여 준 뒤에 축하 배너 (배너가 버스를 가린다)
       after(SEATED_LOOK_MS, () => setBanner(true));
       const goAt = SEATED_LOOK_MS + Math.max(2200, speakDuration(fit) + 200 - SEATED_LOOK_MS);

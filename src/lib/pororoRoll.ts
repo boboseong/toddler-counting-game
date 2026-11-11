@@ -10,7 +10,7 @@ export function rollVisit(): boolean {
   return force || Math.random() < FRIEND_VISIT_CHANCE;
 }
 
-/** 이번 판에 뽀로로 친구가 나올지 (나눠 주기 · 딱 맞게 태워요 · 엘리베이터 · 전화 · 톡톡 세기 · 몇 개일까) */
+/** 이번 판에 뽀로로 친구가 나올지 (나눠 주기 · 딱 맞게 태워요 · 엘리베이터 · 전화 · 계단 · 톡톡 세기 · 몇 개일까) */
 export function rollPororo(): boolean {
   return force || Math.random() < PORORO_ROUND_CHANCE;
 }

@@ -11,11 +11,13 @@ import {
   SCENE_MAX,
   SESSION_LIMITS,
   STICKERS,
+  TAP_GAP_VERSION,
   UNLOCK_TOTAL,
   clampLevel,
   isFollowGame,
   levelFromOld,
   starsForUnlock,
+  tapGapFromOld,
   type CyclePace,
   type GameId,
 } from "../lib/data";
@@ -70,6 +72,8 @@ export interface Progress {
   totalRounds: number;
   /** 세는 탭 사이 최소 간격(ms) */
   tapGap: number;
+  /** tapGap 이 어느 표 기준인지 (TAP_GAP_VERSION) */
+  tapGapVersion: number;
   /** 빙글빙글: 다음에 시작할 놀이 (CYCLE_ORDER 인덱스) */
   cycleNext: number;
   /** 빙글빙글: 놀이를 바꾸는 빠르기 */
@@ -102,13 +106,14 @@ const DEFAULT: Progress = {
   lastDay: "",
   today: { day: "", stars: 0, stickers: [] },
   sessionMin: 0,
-  levels: { tap: 1, howmany: 1, feed: 1, bubbles: 1, find: 1, elevator: 1, dial: 1, share: 1, bus: 1 },
+  levels: { tap: 1, howmany: 1, stairs: 1, bubbles: 1, find: 1, elevator: 1, dial: 1, share: 1, bus: 1 },
   levelsVersion: LEVELS_VERSION,
   soundOn: true,
   voiceOn: true,
   hapticsOn: true,
   totalRounds: 0,
   tapGap: DEFAULT_TAP_GAP,
+  tapGapVersion: TAP_GAP_VERSION,
   cycleNext: 0,
   cyclePace: "normal",
   elevatorRides: [],
@@ -118,7 +123,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
   return {
     tap: { ok: 0, miss: 0 },
     howmany: { ok: 0, miss: 0 },
-    feed: { ok: 0, miss: 0 },
+    stairs: { ok: 0, miss: 0 },
     bubbles: { ok: 0, miss: 0 },
     find: { ok: 0, miss: 0 },
     elevator: { ok: 0, miss: 0 },
@@ -129,7 +134,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
 }
 
 /** 기록을 지워도 남기는 부모 설정 */
-const SETTINGS = ["soundOn", "voiceOn", "hapticsOn", "tapGap", "cyclePace", "sessionMin"] as const;
+const SETTINGS = ["soundOn", "voiceOn", "hapticsOn", "tapGap", "tapGapVersion", "cyclePace", "sessionMin"] as const;
 
 function settingsOf(p: Partial<Progress>): Partial<Progress> {
   const out: Partial<Progress> = {};
@@ -215,6 +220,9 @@ function load(): Progress {
     const sessionMin = SESSION_LIMITS.includes(parsed.sessionMin as number)
       ? (parsed.sessionMin as number)
       : 0;
+    // 누르기 간격을 절반으로 줄이기 전의 기록이면 같은 칸(빠르게·보통·천천히)의 새 간격으로 옮긴다
+    const savedGap = typeof parsed.tapGap === "number" && parsed.tapGap > 0 ? parsed.tapGap : DEFAULT.tapGap;
+    const tapGap = (parsed.tapGapVersion ?? 1) < TAP_GAP_VERSION ? tapGapFromOld(savedGap) : savedGap;
     const elevatorRides = Array.isArray(parsed.elevatorRides)
       ? parsed.elevatorRides
           .slice(0, ELEVATOR_TOP + 1)
@@ -233,6 +241,8 @@ function load(): Progress {
       sessionMin,
       levels,
       levelsVersion: LEVELS_VERSION,
+      tapGap,
+      tapGapVersion: TAP_GAP_VERSION,
       cyclePace,
       cycleNext,
       elevatorRides,
@@ -421,6 +431,15 @@ export function useProgress() {
     return level > cur.levels[game];
   }, []);
 
+  /**
+   * 이 놀이에서 틀리지 않고 연달아 맞히는 중이고, 더 오를 단계가 남아 있는지.
+   * 빙글빙글이 이럴 때는 놀이를 바꾸지 않고 단계가 오를 때까지 기다린다.
+   */
+  const climbingIn = useCallback((game: GameId): boolean => {
+    if (isFollowGame(game)) return false;
+    return streaks.current[game].ok > 0 && ref.current.levels[game] < MAX_LEVELS[game];
+  }, []);
+
   /** 딩동 엘리베이터: 손님을 floor 층 집에 데려다 줬다 */
   const noteRide = useCallback((floor: number) => {
     const cur = ref.current;
@@ -507,6 +526,7 @@ export function useProgress() {
     visit,
     addStar,
     reportResult,
+    climbingIn,
     noteRide,
     setBuddy,
     placeInScene,

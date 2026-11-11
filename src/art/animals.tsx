@@ -2,7 +2,7 @@ import { Critter, Whiskers, type CritterSpec } from "./Critter";
 import { INK, stroke } from "./palette";
 import type { ArtProps } from "./types";
 
-/* 먹이 주기 동물 12종 + 스티커 친구 몇몇. 모두 Critter 틀을 쓴다 */
+/* 놀이에 나오는 동물 12종 + 스티커 친구 몇몇. 모두 Critter 틀을 쓴다 */
 
 const PINK_NOSE = "#ff8fa3";
 

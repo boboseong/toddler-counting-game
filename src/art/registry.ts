@@ -24,7 +24,7 @@ export interface ArtEntry {
 export const ART: Record<string, ArtEntry> = {
   "🐥": { C: ChickArt, react: "hop" },
   "🐤": { C: ChickArt, react: "hop" },
-  // 먹이 주기 동물
+  // 계단을 오르고 버스를 타는 동물
   "🐰": { C: A.critter(A.RABBIT), react: "hop" },
   "🐵": { C: A.critter(A.MONKEY), react: "hop" },
   "🐒": { C: A.critter(A.MONKEY), react: "hop" },
@@ -151,6 +151,7 @@ export const ART: Record<string, ArtEntry> = {
   "🔍": { C: IC.Magnifier },
   "🎠": { C: IC.Carousel },
   "🛗": { C: IC.Elevator },
+  "🪜": { C: IC.Stairs },
   "📱": { C: IC.MobilePhone },
   "📞": { C: IC.Handset },
   "⌫": { C: IC.Backspace },
@@ -163,7 +164,6 @@ export const ART: Record<string, ArtEntry> = {
   "🏠": { C: IC.House },
   "🏡": { C: IC.HouseGarden },
   "📒": { C: IC.StickerBookIcon },
-  "🍽️": { C: IC.Plate },
   "🎉": { C: IC.Party },
   "✨": { C: IC.Sparkles },
   "⏰": { C: IC.AlarmClock },

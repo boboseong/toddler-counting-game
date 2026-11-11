@@ -40,7 +40,7 @@ import StickerBook from "./screens/StickerBook";
 import Goodbye from "./screens/Goodbye";
 import TapCountGame from "./games/TapCountGame";
 import HowManyGame from "./games/HowManyGame";
-import FeedGame from "./games/FeedGame";
+import StairGame from "./games/StairGame";
 import BubbleGame from "./games/BubbleGame";
 import FindGame from "./games/FindGame";
 import ElevatorGame from "./games/ElevatorGame";
@@ -69,7 +69,7 @@ import type { GameProps, Screen } from "./types";
 const GAMES: Record<GameId, ComponentType<GameProps>> = {
   tap: TapCountGame,
   howmany: HowManyGame,
-  feed: FeedGame,
+  stairs: StairGame,
   bubbles: BubbleGame,
   find: FindGame,
   elevator: ElevatorGame,
@@ -188,6 +188,7 @@ export default function App() {
     visit,
     addStar,
     reportResult,
+    climbingIn,
     noteRide,
     setBuddy,
     placeInScene,
@@ -220,8 +221,8 @@ export default function App() {
   revealRef.current = reveal;
   const paceRef = useRef(progress.cyclePace);
   paceRef.current = progress.cyclePace;
-  /** 지금 놀이에서의 성공·실패 횟수와 시작 시각 */
-  const stats = useRef({ wins: 0, misses: 0, startedAt: performance.now() });
+  /** 지금 놀이에서의 성공·실패 횟수와 시작 시각, 이번에 와서 단계가 올랐는지 */
+  const stats = useRef({ wins: 0, misses: 0, startedAt: performance.now(), leveled: false });
   /** 마지막으로 화면을 누른 시각 (흥미를 잃었는지 보는 데 쓴다) */
   const lastTap = useRef(performance.now());
   /** 스티커 화면이 떠 있어서 미뤄 둔 전환 */
@@ -255,7 +256,7 @@ export default function App() {
       pendingSwitch.current = null;
       stopSpeaking();
       playWhoosh();
-      stats.current = { wins: 0, misses: 0, startedAt: performance.now() };
+      stats.current = { wins: 0, misses: 0, startedAt: performance.now(), leveled: false };
       setCycleWins(0);
       setTransition({ game, reason });
       setScreen(game);
@@ -440,12 +441,16 @@ export default function App() {
       const st = stats.current;
       st.wins += 1;
       setCycleWins(st.wins);
-      const snapshot = {
-        wins: st.wins,
-        misses: st.misses,
-        elapsedMs: performance.now() - st.startedAt,
-      };
-      if (isGame(winGame) && cycleShouldSwitch(snapshot, paceRef.current, winGame)) after = "switch";
+      if (isGame(winGame)) {
+        const snapshot = {
+          wins: st.wins,
+          misses: st.misses,
+          elapsedMs: performance.now() - st.startedAt,
+          // 연달아 맞히는 중이면 단계가 오를 때까지 머문다 (놀이는 onResult 를 onWin 보다 먼저 부른다)
+          climbing: !st.leveled && climbingIn(winGame),
+        };
+        if (cycleShouldSwitch(snapshot, paceRef.current, winGame)) after = "switch";
+      }
     }
     if (unlocked === null && after === null) return;
 
@@ -479,7 +484,7 @@ export default function App() {
       // 스티커 공개는 홈으로 가도 보여 준다. 전환·작별은 홈으로 가면(stopCycle) 취소
       (id) => (unlocked !== null ? revealTimers : cycleTimers).current.push(id),
     );
-  }, [addStar, clearCycleTimers, requestSwitch]);
+  }, [addStar, clearCycleTimers, climbingIn, requestSwitch]);
 
   const levelUpTimers = useRef<number[]>([]);
   useEffect(() => () => levelUpTimers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -489,6 +494,7 @@ export default function App() {
       const up = reportResult(game, ok);
       if (cycleRef.current && !ok) stats.current.misses += 1;
       if (up) {
+        stats.current.leveled = true;
         // 축하 말이 먼저 나오고, 그 뒤에 "더 큰 숫자 도전!"
         levelUpTimers.current.push(
           window.setTimeout(() => {

@@ -13,6 +13,44 @@ const GLASS = "#bfe8ff";
 
 /* ---------- 놀이 아이콘 ---------- */
 
+/** 숫자가 적힌 계단과 꼭대기의 별 (깡충깡충 계단) */
+export function Stairs(_: ArtProps) {
+  const steps = [
+    { x: 5, h: 30, c: "#ff6b6b", n: "1" },
+    { x: 35, h: 52, c: "#ffc93c", n: "2" },
+    { x: 65, h: 74, c: "#4fb3ff", n: "3" },
+  ];
+  return (
+    <Svg>
+      <path d={starPath(80, 11, 10, 4.6)} fill="#ffd23f" {...thin} />
+      {steps.map((s) => (
+        <g key={s.n}>
+          <path
+            d={`M${s.x} 96 V${104 - s.h} Q${s.x} ${96 - s.h} ${s.x + 8} ${96 - s.h} H${s.x + 22} Q${s.x + 30} ${96 - s.h} ${s.x + 30} ${104 - s.h} V96 Z`}
+            fill={s.c}
+            {...stroke}
+          />
+          <text
+            x={s.x + 15}
+            y={96 - s.h + 24}
+            textAnchor="middle"
+            fontSize="21"
+            fontWeight="700"
+            fontFamily="Jua, 'Arial Rounded MT Bold', Arial, sans-serif"
+            fill="#fff"
+            stroke={INK}
+            strokeWidth={2.6}
+            paintOrder="stroke"
+            strokeLinejoin="round"
+          >
+            {s.n}
+          </text>
+        </g>
+      ))}
+    </Svg>
+  );
+}
+
 /** 거품 */
 export function Bubbles({ mood, look }: ArtProps) {
   const bubble = (cx: number, cy: number, r: number) => (
@@ -342,23 +380,6 @@ export function StickerBookIcon({ mood, look }: ArtProps) {
       <Face x={52} y={48} s={0.36} mood={mood ?? "happy"} look={look} cheeks={false} />
       <path d="M38 76 C 38 72 43 71 44 75 C 45 71 50 72 50 76 C 50 80 44 83 44 83 C 44 83 38 80 38 76 Z" fill="#ff7fa8" {...thin} strokeWidth={1.8} />
       <path d="M62 88 L62 98 L66 94.5 L70 98 L70 88" fill="#ff5a7a" {...thin} strokeWidth={2} />
-    </Svg>
-  );
-}
-
-/** 접시와 포크·숟가락 (먹이 주기) */
-export function Plate({ mood, look }: ArtProps) {
-  const metal = "#cfd6e2";
-  return (
-    <Svg>
-      <Tube d="M13 36 V88" color={metal} w={5} />
-      <Tube d="M7 12 V26 M13 12 V26 M19 12 V26" color={metal} w={2.4} />
-      <Tube d="M7 26 C 7 36 19 36 19 26" color={metal} w={3.4} />
-      <Tube d="M87 44 V88" color={metal} w={5} />
-      <ellipse cx="87" cy="27" rx="8.5" ry="13" fill={metal} {...stroke} />
-      <circle cx="50" cy="52" r="30" fill="#fff" {...stroke} />
-      <circle cx="50" cy="52" r="21" fill="#f3f6fb" stroke="#dde3ec" strokeWidth={2.4} />
-      <Face x={50} y={52} s={0.55} mood={mood} look={look} />
     </Svg>
   );
 }

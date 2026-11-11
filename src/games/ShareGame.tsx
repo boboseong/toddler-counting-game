@@ -502,8 +502,9 @@ export default function ShareGame({ level, friends, stars, tapGap, onHome, onWin
       setPraise(randomPraise());
       setBanner(true);
       speak(P.feedThanks(r.animal.food, r.want), { interrupt: false, pitch: 1.3 });
-      onWin();
+      // 단계 결과를 먼저 알린다 (빙글빙글이 onWin 에서 단계가 오르는 중인지 본다)
       if (!missed.current) onResult(true);
+      onWin();
     });
     after(eatMs + 3600, nextRound);
   };

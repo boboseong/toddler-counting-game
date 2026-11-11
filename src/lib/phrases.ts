@@ -23,6 +23,7 @@ import {
   PRAISES,
   SCENE_MAX,
   SLOW_PHRASES,
+  STAIR_TOP,
   STICKERS,
   conj,
   copula,
@@ -39,6 +40,7 @@ import {
   type CycleReason,
   type DialKey,
   type GameId,
+  type StairDir,
 } from "./data";
 
 /** 이어서 말할 문장들 (앞에서부터 차례로) */
@@ -72,16 +74,11 @@ export const P = {
   sameColor: "이제 같은 색 숫자를 눌러 봐!",
   lookAndPress: "천천히 보고, 숫자를 눌러 봐!",
 
-  /* 먹이 주기 (동물이 말하는 문장은 동물 목소리) */
+  /* 나눠 주기 (동물이 말하는 문장은 동물 목소리) */
   feedAsk: (food: CountItem, n: number) => `${food.name} ${counterPhrase(n, food.counter)} 주세요!`,
   guestHello: (name: string) => `${subj(name)} 놀러 왔어!`,
-  feedSlow: (food: CountItem) => `천천히, ${food.name} 하나씩 줘 봐!`,
   feedThanks: (food: CountItem, n: number) => `냠냠, ${food.name} ${counterPhrase(n, food.counter)}! 고마워!`,
-  tooFull: "배불러요! 그만 주세요!",
   pressGreen: "다 줬으면 초록 버튼을 눌러 줘!",
-  stillHungry: "아직 배고파요! 더 주세요!",
-
-  /* 나눠 주기 (달라는 말·고맙다는 말은 먹이 주기와 같은 문장을 쓴다) */
   shareIntro: "친구가 달라는 만큼 쏙쏙 나눠 주자!",
   /** "너무 많아요! 두 개 빼 주세요!" (동물 목소리) */
   shareTooMany: (n: number, counter: string) => `너무 많아요! ${counterPhrase(n, counter)} 빼 주세요!`,
@@ -132,6 +129,16 @@ export const P = {
   elevatorThanks: "우리 집이다! 고마워!",
   /** 친구네 집에 놀러 가는 손님 (뽀로로 친구) */
   elevatorVisitThanks: "친구네 집이다! 고마워!",
+
+  /* 깡충깡충 계단 (층을 세는 말 "일, 이, 삼" 과 "오 층입니다!" 는 엘리베이터와 같은 문장을 쓴다) */
+  stairIntro: (dir: StairDir) =>
+    dir === "up" ? "계단을 깡충깡충 올라가요! 다음은 몇 층일까?" : "계단을 깡충깡충 내려가요! 아래는 몇 층일까?",
+  /** "삼 층 다음은?" (올라갈 때) · "삼 층 아래는?" (내려갈 때) */
+  stairAsk: (floor: number, dir: StairDir) => `${numeralName(floor)} 층 ${dir === "up" ? "다음은" : "아래는"}?`,
+  /** 틀렸을 때: 지나온 층을 같이 세기 전에 */
+  stairCountAgain: "처음부터 같이 세어 볼까?",
+  /** 다 가서 맛있는 것을 먹었다 (동물 목소리) */
+  stairYum: "냠냠, 맛있다! 고마워!",
 
   /* 숫자 따라 누르기 (버튼은 한 자리씩 읽는다: 12 → 일, 이) */
   /** 버튼 이름: "일", "영", "별", "샵" */
@@ -308,7 +315,6 @@ export function allPhrases(): PhraseSpec[] {
   ].forEach((t) => add(t, "talk", true));
   add(P.right, "cheer", true);
   add(P.gift, "cheer", true);
-  add(P.tooFull, "talk", true, "animal");
   // 숫자 따라 누르기: 버튼 이름 · "삼을 눌러줘!" · 안내
   DIAL_KEYS.forEach((k) => {
     add(P.dialKey(k), "count", true);
@@ -320,7 +326,6 @@ export function allPhrases(): PhraseSpec[] {
   add(P.dialErased, "cheer", true);
   add(P.dialNotYet, "talk", true);
   add(P.dialPressCall, "cheer", true);
-  add(P.stillHungry, "ask", true, "animal");
   CYCLE_ORDER.forEach((g) =>
     (["start", "next", "idle"] as CycleReason[]).forEach((r) =>
       P.cycleVariants(g, r).forEach((t) => add(t, "cheer", true)),
@@ -368,9 +373,16 @@ export function allPhrases(): PhraseSpec[] {
   });
   range(1, SCENE_MAX).forEach((n) => add(P.friendsTotal(n), "cheer"));
 
+  // 깡충깡충 계단: 층마다 "삼 층 다음은?" · "삼 층 아래는?", 1층 도착 (2층부터는 엘리베이터 문장에 있다)
+  (["up", "down"] as StairDir[]).forEach((dir) => add(P.stairIntro(dir), "ask", true));
+  range(1, STAIR_TOP - 1).forEach((f) => add(P.stairAsk(f, "up"), "ask", true));
+  range(2, STAIR_TOP).forEach((f) => add(P.stairAsk(f, "down"), "ask", true));
+  add(P.elevatorArrive(1), "cheer");
+  add(P.stairCountAgain, "talk", true);
+  add(P.stairYum, "cheer", true, "animal");
+
   // 먹이 × 수
   foods.forEach((food) => {
-    add(P.feedSlow(food), "talk");
     nums.forEach((n) => {
       add(P.feedAsk(food, n), "ask", false, "animal");
       add(P.feedThanks(food, n), "cheer", false, "animal");
