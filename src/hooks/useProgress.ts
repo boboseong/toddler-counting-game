@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CYCLE_ORDER,
   CYCLE_PACES,
+  DEFAULT_PORORO_CHANCE,
   DEFAULT_TAP_GAP,
+  PORORO_CHANCES,
   ELEVATOR_TOP,
   GAME_IDS,
   LEVEL_RULES,
@@ -23,6 +25,7 @@ import {
 } from "../lib/data";
 import { setSoundOn, setVoiceOn } from "../lib/audio";
 import { setHapticsOn } from "../fx/bus";
+import { setPororoChance } from "../lib/pororoRoll";
 
 export type { GameId };
 
@@ -80,6 +83,8 @@ export interface Progress {
   cyclePace: CyclePace;
   /** 딩동 엘리베이터: 층마다 손님을 집에 데려다 준 횟수 (인덱스 = 층) */
   elevatorRides: number[];
+  /** 뽀로로 친구가 나올 확률 (PORORO_CHANCES 중 하나) */
+  pororoChance: number;
 }
 
 const KEY = "sutja-nori-progress-v1";
@@ -117,6 +122,7 @@ const DEFAULT: Progress = {
   cycleNext: 0,
   cyclePace: "normal",
   elevatorRides: [],
+  pororoChance: DEFAULT_PORORO_CHANCE,
 };
 
 function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
@@ -134,7 +140,7 @@ function freshStreaks(): Record<GameId, { ok: number; miss: number }> {
 }
 
 /** 기록을 지워도 남기는 부모 설정 */
-const SETTINGS = ["soundOn", "voiceOn", "hapticsOn", "tapGap", "tapGapVersion", "cyclePace", "sessionMin"] as const;
+const SETTINGS = ["soundOn", "voiceOn", "hapticsOn", "tapGap", "tapGapVersion", "cyclePace", "sessionMin", "pororoChance"] as const;
 
 function settingsOf(p: Partial<Progress>): Partial<Progress> {
   const out: Partial<Progress> = {};
@@ -228,6 +234,9 @@ function load(): Progress {
           .slice(0, ELEVATOR_TOP + 1)
           .map((v) => (typeof v === "number" && v > 0 ? Math.floor(v) : 0))
       : [];
+    const pororoChance = (PORORO_CHANCES as readonly number[]).includes(parsed.pororoChance as number)
+      ? (parsed.pororoChance as number)
+      : DEFAULT_PORORO_CHANCE;
     return {
       ...DEFAULT,
       ...parsed,
@@ -246,6 +255,7 @@ function load(): Progress {
       cyclePace,
       cycleNext,
       elevatorRides,
+      pororoChance,
     };
   } catch {
     return DEFAULT;
@@ -351,6 +361,7 @@ export function useProgress() {
     setSoundOn(progress.soundOn);
     setVoiceOn(progress.voiceOn);
     setHapticsOn(progress.hapticsOn);
+    setPororoChance(progress.pororoChance);
   }, [progress]);
 
   /**
@@ -492,6 +503,10 @@ export function useProgress() {
     setProgress((p) => ({ ...p, tapGap: ms }));
   }, []);
 
+  const setPororoChanceSetting = useCallback((c: number) => {
+    setProgress((p) => ({ ...p, pororoChance: c }));
+  }, []);
+
   const setCycleNext = useCallback((i: number) => {
     setProgress((p) => ({ ...p, cycleNext: i % CYCLE_ORDER.length }));
   }, []);
@@ -537,6 +552,7 @@ export function useProgress() {
     setTapGap,
     setCycleNext,
     setCyclePace,
+    setPororoChance: setPororoChanceSetting,
     setLevel,
     reset,
   };

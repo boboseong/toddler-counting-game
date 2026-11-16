@@ -24,6 +24,7 @@ import {
   starsForUnlock,
   type CyclePace,
   type GameId,
+  PORORO_CHANCES,
 } from "../lib/data";
 import { afterSpeech, playDing, playSoft, speak } from "../lib/audio";
 import { P } from "../lib/phrases";
@@ -427,6 +428,8 @@ export function ParentSettings({
   tapGap,
   cyclePace,
   sessionMin,
+  pororoChance,
+  onSetPororoChance,
   onSetSessionMin,
   onToggleSound,
   onToggleVoice,
@@ -447,6 +450,8 @@ export function ParentSettings({
   tapGap: number;
   cyclePace: CyclePace;
   sessionMin: number;
+  pororoChance: number;
+  onSetPororoChance: (c: number) => void;
   onSetSessionMin: (m: number) => void;
   onToggleSound: () => void;
   onToggleVoice: () => void;
@@ -596,6 +601,32 @@ export function ParentSettings({
                 <div className="mt-2 text-xs text-slate-400">
                   두 번 어려워하면 다음 성공 직후에, {CYCLE_RULES.idleMs / 1000}초 동안 아무것도 안 누르면
                   바로 다른 놀이로 바꿔요. 위쪽 놀이 순서 띠를 길게 누르면 바로 다음 놀이로 갈 수 있어요.
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="mb-2 text-lg">
+                  <Glyph emoji="pororo:뽀로로" /> 뽀로로와 친구들
+                </div>
+                <div className="mb-2 text-sm text-slate-500">
+                  맞혔을 때 병아리 대신 뽀로로 친구가 놀러 오거나, 놀이 안에(나눠 주기 손님, 버스 승객,
+                  엘리베이터 손님, 전화 받는 친구, 계단 오르는 친구, 세는 것) 뽀로로 친구가 나올 확률이에요.
+                  0%면 나오지 않아요.
+                </div>
+                <div className="flex gap-2">
+                  {PORORO_CHANCES.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => onSetPororoChance(c)}
+                      className={`flex-1 rounded-xl border-2 py-2 text-lg ${
+                        pororoChance === c
+                          ? "border-violet-400 bg-violet-100"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      {Math.round(c * 100)}%
+                    </button>
+                  ))}
                 </div>
               </div>
 

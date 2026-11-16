@@ -13,6 +13,13 @@ export interface VersionNote {
 
 export const VERSIONS: VersionNote[] = [
   {
+    version: "1.15.0",
+    date: "2026-11-16",
+    notes: [
+      "부모님 설정에서 뽀로로와 친구들이 나올 확률을 고를 수 있어요 (0% · 10% · 20% · 30% · 50%). 처음엔 0%라 나오지 않아요. 맞혔을 때 놀러 오는 것과 놀이 안에 나오는 것 모두 이 확률을 따라요",
+    ],
+  },
+  {
     version: "1.14.0",
     date: "2026-11-11",
     notes: [

@@ -199,6 +199,7 @@ export default function App() {
     setTapGap,
     setCycleNext,
     setCyclePace,
+    setPororoChance,
     setLevel,
     reset,
   } = useProgress();
@@ -697,6 +698,8 @@ export default function App() {
           tapGap={progress.tapGap}
           cyclePace={progress.cyclePace}
           sessionMin={progress.sessionMin}
+          pororoChance={progress.pororoChance}
+          onSetPororoChance={setPororoChance}
           onSetSessionMin={setSessionMin}
           onToggleSound={toggleSound}
           onToggleVoice={toggleVoice}
